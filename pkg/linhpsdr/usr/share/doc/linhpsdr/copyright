@@ -1,0 +1,11 @@
+iFormat-Specification: http://wiki.debian.org/Proposals/CopyrightFormat
+Upstream-Name: linhpsdr
+Upstream-Maintainer: John Melton <john.d.melton@googlemail.com>
+Upstream-Source: https://gitlab.com/g0orx/linhpsdr
+
+Files: *
+Copyright: Copyright (C) 2018 by John Melton, G0ORX/N6LYT.
+License: GPL v2
+ The full text of the GPL is distributed in
+ /usr/share/common-licenses/GPL-2 on Debian systems.
+

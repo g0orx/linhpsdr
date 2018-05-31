@@ -1,0 +1,133 @@
+/* Copyright (C)
+* 2018 - John Melton, G0ORX/N6LYT
+*
+* This program is free software; you can redistribute it and/or
+* modify it under the terms of the GNU General Public License
+* as published by the Free Software Foundation; either version 2
+* of the License, or (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program; if not, write to the Free Software
+* Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+*
+*/
+
+#ifndef TRANSMITTER_H
+#define TRANSMITTER_H
+
+typedef struct _transmitter {
+  gint channel; // WDSP channel
+
+  gint alex_antenna;
+  gdouble mic_gain;
+  gint linein_gain;
+
+  gint exciter_power;
+  gint alex_forward_power;
+  gint alex_reverse_power;
+
+  gint alc_meter;
+  gdouble fwd;
+  gdouble exciter;
+  gdouble rev;
+  gdouble alc;
+
+  GtkWidget *window;
+  gint window_width;
+  gint window_height;
+
+  RECEIVER *rx;
+
+  gdouble drive;
+  gdouble tune_percent;
+  gboolean tune_use_drive;
+  gint attenuation;
+
+  gint eer_pwm_min;
+  gint eer_pwm_max;
+
+  gboolean use_rx_filter;
+  gint filter_low;
+  gint filter_high;
+
+  gint actual_filter_low;
+  gint actual_filter_high;
+
+  gint fft_size;
+  gboolean low_latency;
+
+  gint buffer_size;
+  gint mic_samples;
+  gdouble *mic_input_buffer;
+  gdouble *iq_output_buffer;
+  gint mic_sample_rate;
+  gint mic_dsp_rate;
+  gint iq_output_rate;
+
+  gint output_samples;
+  
+
+  gboolean pre_emphasize;
+  gboolean enable_equalizer;
+  gint equalizer[4];
+  gboolean leveler;
+
+  gboolean ctcss;
+  gdouble ctcss_frequency;
+  gdouble tone_level;
+
+  gdouble deviation;
+  gboolean compressor;
+  gdouble compressor_level;
+
+  gdouble am_carrier_level;
+
+  gint fps;
+  gint pixels;
+  gfloat *pixel_samples;
+  gint update_timer_id;
+
+  gint panadapter_low;
+  gint panadapter_high;
+
+  gint panadapter_width;
+  gint panadapter_height;
+  GtkWidget *panadapter;
+  cairo_surface_t *panadapter_surface;
+
+  GtkWidget *dialog;
+
+  gboolean puresignal;
+  gboolean ps_twotone;
+  gboolean ps_feedback;
+  gboolean ps_auto;
+  gboolean ps_single;
+  GtkWidget *ps;
+  cairo_surface_t *ps_surface;
+  gint ps_timer_id;
+
+} TRANSMITTER;
+
+extern TRANSMITTER *create_transmitter(int channel);
+extern void transmitter_init_analyzer(TRANSMITTER *tx);
+extern void transmitter_save_state(TRANSMITTER *tx);
+extern void transmitter_restore_state(TRANSMITTER *tx);
+extern void add_mic_sample(TRANSMITTER *tx,short sample);
+extern void transmitter_set_filter(TRANSMITTER *tx,int low,int high);
+extern void transmitter_set_pre_emphasize(TRANSMITTER *tx,int state);
+extern void transmitter_set_mode(TRANSMITTER *tx,int mode);
+extern void transmitter_set_deviation(TRANSMITTER *tx);
+extern void transmitter_set_am_carrier_level(TRANSMITTER *tx);
+extern void transmitter_fps_changed(TRANSMITTER *tx);
+extern void transmitter_set_ctcss(TRANSMITTER *tx,gboolean run,gdouble frequency);
+
+extern void transmitter_set_ps(TRANSMITTER *tx,gboolean state);
+extern void transmitter_set_twotone(TRANSMITTER *tx,gboolean state);
+extern void transmitter_set_ps_sample_rate(TRANSMITTER *tx,int rate);
+
+#endif

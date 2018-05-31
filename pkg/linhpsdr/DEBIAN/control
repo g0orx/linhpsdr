@@ -1,0 +1,6 @@
+Package: linhpsdr
+Version: 0.5-beta
+Maintainer: John Melton g0orx/n6lyt
+Architecture: all
+Description: HPSDR Radio for Linux
+Depends: libfftw3-3 (>= 3.3.6), libpulse0 (>= 0.20.1)

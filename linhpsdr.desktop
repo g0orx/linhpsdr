@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=0.1
+Type=Application
+Terminal=false
+Name[eb_GB]=linHPSDR
+Exec=linhpsdr
+Icon=/usr/share/linhpsdr/hpsdr_small.png
+Name=linHPSDR
+
