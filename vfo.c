@@ -351,7 +351,12 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
             gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
           }
           gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
           gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
+
           break;
         case 3:  // RIGHT
           break;
@@ -376,7 +381,11 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
             gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
           }
           gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
           gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
           break;
         case 3:  // RIGHT
           break;
@@ -405,7 +414,11 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           g_signal_connect(menu_item,"activate",G_CALLBACK(nb_cb),choice);
           gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
           gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
           gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
           break;
         case 3:  // RIGHT
           break;
@@ -434,7 +447,11 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           g_signal_connect(menu_item,"activate",G_CALLBACK(nr_cb),choice);
           gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
           gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
           gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
           break;
         case 3:  // RIGHT
           break;
@@ -496,7 +513,11 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           g_signal_connect(menu_item,"activate",G_CALLBACK(agc_cb),choice);
           gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
           gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
           gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
           break;
         case 3:  // RIGHT
           break;
@@ -544,7 +565,11 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
           gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
           gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
           gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
           break;
       }
       break;
@@ -760,7 +785,11 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
           gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
           gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
           gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
           break;
         case 3:  // RIGHT
           break;
@@ -795,7 +824,11 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
           gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
           gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
           gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
           break;
         case 3:  // RIGHT
           break;

@@ -91,7 +91,11 @@ static gboolean meter_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpo
       g_signal_connect(menu_item,"activate",G_CALLBACK(meter_cb),choice);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
       gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
       gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+      gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
       break;
   }
   return TRUE;
