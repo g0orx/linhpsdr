@@ -219,37 +219,37 @@ gpointer protocol2_discover_receive_thread(gpointer data) {
                     switch(discovered[devices].device) {
 			case NEW_DEVICE_ATLAS:
                             strcpy(discovered[devices].name,"Atlas");
-                            discovered[devices].supported_receivers=5;
+                            //discovered[devices].supported_receivers=5;
                             discovered[devices].adcs=1;
                             break;
 			case NEW_DEVICE_HERMES:
                             strcpy(discovered[devices].name,"Hermes");
-                            discovered[devices].supported_receivers=5;
+                            //discovered[devices].supported_receivers=5;
                             discovered[devices].adcs=1;
                             break;
 			case NEW_DEVICE_HERMES2:
                             strcpy(discovered[devices].name,"Hermes2");
-                            discovered[devices].supported_receivers=7;
+                            //discovered[devices].supported_receivers=7;
                             discovered[devices].adcs=2;
                             break;
 			case NEW_DEVICE_ANGELIA:
                             strcpy(discovered[devices].name,"Angelia");
-                            discovered[devices].supported_receivers=7;
+                            //discovered[devices].supported_receivers=7;
                             discovered[devices].adcs=2;
                             break;
 			case NEW_DEVICE_ORION:
                             strcpy(discovered[devices].name,"Orion");
-                            discovered[devices].supported_receivers=7;
+                            //discovered[devices].supported_receivers=7;
                             discovered[devices].adcs=2;
                             break;
 			case NEW_DEVICE_ORION2:
                             strcpy(discovered[devices].name,"Orion2");
-                            discovered[devices].supported_receivers=7;
+                            //discovered[devices].supported_receivers=7;
                             discovered[devices].adcs=2;
                             break;
 			case NEW_DEVICE_HERMES_LITE:
                             strcpy(discovered[devices].name,"Hermes Lite");
-                            discovered[devices].supported_receivers=5;
+                            //discovered[devices].supported_receivers=5;
                             discovered[devices].adcs=1;
                             break;
                         default:
@@ -258,6 +258,9 @@ gpointer protocol2_discover_receive_thread(gpointer data) {
                             discovered[devices].adcs=1;
                             break;
                     }
+
+                    discovered[devices].supported_receivers=buffer[20]&0xFF;
+
                     discovered[devices].software_version=buffer[13]&0xFF;
                     for(i=0;i<6;i++) {
                         discovered[devices].info.network.mac_address[i]=buffer[i+5];
@@ -269,7 +272,7 @@ gpointer protocol2_discover_receive_thread(gpointer data) {
                     memcpy((void*)&discovered[devices].info.network.interface_netmask,(void*)&interface_netmask,sizeof(interface_netmask));
                     discovered[devices].info.network.interface_length=sizeof(interface_addr);
                     strcpy(discovered[devices].info.network.interface_name,interface_name);
-                    g_print("protocol2_discover: found %d protocol=%d device=%d software_version=%d status=%d address=%s (%02X:%02X:%02X:%02X:%02X:%02X) on %s\n", 
+                    g_print("protocol2_discover: found %d protocol=%d device=%d software_version=%d status=%d address=%s (%02X:%02X:%02X:%02X:%02X:%02X) on %s DDCs=%d\n", 
                             devices,
                             discovered[devices].protocol,
                             discovered[devices].device,
@@ -282,7 +285,8 @@ gpointer protocol2_discover_receive_thread(gpointer data) {
                             discovered[devices].info.network.mac_address[3],
                             discovered[devices].info.network.mac_address[4],
                             discovered[devices].info.network.mac_address[5],
-                            discovered[devices].info.network.interface_name);
+                            discovered[devices].info.network.interface_name,
+                            buffer[20]&0xFF);
                     devices++;
                 }
             }
