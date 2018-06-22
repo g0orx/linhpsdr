@@ -214,6 +214,7 @@ void update_meter(RECEIVER *rx,gdouble value) {
   cairo_move_to(cr, meter_width-130, meter_height-2);
   cairo_show_text(cr, sf);
 
+  cairo_destroy(cr);
   gtk_widget_queue_draw (rx->meter);
 
 }
