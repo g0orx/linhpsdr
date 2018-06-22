@@ -13,6 +13,7 @@ GTKLIBS=`pkg-config --libs gtk+-3.0`
 AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
 
 OPTIONS=-g -Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3
+#OPTIONS=-g -Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
 LIBS=-lrt -lm -lpthread -lwdsp
 INCLUDES=$(GTKINCLUDES)

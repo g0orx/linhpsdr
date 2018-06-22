@@ -1246,43 +1246,44 @@ void ozy_send_buffer() {
         break;
       case 3:
         {
-        BAND *band;
-        if(radio->transmitter!=NULL) {
-          if(radio->transmitter->rx!=NULL) {
-            if(radio->transmitter->rx->split) {
-              band=band_get_band(radio->transmitter->rx->band_a);
-              //xvtr=radio->transmitter->rx->band_a>=BANDS;
-            } else {
-              band=band_get_band(radio->transmitter->rx->band_b);
-              //xvtr=radio->transmitter->rx->band_b>=BANDS;
+        
+        int level=0;
+        if(isTransmitting(radio)) {
+          BAND *band;
+          if(radio->transmitter!=NULL) {
+            if(radio->transmitter->rx!=NULL) {
+              if(radio->transmitter->rx->split) {
+                band=band_get_band(radio->transmitter->rx->band_b);
+              } else {
+                band=band_get_band(radio->transmitter->rx->band_a);
+              }
             }
           }
-        }
-
-
-        int power=0;
-        if(isTransmitting(radio)) {
-          if(radio->tune && !radio->transmitter->tune_use_drive) {
-            power=(int)(radio->transmitter->drive/100.0*radio->transmitter->tune_percent);
-          } else {
-            power=(int)radio->transmitter->drive;
+    
+          int power=0;
+          if(isTransmitting(radio)) {
+            if(radio->tune && !radio->transmitter->tune_use_drive) {
+              power=(int)(radio->transmitter->drive/100.0*radio->transmitter->tune_percent);
+            } else {
+              power=(int)radio->transmitter->drive;
+            }
           }
+
+          double target_dbm = 10.0 * log10(power * 1000.0);
+          double gbb=band->pa_calibration;
+          target_dbm-=gbb;
+          double target_volts = sqrt(pow(10, target_dbm * 0.1) * 0.05);
+          double volts=min((target_volts / 0.8), 1.0);
+          double actual_volts=volts*(1.0/0.98);
+  
+          if(actual_volts<0.0) {
+            actual_volts=0.0;
+          } else if(actual_volts>1.0) {
+            actual_volts=1.0;
+          }
+  
+          level=(int)(actual_volts*255.0);
         }
-
-        double target_dbm = 10.0 * log10(power * 1000.0);
-        double gbb=band->pa_calibration;
-        target_dbm-=gbb;
-        double target_volts = sqrt(pow(10, target_dbm * 0.1) * 0.05);
-        double volts=min((target_volts / 0.8), 1.0);
-        double actual_volts=volts*(1.0/0.98);
-
-        if(actual_volts<0.0) {
-          actual_volts=0.0;
-        } else if(actual_volts>1.0) {
-          actual_volts=1.0;
-        }
-
-        int level=(int)(actual_volts*255.0);
 
 //        if(level!=last_level) {
 //g_print("protocol1: drive level changed from=%d to=%d\n",last_level,level);
@@ -1304,8 +1305,14 @@ void ozy_send_buffer() {
           output_buffer[C2]|=0x10;
         }
         output_buffer[C3]=0x00;
-        if(band_get_current()==band6) {
+        if(radio->transmitter->rx->band_a==band6) {
           output_buffer[C3]=output_buffer[C3]|0x40; // Alex 6M low noise amplifier
+        }
+        band=band_get_band(radio->transmitter->rx->band_a);
+        if(isTransmitting(radio)) {
+          if(radio->transmitter->rx->split) {
+            band=band_get_band(radio->transmitter->rx->band_b);
+          }
         }
         if(band->disablePA) {
           output_buffer[C3]=output_buffer[C3]|0x80; // disable PA

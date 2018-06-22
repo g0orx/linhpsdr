@@ -234,6 +234,23 @@ void update_waterfall(RECEIVER *rx) {
             }
     }
 
+#ifdef FT8_MARKER
+    static int tim0=0;
+    int tim=time(NULL);
+    if(tim%15==0) {
+      if(tim0==0) {
+        p=pixels;
+        for(i=0;i<width;i++) {
+          *p++=255;
+          *p++=0;
+          *p++=0;
+        }
+        tim0=1;
+      }
+    } else {
+      tim0=0;
+    }
+#endif
 
     if(rx->waterfall_automatic) {
       rx->waterfall_low=average/(width-2);

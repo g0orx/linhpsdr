@@ -47,7 +47,7 @@ g_print("process_slice_command: token=%s\n",token);
             long long f=atol(token);
             response=0;
             RX_FREQUENCY *info=g_new0(RX_FREQUENCY,1);
-            info->rx=rx;
+            info->rx=radio->receiver[rx];
             info->frequency=f;
             g_idle_add(ext_set_frequency_a,info);
           }

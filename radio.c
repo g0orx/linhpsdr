@@ -345,10 +345,7 @@ void frequency_changed(RECEIVER *rx) {
   if(radio->discovered->protocol==PROTOCOL_2) {
     protocol2_high_priority();
   }
-  BAND *band=band_get_band(rx->band_a);
-  if(rx->frequency_a<band->frequencyMin || rx->frequency_a>band->frequencyMax) {
-    rx->band_a=getBand(rx->frequency_a);
-  }
+  rx->band_a=get_band_from_frequency(rx->frequency_a);
 }
 
 gboolean isTransmitting(RADIO *r) {
