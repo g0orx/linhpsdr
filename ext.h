@@ -22,6 +22,16 @@ typedef struct _RX_FREQUENCY {
   long long frequency;
 } RX_FREQUENCY;
 
+typedef struct _RX_STEP {
+  RECEIVER *rx;
+  int step;
+} RX_STEP;
+
+typedef struct _RX_GAIN {
+  RECEIVER *rx;
+  double gain;
+} RX_GAIN;
+
 typedef struct _MOX {
   RADIO *radio;
   gboolean state;
@@ -34,4 +44,6 @@ extern int ext_set_frequency_a(void *data);
 extern int ext_tx_set_ps(void *data);
 //extern int ext_ps_twotone(void *data);
 extern int ext_vfo_update(void *data);
+extern int ext_vfo_step(void *data);
+extern int ext_set_afgain(void *data);
 

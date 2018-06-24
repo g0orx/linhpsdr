@@ -240,9 +240,9 @@ static gpointer set_rigctl_timer (gpointer data) {
 // This COULD be done with a simple table lookup - but I've already written the code
 // so at this point...
 //
-#ifdef PIHPSDR
 int convert_ctcss() {
         int local_tone = 1; 
+        TRANSMITTER *transmitter=radio->transmitter;
         if(transmitter->ctcss_frequency == (double) 67.0) {
            local_tone = 1; 
         } else if (transmitter->ctcss_frequency == (double) 71.9) {
@@ -324,7 +324,7 @@ int convert_ctcss() {
         }
         return(local_tone);
 }
-#endif // PIHPSDR
+
 int vfo_sm=0;   // VFO State Machine - this keeps track of
 
 #ifdef PIHPSDR
@@ -568,11 +568,7 @@ static gpointer rigctl_client (gpointer data) {
    fprintf(stderr,"RIGCTL: CTLA INC cat_contro=%d\n",rx->cat_control);
 //#endif
    g_mutex_unlock(&rx->rigctl_mutex);
-#ifdef PIHPSDR
-   g_idle_add(ext_vfo_update,NULL);
-#else
    g_idle_add(ext_vfo_update,rx);
-#endif // PIHPSDR
 
    int save_flag = 0; // Used to concatenate two cmd lines together
    int semi_number = 0;
@@ -683,11 +679,7 @@ fprintf(stderr,"RIGCTL: Leaving rigctl_client thread");
     fprintf(stderr,"RIGCTL: CTLA DEC - cat_control=%d\n",cat_control);
 #endif
     g_mutex_unlock(&rx->rigctl_mutex);
-#ifdef PIHPSDR
-    g_idle_add(ext_vfo_update,NULL);
-#else
     g_idle_add(ext_vfo_update,rx);
-#endif // PIHPSDR
   }
   return NULL; 
 }
@@ -697,26 +689,6 @@ fprintf(stderr,"RIGCTL: Leaving rigctl_client thread");
 //
 int ft_read() {
    return(active_transmitter);
-}
-// 
-// Determines RIT state - used by IF command
-//
-int rit_on () {
-#ifdef PIHPSDR
-  if(receivers == 1) { // Worry about 1 versus 2 radios
-      if(vfo[VFO_A].rit != 0) {
-         return 1;
-      } else {
-         return 0;
-      }  
-  } else { // Well - we have two so use active_reciever->id
-      if(vfo[active_receiver->id].rit != 0) {
-          return 1 ;
-      } else {
-          return 0;
-      }
-  }
-#endif // PIHPSDR
 }
 //
 // TS-2000 parser
@@ -894,26 +866,25 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                               }
                                           }
         else if((strcmp(cmd_str,"AD")==0) && (zzid_flag==1)) { 
-                                            // PiHPSDR - ZZAD - Move VFO A Down by step
-        #ifdef PIHPSDR
-                                              //vfo_step(-1);
-                                              int lcl_step = -1;
-                                              g_idle_add(ext_vfo_step,(gpointer)(long)lcl_step);
-                                              g_idle_add(ext_vfo_update,NULL);
-        #endif // PIHPSDR 
+                                            // ZZAD - Move VFO A Down by step
+                                            RX_STEP *s=g_new0(RX_STEP,1);
+                                            s->rx=rx;
+                                            s->step=-1;
+                                            g_idle_add(ext_vfo_step,(gpointer)s);
+                                            return;
                                          }
         else if(strcmp(cmd_str,"AG")==0) {  
-        #ifdef PIHPSDR
                                             if(zzid_flag == 1) { 
-                                            // PiHPSDR - ZZAG - Set/read Audio Gain
+                                            // ZZAG - Set/read Audio Gain
                                             // Values are 000-100 
-                                                if(len<=2) { // Send ZZAGxxx; - active_receiver->volume 0.00-1.00
-                                                     sprintf(msg,"ZZAG%03d;",(int) (roundf(g_idle_add(ext_get_act_audio_gain,NULL)*100.0)));
+                                                if(len<=2) { // Send ZZAGxxx; - rx->volume 0.00-1.00
+                                                     sprintf(msg,"ZZAG%03d;",(int) (roundf(rx->volume*100.0)));
                                                      send_resp(client_sock,msg);
                                                 } else { // Set Audio Gain
-                                                    work_int = atoi(&cmd_input[2]);
-                                                    g_idle_add(ext_set_act_audio_gain,((double) work_int)/100.0);
-                                                    g_idle_add(ext_update_af_gain,NULL);               
+                                                     RX_GAIN *s=g_new0(RX_GAIN,1);
+                                                     s->rx=rx;
+                                                     s->gain=(double)(atoi(&cmd_input[2])/100.0);
+                                                     g_idle_add(ext_set_afgain,(gpointer)s);
                                                 }
                                              } else { 
                                             // TS-2000 - AG - Set Audio Gain 
@@ -921,25 +892,21 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                             // AG1 = Sub receiver - what is the value set
                                             // Response - AG<0/1>123; Where 123 is 0-260
                                                 int lcl_receiver;
-                                                if(receivers == 1) {
-                                                    lcl_receiver = 0;
-                                                } else {
-                                                    lcl_receiver = (int) g_idle_add(ext_get_act_id,NULL);
-                                                }
+                                                lcl_receiver = 0;
                                                 if(len>4) { // Set Audio Gain
                                                    if((atoi(&cmd_input[3]) >=0) && (atoi(&cmd_input[3])<=260)) {
-                                                      g_idle_add(ext_set_act_audio_gain,((double) atoi(&cmd_input[3]))/260); 
-                                                      g_idle_add(ext_update_af_gain,NULL);               
+                                                      RX_GAIN *s=g_new0(RX_GAIN,1);
+                                                      s->rx=rx;
+                                                      s->gain=(double)(atoi(&cmd_input[3]))/260.0;
+                                                      g_idle_add(ext_set_afgain,(gpointer)s);
                                                    } else {
                                                      send_resp(client_sock,"?;");
                                                    }
                                                 } else { // Read Audio Gain
-                                                  //sprintf(msg,"AG%1d%03d;",lcl_receiver,(int) (260 * active_receiver->volume));
-                                                  sprintf(msg,"AG%1d%03d;",lcl_receiver,(int) (260 * g_idle_add(ext_get_act_audio_gain,NULL)));
+                                                  sprintf(msg,"AG%1d%03d;",lcl_receiver,(int)(260.0*rx->volume));
                                                   send_resp(client_sock,msg);
                                                 }
                                              }
-        #endif // PIHPSDR
                                           }
         else if((strcmp(cmd_str,"AI")==0) && (zzid_flag == 0))  {  
                                             // TS-2000 - AI- Allow rebroadcast of set frequency after set - not supported
@@ -1054,13 +1021,11 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                              } 
                                           }
         else if((strcmp(cmd_str,"AT")==0) && (zzid_flag==1)) { 
-        #ifdef PIHPSDR
                                             // PiHPSDR - ZZAT - Move VFO A Up by step
-                                              //vfo_step(1);
-                                              int lcl_step = 1;
-                                              g_idle_add(ext_vfo_step,(gpointer)(long) lcl_step);
-                                              g_idle_add(ext_vfo_update,NULL);
-        #endif // PIHPSDR
+                                            RX_STEP *s=g_new0(RX_STEP,1);
+                                            s->rx=rx;
+                                            s->step=1;
+                                            g_idle_add(ext_vfo_step,(gpointer)s);
                                          }
                                            // PiHPSDR - ZZAU - Reserved for Audio UDP stream start/stop
         else if((strcmp(cmd_str,"BC")==0) && (zzid_flag == 0))  {  
@@ -1487,7 +1452,7 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                                               receivers, // P4
                                                               active_receiver->id, // P5
                                                               active_receiver->alex_antenna, // P6
-                                                              rit_on(),  // P7 
+                                                              rx->rit_enabled,  // P7 
                                                               active_receiver->agc, // P8
                                                               vfo[active_receiver->id].mode, //P9
                                                               (int) step,  // P10
@@ -2068,36 +2033,12 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
 
                                             // convert first half of the msg
                                                       // IF     P1    P2  P3  P4  P5  P6
-       #ifndef PIHPSDR
-                                            sprintf(msg,"IF%011lld%04ld%06ld%01d%01d%01d",
-                                                         (long long)radio->receiver[0]->frequency_a,
-                                                         radio->receiver[0]->step,  // P2
-                                                         radio->receiver[0]->rit,  // P3
-                                                         radio->receiver[0]->rit_enabled, // P4
-                                                         0, // rit_on(), // P5
-                                                         0  // P6
-                                                         );
-                                            // convert second half of the msg
-                                            //   P7  P8  P9 P10 P11 P12 P13 P14 P15;
-                                            sprintf(msg+26,"%02d%01d%01d%01d%01d%01d%01d%02d%01d;",
-                                                         0,  // P7
-                                                         mox,  // P8
-                                                         0, // rigctlGetMode(),  // P9
-                                                         0,  // P10
-                                                         0,  // P11
-                                                         0, // ft_read(), // P12
-                                                         0, // transmitter->ctcss,  // P14
-                                                         0, // convert_ctcss(),  // P13
-                                                         0); // P15
-                                            send_resp(client_sock,msg);
-        #else
-                                            sprintf(msg,"IF%011lld%04lld%06lld%01d%01d%01d",
-                                                         //getFrequency(),
-                                                         rigctl_getFrequency(), // P1
-                                                         step,  // P2
-                                                         vfo[active_receiver->id].rit,  // P3
-                                                         rit_on(), // P4
-                                                         rit_on(), // P5
+                                            sprintf(msg,"IF%011ld%04ld%06ld%01d%01d%01d",
+                                                         rx->frequency_a, // P1
+                                                         rx->step,  // P2
+                                                         rx->rit,  // P3
+                                                         rx->rit_enabled, // P4
+                                                         0, // P5
                                                          0  // P6
                                                          );
 
@@ -2105,16 +2046,15 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                                          //   P7  P8  P9 P10 P11 P12 P13 P14 P15;
                                             sprintf(msg+26,"%02d%01d%01d%01d%01d%01d%01d%02d%01d;",
                                                          0,  // P7
-                                                         mox,  // P8
-                                                         rigctlGetMode(),  // P9
+                                                         radio->mox,  // P8
+                                                         rigctlGetMode(rx),  // P9
                                                          0,  // P10
                                                          0,  // P11
                                                          ft_read(), // P12
-                                                         transmitter->ctcss,  // P14
+                                                         radio->transmitter->ctcss,  // P14
                                                          convert_ctcss(),  // P13
                                                          0); // P15
                                             send_resp(client_sock,msg);
-        #endif // PIHPSDR
                                          }
         else if(strcmp(cmd_str,"IS")==0)  { // Sets/Reas IF shift funct status
                                              if(len <=2) {
@@ -4037,12 +3977,8 @@ void launch_rigctl (RECEIVER *rx) {
    }
 }
 
-int rigctlGetMode()  {
-#ifdef PIHPSDR
-        switch(vfo[active_receiver->id].mode) {
-#else
-        switch(local_radio->receiver[0]->mode_a) {
-#endif
+int rigctlGetMode(RECEIVER *rx)  {
+        switch(rx->mode_a) {
            case 0: return(1); // LSB
            case 1: return(2); // USB
            case 3: return(7); // CWL
@@ -4058,6 +3994,7 @@ int rigctlGetMode()  {
 
 int rigctlSetFilterLow(int val){
 };
+
 int rigctlSetFilterHigh(int val){
 };
 

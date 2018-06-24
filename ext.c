@@ -58,6 +58,7 @@ int ext_set_frequency_a(void *data) {
     f->rx->frequency_a=f->frequency;
     f->rx->band_a=get_band_from_frequency(f->frequency);
   }
+  frequency_changed(f->rx);
   update_vfo(f->rx);
   g_free(f);
   return 0;
@@ -78,5 +79,28 @@ int ext_ps_twotone(void *data) {
 int ext_vfo_update(void *data) {
   RECEIVER *rx=(RECEIVER *)data;
   update_vfo(rx);
+  return 0;
+}
+
+int ext_vfo_step(void *data) {
+  RX_STEP *s=(RX_STEP *)data;
+  RECEIVER *rx=s->rx;
+  if(rx!=NULL) {
+    rx->frequency_a=rx->frequency_a+(rx->step*s->step);
+    rx->band_a=get_band_from_frequency(rx->frequency_a);
+  }
+  update_vfo(s->rx);
+  g_free(s);
+  return 0;
+}
+
+int ext_set_afgain(void *data) {
+  RX_GAIN *s=(RX_GAIN *)data;
+  RECEIVER *rx=s->rx;
+  if(rx!=NULL) {
+    rx->volume=s->gain;
+  }
+  update_vfo(s->rx);
+  g_free(s);
   return 0;
 }
