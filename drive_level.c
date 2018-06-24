@@ -29,6 +29,7 @@
 #include "radio.h"
 #include "main.h"
 #include "drive_level.h"
+#include "protocol2.h"
 
 static char *title="Drive";
 
@@ -100,6 +101,9 @@ static gboolean drive_level_press_event_cb(GtkWidget *widget,GdkEventButton *eve
   } else if(tx->drive>100.0) {
     tx->drive=100.0;
   }
+  if(radio->discovered->protocol==PROTOCOL_2) {
+    protocol2_high_priority();
+  }
   gtk_widget_queue_draw(radio->drive_level);
   return TRUE;
 }
@@ -113,6 +117,9 @@ static gboolean drive_level_scroll_event_cb(GtkWidget *widget,GdkEventScroll *ev
   }
   if(tx->drive<0.0) tx->drive=0.0;
   if(tx->drive>100.0) tx->drive=100.0;
+  if(radio->discovered->protocol==PROTOCOL_2) {
+    protocol2_high_priority();
+  }
   gtk_widget_queue_draw(radio->drive_level);
   return TRUE;
 }

@@ -620,41 +620,45 @@ void protocol2_high_priority() {
     high_priority_buffer_to_radio[331]=phase>>8;
     high_priority_buffer_to_radio[332]=phase;
 
-    int power=0;
+    int level=0;
     if(isTransmitting(radio)) {
-      if(radio->tune && !radio->transmitter->tune_use_drive) {
-        power=(int)((double)radio->transmitter->drive/100.0*(double)radio->transmitter->tune_percent);
-      } else {
-        power=radio->transmitter->drive;
-      }
-    }
-
-    if(radio->transmitter!=NULL) {
-      if(radio->transmitter->rx!=NULL) {
-        if(radio->transmitter->rx->split) {
-          band=band_get_band(radio->transmitter->rx->band_a);
-          xvtr=radio->transmitter->rx->band_a>=BANDS;
-        } else {
-          band=band_get_band(radio->transmitter->rx->band_b);
-          xvtr=radio->transmitter->rx->band_b>=BANDS;
+      BAND *band;
+      if(radio->transmitter!=NULL) {
+        if(radio->transmitter->rx!=NULL) {
+          if(radio->transmitter->rx->split) {
+            band=band_get_band(radio->transmitter->rx->band_b);
+          } else {
+            band=band_get_band(radio->transmitter->rx->band_a);
+g_print("protocol2_high_priority: band=%d %s\n",radio->transmitter->rx->band_a, band->title);
+          }
         }
       }
+
+      int power=0;
+      if(isTransmitting(radio)) {
+        if(radio->tune && !radio->transmitter->tune_use_drive) {
+          power=(int)(radio->transmitter->drive/100.0*radio->transmitter->tune_percent);
+        } else {
+          power=(int)radio->transmitter->drive;
+        }
+      }
+
+      double target_dbm = 10.0 * log10(power * 1000.0);
+      double gbb=band->pa_calibration;
+      target_dbm-=gbb;
+      double target_volts = sqrt(pow(10, target_dbm * 0.1) * 0.05);
+      double volts=min((target_volts / 0.8), 1.0);
+      double actual_volts=volts*(1.0/0.98);
+
+      if(actual_volts<0.0) {
+        actual_volts=0.0;
+      } else if(actual_volts>1.0) {
+        actual_volts=1.0;
+      }
+
+      level=(int)(actual_volts*255.0);
+g_print("protocol2_high_priority: band=%d %s level=%d\n",radio->transmitter->rx->band_a, band->title, level);
     }
-
-    double target_dbm = 10.0 * log10(power * 1000.0);
-    double gbb=band->pa_calibration;
-    target_dbm-=gbb;
-    double target_volts = sqrt(pow(10, target_dbm * 0.1) * 0.05);
-    double volts=min((target_volts / 0.8), 1.0);
-    double actual_volts=volts*(1.0/0.98);
-
-    if(actual_volts<0.0) {
-      actual_volts=0.0;
-    } else if(actual_volts>1.0) {
-      actual_volts=1.0;
-    }
-
-    int level=(int)(actual_volts*255.0);
 
     high_priority_buffer_to_radio[345]=level&0xFF;
 

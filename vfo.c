@@ -318,7 +318,8 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
   GtkWidget *menu;
   GtkWidget *menu_item;
   RECEIVER *rx=(RECEIVER *)data;
-  long long temp;
+  long long temp_frequency;
+  int temp_mode;
   int i;
   CHOICE *choice;
   FILTER *mode_filters;
@@ -586,6 +587,7 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
       switch(event->button) {
         case 1:  // LEFT
           rx->frequency_b=rx->frequency_a;
+          rx->mode_b=rx->mode_a;
           break;
         case 3:  // RIGHT
           break;
@@ -595,6 +597,7 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
       switch(event->button) {
         case 1:  // LEFT
           rx->frequency_a=rx->frequency_b;
+          rx->mode_a=rx->mode_b;
           frequency_changed(rx);
           break;
         case 3:  // RIGHT
@@ -604,9 +607,12 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
     case BUTTON_ASWAPB:
       switch(event->button) {
         case 1:  // LEFT
-          temp=rx->frequency_a;
+          temp_frequency=rx->frequency_a;
+          temp_mode=rx->mode_a;
           rx->frequency_a=rx->frequency_b;
-          rx->frequency_b=temp;
+          rx->mode_a=rx->mode_b;
+          rx->frequency_b=temp_frequency;
+          rx->mode_b=temp_mode;
           frequency_changed(rx);
           break;
         case 3:  // RIGHT

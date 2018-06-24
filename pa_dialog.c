@@ -45,6 +45,9 @@ static void pa_value_changed_cb(GtkWidget *widget, gpointer data) {
   BAND *band=(BAND *)data;
 
   band->pa_calibration=gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
+  if(radio->discovered->protocol==PROTOCOL_2) {
+    protocol2_high_priority();
+  }
 }
 
 GtkWidget *create_pa_dialog(RADIO *r) {
