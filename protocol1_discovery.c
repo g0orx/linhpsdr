@@ -250,7 +250,7 @@ g_print("protocol1_discovery\n");
         if (ifa->ifa_addr && (ifa->ifa_addr->sa_family == AF_INET || ifa->ifa_addr->sa_family==AF_LOCAL)) {
             if((ifa->ifa_flags&IFF_UP)==IFF_UP
                 && (ifa->ifa_flags&IFF_RUNNING)==IFF_RUNNING
-                && (ifa->ifa_flags&IFF_LOOPBACK)!=IFF_LOOPBACK) {
+                /*&& (ifa->ifa_flags&IFF_LOOPBACK)!=IFF_LOOPBACK*/) {
                 discover(ifa);
             }
         }
