@@ -112,6 +112,8 @@ typedef struct _receiver {
   gint window_width;
   gint window_height;
 
+  GtkWidget *vpaned;
+
   GtkWidget *panadapter;
   gint panadapter_width;
   gint panadapter_height;

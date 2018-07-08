@@ -376,6 +376,9 @@ static void preamp_cb(GtkWidget *widget, gpointer data) {
 static void lna_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   ADC *adc=(ADC *)data;
   adc->attenuation=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
+  if(radio->discovered->protocol==PROTOCOL_2) {
+    protocol2_high_priority();
+  }
 }
 
 static void attenuation_value_changed_cb(GtkWidget *widget, gpointer data) {

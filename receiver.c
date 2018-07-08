@@ -58,6 +58,7 @@ void receiver_save_state(RECEIVER *rx) {
   gint y;
   gint width;
   gint height;
+  gint paned;
 
   sprintf(name,"receiver[%d].channel",rx->channel);
   sprintf(value,"%d",rx->channel);
@@ -223,7 +224,12 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(value,"%d",height);
   setProperty(name,value);
 
+  paned=gtk_paned_get_position(GTK_PANED(rx->vpaned));
+  sprintf(name,"receiver[%d].paned",rx->channel);
+  sprintf(value,"%d",paned);
+  setProperty(name,value);
   
+g_print("rx[%d].paned=%d\n",rx->channel,paned);
   
 }
 
@@ -688,11 +694,21 @@ void add_iq_samples(RECEIVER *rx,double i_sample,double q_sample) {
 }
 
 static gboolean receiver_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
+  char name[80];
+  char *value;
+  gint paned;
   RECEIVER *rx=(RECEIVER *)data;
   gint width=gtk_widget_get_allocated_width(widget);
   gint height=gtk_widget_get_allocated_height(widget);
   rx->window_width=width;
   rx->window_height=height;
+  if(rx->vpaned!=NULL) {
+    sprintf(name,"receiver[%d].paned",rx->channel);
+    value=getProperty(name);
+    if(value) paned=atoi(value);
+      //gtk_paned_set_position(GTK_PANED(rx->vpaned),paned);
+g_print("gtk_paned_set_position: rx=%d paned=%d\n",rx->channel,paned);
+  }
   return FALSE;
 }
 
@@ -778,14 +794,14 @@ static void create_visual(RECEIVER *rx) {
       GTK_FILL, GTK_FILL, 0, 0);
 
 
-  GtkWidget *vpaned = gtk_paned_new (GTK_ORIENTATION_VERTICAL);
-  gtk_table_attach(GTK_TABLE(rx->table), vpaned, 0, 6, 1, 3,
+  rx->vpaned = gtk_paned_new (GTK_ORIENTATION_VERTICAL);
+  gtk_table_attach(GTK_TABLE(rx->table), rx->vpaned, 0, 6, 1, 3,
       GTK_FILL | GTK_EXPAND, GTK_FILL | GTK_EXPAND, 0, 0);
 
   rx->panadapter=create_rx_panadapter(rx);
   //gtk_table_attach(GTK_TABLE(rx->table), rx->panadapter, 0, 4, 1, 2,
   //    GTK_FILL | GTK_EXPAND, GTK_FILL | GTK_EXPAND, 0, 0);
-  gtk_paned_pack1 (GTK_PANED(vpaned), rx->panadapter,TRUE,TRUE);
+  gtk_paned_pack1 (GTK_PANED(rx->vpaned), rx->panadapter,TRUE,TRUE);
   gtk_widget_add_events (rx->panadapter,GDK_ENTER_NOTIFY_MASK);
   gtk_widget_add_events (rx->panadapter,GDK_LEAVE_NOTIFY_MASK);
   g_signal_connect (rx->panadapter, "enter-notify-event", G_CALLBACK (enter), rx->window);
@@ -794,7 +810,7 @@ static void create_visual(RECEIVER *rx) {
   rx->waterfall=create_waterfall(rx);
   //gtk_table_attach(GTK_TABLE(rx->table), rx->waterfall, 0, 4, 2, 3,
   //    GTK_FILL | GTK_EXPAND, GTK_FILL | GTK_EXPAND, 0, 0);
-  gtk_paned_pack2 (GTK_PANED(vpaned), rx->waterfall,TRUE,TRUE);
+  gtk_paned_pack2 (GTK_PANED(rx->vpaned), rx->waterfall,TRUE,TRUE);
   gtk_widget_add_events (rx->waterfall,GDK_ENTER_NOTIFY_MASK);
   gtk_widget_add_events (rx->waterfall,GDK_LEAVE_NOTIFY_MASK);
   g_signal_connect (rx->waterfall, "enter-notify-event", G_CALLBACK (enter), rx->window);
@@ -881,6 +897,7 @@ RECEIVER *create_receiver(int channel,int sample_rate) {
   gint y=-1;
   gint width;
   gint height;
+  gint paned;
 
 g_print("create_receiver: channel=%d sample_rate=%d\n", channel, sample_rate);
   g_mutex_init(&rx->mutex);
@@ -1026,6 +1043,8 @@ g_print("create_receiver: channel=%d sample_rate=%d\n", channel, sample_rate);
   rx->rigctl_running=FALSE;
   rx->cat_control=-1;
 
+  rx->vpaned=NULL;
+
   receiver_restore_state(rx);
 
   if(radio->discovered->protocol==PROTOCOL_1) {
@@ -1112,6 +1131,12 @@ g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d\
       value=getProperty(name);
       if(value) height=atoi(value);
       gtk_window_resize(GTK_WINDOW(rx->window),width,height);
+
+      sprintf(name,"receiver[%d].paned",rx->channel);
+      value=getProperty(name);
+      if(value) paned=atoi(value);
+//      gtk_paned_set_position(GTK_PANED(rx->vpaned),paned);
+g_print("gtk_paned_set_position: rx=%d paned=%d\n",rx->channel,paned);
     }
 
     update_frequency(rx);
