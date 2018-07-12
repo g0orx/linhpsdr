@@ -613,7 +613,7 @@ void add_receivers(RADIO *r) {
 
 void add_transmitter(RADIO *r) {
   r->transmitter=create_transmitter(TRANSMITTER_CHANNEL);
-  r->transmitter->rx=r->active_receiver;
+  r->transmitter->rx=r->receiver[0];
   if(r->transmitter->rx->split) {
     transmitter_set_mode(r->transmitter,r->transmitter->rx->mode_b);
   } else {
