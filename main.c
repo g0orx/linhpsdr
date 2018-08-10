@@ -363,7 +363,11 @@ static void activate_hpsdr(GtkApplication *app, gpointer data) {
     _exit(0);
   }
 
+#ifdef __APPLE__
+  sprintf(png_path,"/usr/local/share/linhpsdr/hpsdr.png");
+#else
   sprintf(png_path,"/usr/share/linhpsdr/hpsdr.png");
+#endif
   main_window = gtk_application_window_new (app);
   sprintf(title,"Linux HPSDR (%s)",version);
   gtk_window_set_title (GTK_WINDOW (main_window), title);
