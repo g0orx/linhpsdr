@@ -49,7 +49,7 @@
 GtkWidget *main_window;
 static GtkWidget *grid;
 
-static sem_t wisdom_sem;
+static sem_t *wisdom_sem;
 static GThread *wisdom_thread_id;
 
 static GtkListStore *store;
@@ -94,7 +94,8 @@ static gboolean main_delete (GtkWidget *widget) {
 static gpointer wisdom_thread(gpointer arg) {
 g_print("Creating wisdom file: %s\n", (char *)arg);
   WDSPwisdom ((char *)arg);
-  sem_post(&wisdom_sem);
+  sem_post(wisdom_sem);
+  return NULL;
 }
 
 static void tree_selection_changed_cb (GtkTreeSelection *selection, gpointer data) {
@@ -231,7 +232,12 @@ static int check_wisdom(void *data) {
   sprintf(wisdom_directory,"%s/.local/share/linhpsdr/",g_get_home_dir());
   sprintf(wisdom_file,"%swdspWisdom",wisdom_directory);
   if(access(wisdom_file,F_OK)<0) {
-      int rc=sem_init(&wisdom_sem, 0, 0);
+#ifdef __APPLE__
+      wisdom_sem=sem_open("wisdomsem",O_CREAT,0700,0);
+#else
+      wisdom_sem=malloc(sizeof(sem_t));
+      int rc=sem_init(wisdom_sem, 0, 0);
+#endif
       wisdom_thread_id = g_thread_new( "Wisdoom", wisdom_thread, (gpointer)wisdom_directory);
       if( ! wisdom_thread_id ) {
         g_print("g_thread_new failed for wisdom_thread\n");
@@ -252,7 +258,7 @@ static int check_wisdom(void *data) {
       gtk_grid_attach(GTK_GRID(grid),patient,0,2,1,1);
       gtk_container_add(GTK_CONTAINER(content),grid);
       gtk_widget_show_all(dialog);
-      while(sem_trywait(&wisdom_sem)<0) {
+      while(sem_trywait(wisdom_sem)<0) {
         sprintf(label,"          %s          ",wisdom_get_status());
         gtk_label_set_label(GTK_LABEL(text),label);
         while (gtk_events_pending ())

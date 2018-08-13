@@ -1,4 +1,4 @@
-/* Copyrigha (C)
+/* Copyright (C)
 * 2018 - John Melton, G0ORX/N6LYT
 *
 * This program is free software; you can redistribute it and/or
@@ -75,8 +75,6 @@ int data_socket=-1;
 
 static int running;
 
-sem_t response_sem;
-
 static struct sockaddr_in base_addr;
 static int base_addr_length;
 
@@ -136,27 +134,6 @@ static float phase = 0.0F;
 static long response_sequence;
 static int response;
 
-//static sem_t send_high_priority_sem;
-//static int send_high_priority=0;
-//static sem_t send_general_sem;
-//static int send_general=0;
-
-static sem_t command_response_sem_ready;
-static sem_t command_response_sem_buffer;
-static GThread *command_response_thread_id;
-static sem_t high_priority_sem_ready;
-static sem_t high_priority_sem_buffer;
-static GThread *high_priority_thread_id;
-static sem_t mic_line_sem_ready;
-static sem_t mic_line_sem_buffer;
-static GThread *mic_line_thread_id;
-static sem_t iq_sem_ready[MAX_RECEIVERS];
-static sem_t iq_sem_buffer[MAX_RECEIVERS];
-static GThread *iq_thread_id[MAX_RECEIVERS];
-static sem_t wideband_sem_ready;
-static sem_t wideband_sem_buffer;
-static GThread *wideband_thread_id;
-
 static int samples[MAX_RECEIVERS];
 #ifdef INCLUDED
 static int outputsamples;
@@ -176,15 +153,7 @@ static int psk_resample=6;  // convert from 48000 to 8000
 #define NET_BUFFER_SIZE 2048
 // Network buffers
 static struct sockaddr_in addr;
-static int length;
-//static unsigned char buffer[NET_BUFFER_SIZE];
-static unsigned char *iq_buffer[MAX_RECEIVERS];
-static unsigned char *command_response_buffer;
-static unsigned char *high_priority_buffer;
-static unsigned char *mic_line_buffer;
-static int mic_bytes_read;
-
-static unsigned char *wide_buffer;
+static socklen_t length;
 
 static unsigned char general_buffer[60];
 static unsigned char high_priority_buffer_to_radio[1444];
@@ -193,22 +162,14 @@ static unsigned char receive_specific_buffer[1444];
 
 static gpointer protocol2_thread(gpointer data);
 static gpointer protocol2_timer_thread(gpointer data);
-static gpointer command_response_thread(gpointer data);
-static gpointer high_priority_thread(gpointer data);
-static gpointer mic_line_thread(gpointer data);
-static gpointer iq_thread(gpointer data);
-static gpointer wideband_thread(gpointer data);
-#ifdef PURESIGNAL
-static gpointer ps_iq_thread(gpointer data);
-#endif
-static void  process_iq_data(RECEIVER *rx);
-static void  process_wideband_data(WIDEBAND *w);
+static void  process_iq_data(RECEIVER *rx,unsigned char *buffer);
+static void  process_wideband_data(WIDEBAND *w,unsigned char *buffer);
 #ifdef PURESIGNAL
 static void  process_ps_iq_data(RECEIVER *rx);
 #endif
-static void  process_command_response();
-static void  process_high_priority();
-static void  process_mic_data(int bytes);
+static void  process_command_response(unsigned char *buffer);
+static void  process_high_priority(unsigned char *buffer);
+static void  process_mic_data(int bytes,unsigned char *buffer);
 
 #ifdef INCLUDED
 static void protocol2_calc_buffers() {
@@ -258,45 +219,23 @@ void cw_changed() {
 }
 
 void protocol2_start_receiver(RECEIVER *r) {
-  int rc;
-  rc=sem_init(&iq_sem_ready[r->channel], 0, 0);
-  rc=sem_init(&iq_sem_buffer[r->channel], 0, 0);
-  iq_thread_id[r->channel] = g_thread_new( "iq thread", iq_thread, (gpointer)(long)r->channel);
-  if( ! iq_thread_id ) {
-    fprintf(stderr,"g_thread_new failed for iq_thread: rx=%d\n",r->channel);
-    exit( -1 );
-  }
-  fprintf(stderr, "iq_thread: channel=%d thread=%p\n", r->channel, iq_thread_id[r->channel]);
+  fprintf(stderr, "iq_thread: channel=%d\n", r->channel);
   protocol2_general();
   protocol2_high_priority();
   protocol2_receive_specific();
 }
 
 void protocol2_stop_receiver(RECEIVER *r) {
-  int rc;
-  rc=sem_destroy(&iq_sem_ready[r->channel]);
-  rc=sem_destroy(&iq_sem_buffer[r->channel]);
   protocol2_general();
   protocol2_high_priority();
 }
 
 void protocol2_start_wideband(WIDEBAND *w) {
-  int rc;
 g_print("protocol2_start_wideband\n");
-  rc=sem_init(&wideband_sem_ready, 0, 0);
-  rc=sem_init(&wideband_sem_buffer, 0, 0);
-  wideband_thread_id=g_thread_new("wideband thread",wideband_thread,w);
-  if(!wideband_thread_id) {
-    fprintf(stderr,"g_thread_new failed for wideband_thread: channel=%d\n",w->channel);
-    exit( -1 );
-  }
   protocol2_general();
 }
 
 void protocol2_stop_wideband() {
-  int rc;
-  rc=sem_destroy(&wideband_sem_ready);
-  rc=sem_destroy(&wideband_sem_buffer);
   protocol2_general();
 }
 
@@ -322,58 +261,15 @@ void protocol2_init(RADIO *r) {
     protocol2_calc_buffers();
 #endif
 
-    rc=sem_init(&response_sem, 0, 0);
-    //rc=sem_init(&send_high_priority_sem, 0, 1);
-    //rc=sem_init(&send_general_sem, 0, 1);
-
-    rc=sem_init(&command_response_sem_ready, 0, 0);
-    rc=sem_init(&command_response_sem_buffer, 0, 0);
-    command_response_thread_id = g_thread_new( "command_response thread",command_response_thread, NULL);
-    if( ! command_response_thread_id ) {
-      fprintf(stderr,"g_thread_new failed on command_response_thread\n");
-      exit( -1 );
-    }
-    fprintf(stderr, "command_response_thread: id=%p\n",command_response_thread_id);
-    rc=sem_init(&high_priority_sem_ready, 0, 0);
-    rc=sem_init(&high_priority_sem_buffer, 0, 0);
-    high_priority_thread_id = g_thread_new( "high_priority thread", high_priority_thread, NULL);
-    if( ! high_priority_thread_id ) {
-      fprintf(stderr,"g_thread_new failed on high_priority_thread\n");
-      exit( -1 );
-    }
-    fprintf(stderr, "high_priority_thread: id=%p\n",high_priority_thread_id);
-    rc=sem_init(&mic_line_sem_ready, 0, 0);
-    rc=sem_init(&mic_line_sem_buffer, 0, 0);
-    mic_line_thread_id = g_thread_new( "mic_line thread", mic_line_thread, NULL);
-    if( ! mic_line_thread_id ) {
-      fprintf(stderr,"g_thread_new failed on mic_line_thread\n");
-      exit( -1 );
-    }
-    fprintf(stderr, "mic_line_thread: id=%p\n",mic_line_thread_id);
-
     for(i=0;i<r->discovered->supported_receivers;i++) {
       if(r->receiver[i]!=NULL) {
         protocol2_start_receiver(r->receiver[i]);
       }
     }
 
-#ifdef PURESIGNAL
-    // for PS the two feedback streams are synced on the one DDC
-    if(r->discovered->device!=NEW_DEVICE_HERMES) {
-      rc=sem_init(&iq_sem_ready[r->receiver[i]->channel], 0, 0);
-      rc=sem_init(&iq_sem_buffer[r->receiver[i]->channel], 0, 0);
-      iq_thread_id[r->receiver[i]->channel] = g_thread_new( "ps iq thread", ps_iq_thread, (gpointer)(long)PS_TX_FEEDBACK);
-      if( ! iq_thread_id ) {
-        fprintf(stderr,"g_thread_new failed for ps_iq_thread: rx=%d\n",PS_TX_FEEDBACK);
-        exit( -1 );
-      }
-      fprintf(stderr, "iq_thread: id=%p\n",iq_thread_id);
-    }
-#endif
-
-data_socket=socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
+    data_socket=socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
     if(data_socket<0) {
-        fprintf(stderr,"metis: create socket failed for data_socket\n");
+        fprintf(stderr,"protocol2_init: create socket failed for data_socket\n");
         exit(-1);
     }
 
@@ -383,11 +279,11 @@ data_socket=socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
 
     // bind to the interface
     if(bind(data_socket,(struct sockaddr*)&r->discovered->info.network.interface_address,r->discovered->info.network.interface_length)<0) {
-        fprintf(stderr,"metis: bind socket failed for data_socket\n");
+        fprintf(stderr,"protocol2_init: bind socket failed for data_socket\n");
         exit(-1);
     }
 
-fprintf(stderr,"protocol2_thread: date_socket %d bound to interface\n",data_socket);
+fprintf(stderr,"protocol2_init: date_socket %d bound to interface\n",data_socket);
 
     memcpy(&base_addr,&r->discovered->info.network.address,r->discovered->info.network.address_length);
     base_addr_length=r->discovered->info.network.address_length;
@@ -405,7 +301,7 @@ fprintf(stderr,"protocol2_thread: date_socket %d bound to interface\n",data_sock
     high_priority_addr_length=r->discovered->info.network.address_length;
     high_priority_addr.sin_port=htons(HIGH_PRIORITY_FROM_HOST_PORT);
 
-fprintf(stderr,"protocol2_thread: high_priority_addr setup for port %d\n",HIGH_PRIORITY_FROM_HOST_PORT);
+fprintf(stderr,"protocol2_init: high_priority_addr setup for port %d\n",HIGH_PRIORITY_FROM_HOST_PORT);
 
     memcpy(&audio_addr,&r->discovered->info.network.address,r->discovered->info.network.address_length);
     audio_addr_length=r->discovered->info.network.address_length;
@@ -983,7 +879,7 @@ g_print("protocol2_high_priority: band=%d %s level=%d\n",radio->transmitter->rx-
     int rc;
     if((rc=sendto(data_socket,high_priority_buffer_to_radio,sizeof(high_priority_buffer_to_radio),0,(struct sockaddr*)&high_priority_addr,high_priority_addr_length))<0) {
         fprintf(stderr,"sendto socket failed for high priority: rc=%d errno=%d\n",rc,errno);
-        abort();
+        //abort();
     }
 
     high_priority_sequence++;
@@ -1171,17 +1067,17 @@ static gpointer protocol2_thread(gpointer data) {
     int i;
     int ddc;
     short sourceport;
-    unsigned char *buffer;
+    static unsigned char *buffer;
     int bytesread;
 
 fprintf(stderr,"protocol2_thread\n");
 
     micsamples=0;
     iqindex=4;
-/*
+
     data_socket=socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
     if(data_socket<0) {
-        fprintf(stderr,"metis: create socket failed for data_socket\n");
+        fprintf(stderr,"protocol2_thread: create socket failed for data_socket\n");
         exit(-1);
     }
 
@@ -1191,11 +1087,11 @@ fprintf(stderr,"protocol2_thread\n");
 
     // bind to the interface
     if(bind(data_socket,(struct sockaddr*)&radio->discovered->info.network.interface_address,radio->discovered->info.network.interface_length)<0) {
-        fprintf(stderr,"metis: bind socket failed for data_socket\n");
+        fprintf(stderr,"protocol2_thread: bind socket failed for data_socket\n");
         exit(-1);
     }
 
-fprintf(stderr,"protocol2_thread: data_socket %d bound to interface\n");
+fprintf(stderr,"protocol2_thread: data_socket bound to interface\n");
 
     memcpy(&base_addr,&radio->discovered->info.network.address,radio->discovered->info.network.address_length);
     base_addr_length=radio->discovered->info.network.address_length;
@@ -1224,13 +1120,13 @@ fprintf(stderr,"protocol2_thread: high_priority_addr setup for port %d\n",HIGH_P
     iq_addr.sin_port=htons(TX_IQ_FROM_HOST_PORT);
 
    
-    for(i=0;i<radio->discovered-supported_receivers;i++) {
+    for(i=0;i<radio->discovered->supported_receivers;i++) {
         memcpy(&data_addr[i],&radio->discovered->info.network.address,radio->discovered->info.network.address_length);
         data_addr_length[i]=radio->discovered->info.network.address_length;
         data_addr[i].sin_port=htons(RX_IQ_TO_HOST_PORT_0+i);
         samples[i]=0;
     }
-*/
+
     audioindex=4; // leave space for sequence
     audiosequence=0L;
 
@@ -1242,13 +1138,14 @@ fprintf(stderr,"protocol2_thread: high_priority_addr setup for port %d\n",HIGH_P
     while(running) {
 
         buffer=malloc(NET_BUFFER_SIZE);
+        length=sizeof(struct sockaddr_in);
         bytesread=recvfrom(data_socket,buffer,NET_BUFFER_SIZE,0,(struct sockaddr*)&addr,&length);
         if(bytesread<0) {
             fprintf(stderr,"recvfrom socket failed for protocol2_thread");
             exit(-1);
         }
 
-        short sourceport=ntohs(addr.sin_port);
+        int sourceport=ntohs(addr.sin_port);
 
         switch(sourceport) {
             case RX_IQ_TO_HOST_PORT_0:
@@ -1260,118 +1157,45 @@ fprintf(stderr,"protocol2_thread: high_priority_addr setup for port %d\n",HIGH_P
             case RX_IQ_TO_HOST_PORT_6:
             case RX_IQ_TO_HOST_PORT_7:
               ddc=sourceport-RX_IQ_TO_HOST_PORT_0;
-//fprintf(stderr,"iq packet from port=%d ddc=%d\n",sourceport,ddc);
               if(ddc>=radio->discovered->supported_receivers)  {
                 fprintf(stderr,"unexpected iq data from ddc %d\n",ddc);
               } else {
                 if(radio->receiver[ddc]!=NULL) {
-                  sem_wait(&iq_sem_ready[ddc]);
-                  iq_buffer[ddc]=buffer;
-                  sem_post(&iq_sem_buffer[ddc]);
+                  process_iq_data(radio->receiver[ddc],buffer);
                 }
               }
+              free(buffer);
               break;
             case WIDE_BAND_TO_HOST_PORT:
               if(radio->wideband!=NULL) {
-                sem_wait(&wideband_sem_ready);
-                wide_buffer=buffer;
-                sem_post(&wideband_sem_buffer);
+                process_wideband_data(radio->wideband,buffer);
+                free(buffer);
               }
               break;
             case COMMAND_RESPONCE_TO_HOST_PORT:
-              sem_wait(&command_response_sem_ready);
-              command_response_buffer=buffer;
-              sem_post(&command_response_sem_buffer);
-              //process_command_response();
+              process_command_response(buffer);
+              free(buffer);
               break;
             case HIGH_PRIORITY_TO_HOST_PORT:
-              sem_wait(&high_priority_sem_ready);
-              high_priority_buffer=buffer;
-              sem_post(&high_priority_sem_buffer);
-              //process_high_priority();
+              process_high_priority(buffer);
+              free(buffer);
               break;
             case MIC_LINE_TO_HOST_PORT:
-              sem_wait(&mic_line_sem_ready);
-              mic_line_buffer=buffer;
-              mic_bytes_read=bytesread;
-              sem_post(&mic_line_sem_buffer);
+              process_mic_data(bytesread,buffer);
+              free(buffer);
               break;
             default:
-fprintf(stderr,"protocol2_thread: Unknown port %d\n",sourceport);
+fprintf(stderr,"protocol2_thread: Unknown port %d free %p\n",sourceport,buffer);
               free(buffer);
               break;
         }
     }
 
     close(data_socket);
+    return NULL;
 }
 
-static gpointer command_response_thread(gpointer data) {
-  while(1) {
-fprintf(stderr,"command_response_thread\n");
-    sem_post(&command_response_sem_ready);
-    sem_wait(&command_response_sem_buffer);
-    process_command_response();
-    free(command_response_buffer);
-  }
-}
-
-static gpointer high_priority_thread(gpointer data) {
-fprintf(stderr,"high_priority_thread\n");
-  while(1) {
-    sem_post(&high_priority_sem_ready);
-    sem_wait(&high_priority_sem_buffer);
-    process_high_priority();
-    free(high_priority_buffer);
-  }
-}
-
-static gpointer mic_line_thread(gpointer data) {
-fprintf(stderr,"mic_line_thread\n");
-  while(1) {
-    sem_post(&mic_line_sem_ready);
-    sem_wait(&mic_line_sem_buffer);
-    if(!radio->local_microphone) {
-      process_mic_data(mic_bytes_read);
-    }
-    free(mic_line_buffer);
-  }
-}
-
-static gpointer iq_thread(gpointer data) {
-  int rx=(uintptr_t)data;
-  int ddc=radio->receiver[rx]->channel; // was ddc
-fprintf(stderr,"iq_thread: rx=%d ddc=%d\n",rx,ddc);
-  while(1) {
-    sem_post(&iq_sem_ready[ddc]);
-    sem_wait(&iq_sem_buffer[ddc]);
-    if(radio->receiver[rx]!=NULL) {
-      process_iq_data(radio->receiver[rx]);
-      free(iq_buffer[ddc]);
-    } else {
-      break;
-    }
-  }
-  int rc=sem_destroy(&iq_sem_ready[ddc]);
-  rc=sem_destroy(&iq_sem_buffer[ddc]);
-fprintf(stderr,"iq_thread terminated: rx=%d ddc=%d\n",rx,ddc);
-}
-
-#ifdef PURESIGNAL
-static gpointer ps_iq_thread(gpointer data) {
-  int rx=(uintptr_t)data;
-  int ddc=radio->receiver[rx]->channel; // was ddc
-fprintf(stderr,"ps_iq_thread: rx=%d ddc=%d\n",rx,ddc);
-  while(1) {
-    sem_post(&iq_sem_ready[ddc]);
-    sem_wait(&iq_sem_buffer[ddc]);
-    process_ps_iq_data(radio->receiver[rx]);
-    free(iq_buffer[ddc]);
-  }
-}
-#endif
-
-static void process_iq_data(RECEIVER *rx) {
+static void process_iq_data(RECEIVER *rx,unsigned char *buffer) {
   long sequence;
   long long timestamp;
   int bitspersample;
@@ -1381,10 +1205,11 @@ static void process_iq_data(RECEIVER *rx) {
   int rightsample;
   double leftsampledouble;
   double rightsampledouble;
-  unsigned char *buffer;
+  //unsigned char *buffer;
 
-  buffer=iq_buffer[rx->channel];
+  //buffer=iq_buffer[rx->channel];
 
+  if(buffer!=NULL) {
   sequence=((buffer[0]&0xFF)<<24)+((buffer[1]&0xFF)<<16)+((buffer[2]&0xFF)<<8)+(buffer[3]&0xFF);
 
   if(rx->iq_sequence!=sequence) {
@@ -1393,7 +1218,7 @@ static void process_iq_data(RECEIVER *rx) {
   }
   rx->iq_sequence++;
 
-  timestamp=((long long)(buffer[4]&0xFF)<<56)+((long long)(buffer[5]&0xFF)<<48)+((long long)(buffer[6]&0xFF)<<40)+((long long)(buffer[7]&0xFF)<<32);
+  timestamp=((long long)(buffer[4]&0xFF)<<56)+((long long)(buffer[5]&0xFF)<<48)+((long long)(buffer[6]&0xFF)<<40)+((long long)(buffer[7]&0xFF)<<32)+
   ((long long)(buffer[8]&0xFF)<<24)+((long long)(buffer[9]&0xFF)<<16)+((long long)(buffer[10]&0xFF)<<8)+(long long)(buffer[11]&0xFF);
   bitspersample=((buffer[12]&0xFF)<<8)+(buffer[13]&0xFF);
   samplesperframe=((buffer[14]&0xFF)<<8)+(buffer[15]&0xFF);
@@ -1415,6 +1240,7 @@ static void process_iq_data(RECEIVER *rx) {
     rightsampledouble=(double)rightsample/16777215.0; // for 24 bits
 
     add_iq_samples(rx, leftsampledouble,rightsampledouble);
+  }
   }
 }
 
@@ -1509,14 +1335,14 @@ static void process_ps_iq_data(RECEIVER *rx) {
 }
 #endif
 
-static void process_wideband_data(WIDEBAND *w) {
+static void process_wideband_data(WIDEBAND *w,unsigned char *buffer) {
   long sequence;
   int b;
   int sample;
   double sampledouble;
-  unsigned char *buffer;
+  //unsigned char *buffer;
 
-  buffer=wide_buffer;
+  //buffer=wide_buffer;
 
 
   sequence=((buffer[0]&0xFF)<<24)+((buffer[1]&0xFF)<<16)+((buffer[2]&0xFF)<<8)+(buffer[3]&0xFF);
@@ -1529,29 +1355,10 @@ static void process_wideband_data(WIDEBAND *w) {
   }
 }
 
-static gpointer wideband_thread(gpointer data) {
-  WIDEBAND *w=(WIDEBAND *)data;
-g_print("wideband_thread\n");
-  while(1) {
-    sem_post(&wideband_sem_ready);
-    sem_wait(&wideband_sem_buffer);
-    if(radio->wideband!=NULL) {
-      process_wideband_data(w);
-      free(wide_buffer);
-    } else {
-      break;
-    }
-  }
-  int rc=sem_destroy(&wideband_sem_ready);
-  rc=sem_destroy(&wideband_sem_buffer);
-}
-
-
-static void process_command_response() {
-    response_sequence=((command_response_buffer[0]&0xFF)<<24)+((command_response_buffer[1]&0xFF)<<16)+((command_response_buffer[2]&0xFF)<<8)+(command_response_buffer[3]&0xFF);
-    response=command_response_buffer[4]&0xFF;
+static void process_command_response(unsigned char *buffer) {
+    response_sequence=((buffer[0]&0xFF)<<24)+((buffer[1]&0xFF)<<16)+((buffer[2]&0xFF)<<8)+(buffer[3]&0xFF);
+    response=buffer[4]&0xFF;
     fprintf(stderr,"response_sequence=%ld response=%d\n",response_sequence,response);
-    sem_post(&response_sem);
 }
 
 static void process_high_priority(unsigned char *buffer) {
@@ -1563,24 +1370,24 @@ static void process_high_priority(unsigned char *buffer) {
 
     int channel=radio->transmitter->rx->channel;
 
-    sequence=((high_priority_buffer[0]&0xFF)<<24)+((high_priority_buffer[1]&0xFF)<<16)+((high_priority_buffer[2]&0xFF)<<8)+(high_priority_buffer[3]&0xFF);
+    sequence=((buffer[0]&0xFF)<<24)+((buffer[1]&0xFF)<<16)+((buffer[2]&0xFF)<<8)+(buffer[3]&0xFF);
 
     previous_ptt=radio->ptt;
     previous_dot=radio->dot;
     previous_dash=radio->dash;
 
-    radio->ptt=high_priority_buffer[4]&0x01;
-    radio->dot=(high_priority_buffer[4]>>1)&0x01;
-    radio->dash=(high_priority_buffer[4]>>2)&0x01;
+    radio->ptt=buffer[4]&0x01;
+    radio->dot=(buffer[4]>>1)&0x01;
+    radio->dash=(buffer[4]>>2)&0x01;
 
-    radio->pll_locked=(high_priority_buffer[4]>>3)&0x01;
+    radio->pll_locked=(buffer[4]>>3)&0x01;
 
 
-    radio->adc_overload=high_priority_buffer[5]&0x01;
-    radio->transmitter->exciter_power=((high_priority_buffer[6]&0xFF)<<8)|(high_priority_buffer[7]&0xFF);
-    radio->transmitter->alex_forward_power=((high_priority_buffer[14]&0xFF)<<8)|(high_priority_buffer[15]&0xFF);
-    radio->transmitter->alex_reverse_power=((high_priority_buffer[22]&0xFF)<<8)|(high_priority_buffer[23]&0xFF);
-    radio->supply_volts=((high_priority_buffer[49]&0xFF)<<8)|(high_priority_buffer[50]&0xFF);
+    radio->adc_overload=buffer[5]&0x01;
+    radio->transmitter->exciter_power=((buffer[6]&0xFF)<<8)|(buffer[7]&0xFF);
+    radio->transmitter->alex_forward_power=((buffer[14]&0xFF)<<8)|(buffer[15]&0xFF);
+    radio->transmitter->alex_reverse_power=((buffer[22]&0xFF)<<8)|(buffer[23]&0xFF);
+    radio->supply_volts=((buffer[49]&0xFF)<<8)|(buffer[50]&0xFF);
 
     if(radio->transmitter->rx->split) {
       mode=radio->transmitter->rx->mode_a;
@@ -1608,16 +1415,17 @@ static void process_high_priority(unsigned char *buffer) {
 
 }
 
-static void process_mic_data(int bytes) {
+static void process_mic_data(int bytes,unsigned char *buffer) {
   long sequence;
   int b;
   int i;
   short sample;
 
-  sequence=((mic_line_buffer[0]&0xFF)<<24)+((mic_line_buffer[1]&0xFF)<<16)+((mic_line_buffer[2]&0xFF)<<8)+(mic_line_buffer[3]&0xFF);
+  sequence=((buffer[0]&0xFF)<<24)+((buffer[1]&0xFF)<<16)+((buffer[2]&0xFF)<<8)+(buffer[3]&0xFF);
   b=4;
   for(i=0;i<MIC_SAMPLES;i++) {
-    sample=(short)((mic_line_buffer[b++]<<8) | (mic_line_buffer[b++]&0xFF));
+    sample=(short)(buffer[b++]<<8);
+    sample|=(buffer[b++]&0xFF);
 #ifdef FREEDV
     if(radio->transmitter->rx->freedv) {
       add_freedv_mic_sample(radio->transmitter,sample);
@@ -1708,4 +1516,5 @@ fprintf(stderr,"protocol2_timer_thread\n");
     protocol2_transmit_specific();
     protocol2_receive_specific();
   }
+  return NULL;
 }
