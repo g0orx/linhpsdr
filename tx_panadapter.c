@@ -52,6 +52,7 @@ static gboolean tx_panadapter_configure_event_cb(GtkWidget *widget,GdkEventConfi
   TRANSMITTER *tx=(TRANSMITTER *)data;
   tx->panadapter_width=gtk_widget_get_allocated_width (widget);
   tx->panadapter_height=gtk_widget_get_allocated_height (widget);
+  if(tx->panadapter_width>1 && tx->panadapter_height>1) {
   if(tx->panadapter_surface) {
     cairo_surface_destroy(tx->panadapter_surface);
   }
@@ -73,7 +74,7 @@ static gboolean tx_panadapter_configure_event_cb(GtkWidget *widget,GdkEventConfi
     cairo_destroy(cr);
     transmitter_init_analyzer(tx);
   }
-
+  }
   return TRUE;
 }
 
