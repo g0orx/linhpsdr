@@ -10,6 +10,7 @@ Development and testing has been run on MacOS Sierra 10.12.6. Prerequisites are 
   brew install fftw
   brew install pulseaudio --with-glib
   brew install gtk+3
+  brew install gnome-icon-themes
 ```
 
 ### linhpsdr requires WDSP to be built and installed
