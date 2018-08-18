@@ -87,8 +87,12 @@ g_print("radio_save_state: %s\n",filename);
   setProperty("radio.buffer_size",value);
   sprintf(value,"%d",radio->receivers);
   setProperty("radio.receivers",value);
+  
   sprintf(value,"%f",radio->meter_calibration);
   setProperty("radio.meter_calibration",value);
+  sprintf(value,"%f",radio->panadapter_calibration);
+  setProperty("radio.panadapter_calibration",value);
+  
   sprintf(value,"%d",radio->cw_keyer_sidetone_frequency);
   setProperty("radio.cw_keyer_sidetone_frequency",value);
   sprintf(value,"%d",radio->cw_keyer_sidetone_volume);
@@ -218,6 +222,11 @@ void radio_restore_state(RADIO *radio) {
 
   value=getProperty("radio.sample_rate");
   if(value!=NULL) radio->sample_rate=atoi(value);
+  
+  value=getProperty("radio.meter_calibration");
+  if(value) radio->meter_calibration=atof(value);
+  value=getProperty("radio.panadapter_calibration");
+  if(value) radio->panadapter_calibration=atof(value);
 
   value=getProperty("radio.cw_keyer_sidetone_frequency");
   if(value!=NULL) radio->cw_keyer_sidetone_frequency=atoi(value);
@@ -764,6 +773,8 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
   r->alex_tx_antenna=0; // ANT 1
   r->receivers=0;
   r->meter_calibration=0.0;
+  r->panadapter_calibration=0.0;
+  
   for(i=0;i<r->receivers;i++) {
     r->receiver[i]=NULL;
   }

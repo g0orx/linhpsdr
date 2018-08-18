@@ -436,15 +436,11 @@ void update_rx_panadapter(RECEIVER *rx) {
     GetRXAAGCHangLevel(rx->channel, &hang);
     GetRXAAGCThresh(rx->channel, &thresh, 4096.0, (double)rx->sample_rate);
 
-    double knee_y=thresh+(double)radio->adc[rx->adc].attenuation;
-    knee_y = floor((rx->panadapter_high - knee_y)
-                        * (double) display_height
-                        / (rx->panadapter_high - rx->panadapter_low));
+    double knee_y=thresh+(double)radio->adc[rx->adc].attenuation+radio->panadapter_calibration;
+    knee_y = floor((rx->panadapter_high - knee_y)*dbm_per_line);
 
-    double hang_y=hang+(double)radio->adc[rx->adc].attenuation;
-    hang_y = floor((rx->panadapter_high - hang_y)
-                        * (double) display_height
-                        / (rx->panadapter_high - rx->panadapter_low));
+    double hang_y=hang+(double)radio->adc[rx->adc].attenuation+radio->panadapter_calibration;
+    hang_y = floor((rx->panadapter_high - hang_y)*dbm_per_line);
 
     if(rx->agc!=AGC_MEDIUM && rx->agc!=AGC_FAST) {
       cairo_set_source_rgb (cr, 1.0, 1.0, 0.0);
@@ -478,20 +474,14 @@ void update_rx_panadapter(RECEIVER *rx) {
   cairo_stroke(cr);
 
   // signal
-  double s1,s2;
-  samples[0+offset]=-200.0;
-  samples[display_width-1+offset]=-200.0;
+  double s2;
+  
+  samples[display_width-1+offset]=-200;
+  cairo_move_to(cr, 0.0, display_height);
 
-  s1=(double)samples[0+offset]+(double)radio->adc[rx->adc].attenuation;
-  s1 = floor((rx->panadapter_high - s1)
-                        * (double) display_height
-                        / (rx->panadapter_high - rx->panadapter_low));
-  cairo_move_to(cr, 0.0, s1);
   for(i=1;i<display_width;i++) {
-    s2=(double)samples[i+offset]+(double)radio->adc[rx->adc].attenuation;
-    s2 = floor((rx->panadapter_high - s2)
-                            * (double) display_height
-                            / (rx->panadapter_high - rx->panadapter_low));
+    s2=(double)samples[i+offset]+(double)radio->adc[rx->adc].attenuation+radio->panadapter_calibration;
+    s2 = floor((rx->panadapter_high - s2) *dbm_per_line);
     cairo_line_to(cr, (double)i, s2);
   }
 
