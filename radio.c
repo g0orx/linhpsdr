@@ -218,6 +218,9 @@ void radio_restore_state(RADIO *radio) {
 
   value=getProperty("radio.sample_rate");
   if(value!=NULL) radio->sample_rate=atoi(value);
+  
+  value=getProperty("radio.meter_calibration");
+  if(value) radio->meter_calibration=atof(value);
 
   value=getProperty("radio.cw_keyer_sidetone_frequency");
   if(value!=NULL) radio->cw_keyer_sidetone_frequency=atoi(value);
