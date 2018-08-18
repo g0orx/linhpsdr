@@ -38,7 +38,6 @@
 #include "main.h"
 #include "vfo.h"
 
-#define GRADIANT
 
 static gboolean resize_timeout(void *data) {
   RECEIVER *rx=(RECEIVER *)data;
