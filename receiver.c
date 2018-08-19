@@ -85,6 +85,23 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(value,"%d",rx->fps);
   setProperty(name,value);
 
+  sprintf(name,"receiver[%d].display_average_time",rx->channel);
+  sprintf(value,"%f",rx->display_average_time);
+  setProperty(name,value);  
+  sprintf(name,"receiver[%d].panadapter_low",rx->channel);
+  sprintf(value,"%d",rx->panadapter_low);
+  setProperty(name,value);  
+  sprintf(name,"receiver[%d].panadapter_high",rx->channel);
+  sprintf(value,"%d",rx->panadapter_high);
+  setProperty(name,value);
+  sprintf(name,"receiver[%d].panadapter_filled",rx->channel);
+  sprintf(value,"%d",rx->panadapter_filled);
+  setProperty(name,value);
+  sprintf(name,"receiver[%d].panadapter_gradient",rx->channel);
+  sprintf(value,"%d",rx->panadapter_gradient);
+  setProperty(name,value);
+  
+  
   sprintf(name,"receiver[%d].frequency_a",rx->channel);
   sprintf(value,"%ld",rx->frequency_a);
   setProperty(name,value);
@@ -229,8 +246,7 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(value,"%d",paned);
   setProperty(name,value);
   
-g_print("rx[%d].paned=%d\n",rx->channel,paned);
-  
+g_print("rx[%d].paned=%d\n",rx->channel,paned);  
 }
 
 void receiver_restore_state(RECEIVER *rx) {
@@ -361,6 +377,27 @@ void receiver_restore_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].rit_step",rx->channel);
   value=getProperty(name);
   if(value) rx->rit_step=atol(value);
+ 
+  sprintf(name,"receiver[%d].fps",rx->channel);
+  value=getProperty(name);
+  if(value) rx->fps=atoi(value);
+  
+  sprintf(name,"receiver[%d].display_average_time",rx->channel);
+  value=getProperty(name);
+  if(value) rx->display_average_time=atof(value);
+  
+  sprintf(name,"receiver[%d].panadapter_low",rx->channel);
+  value=getProperty(name);
+  if(value) rx->panadapter_low=atoi(value);
+  sprintf(name,"receiver[%d].panadapter_high",rx->channel);
+  value=getProperty(name);
+  if(value) rx->panadapter_high=atoi(value);
+  sprintf(name,"receiver[%d].panadapter_filled",rx->channel);
+  value=getProperty(name);
+  if(value) rx->panadapter_filled=atoi(value);
+  sprintf(name,"receiver[%d].panadapter_gradient",rx->channel);
+  value=getProperty(name);
+  if(value) rx->panadapter_gradient=atoi(value);
 }
 
 void receiver_change_sample_rate(RECEIVER *rx,int sample_rate) {
@@ -558,9 +595,22 @@ void set_deviation(RECEIVER *rx) {
   SetRXAFMDeviation(rx->channel, (double)rx->deviation);
 }
 
+void calculate_display_average(RECEIVER *rx) {
+  double display_avb;
+  int display_average;
+
+  double t=0.001 * rx->display_average_time;
+  
+  display_avb = exp(-1.0 / ((double)rx->fps * t));
+  display_average = max(2, (int)min(60, (double)rx->fps * t));
+  SetDisplayAvBackmult(rx->channel, 0, display_avb);
+  SetDisplayNumAverage(rx->channel, 0, display_average);
+}
+
 void receiver_fps_changed(RECEIVER *rx) {
   g_source_remove(rx->update_timer_id);
   rx->update_timer_id=g_timeout_add(1000/rx->fps,update_timer_cb,(gpointer)rx);
+  calculate_display_average(rx);
 }
 
 void receiver_filter_changed(RECEIVER *rx,int filter) {
@@ -984,6 +1034,7 @@ g_print("create_receiver: channel=%d sample_rate=%d\n", channel, sample_rate);
   rx->mixed_audio=0;
 
   rx->fps=10;
+  rx->display_average_time=170.0;
 
   rx->fft_size=2048;
   rx->low_latency=FALSE;
@@ -1009,6 +1060,9 @@ g_print("create_receiver: channel=%d sample_rate=%d\n", channel, sample_rate);
   rx->panadapter_low=-140;
   rx->panadapter_high=-60;
   rx->panadapter_surface=NULL;
+  
+  rx->panadapter_filled=TRUE;
+  rx->panadapter_gradient=TRUE;
 
   rx->waterfall_automatic=TRUE;
 
@@ -1111,6 +1165,7 @@ g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d\
 
   SetDisplayDetectorMode(rx->channel, 0, DETECTOR_MODE_AVERAGE/*display_detector_mode*/);
   SetDisplayAverageMode(rx->channel, 0,  AVERAGE_MODE_LOG_RECURSIVE/*display_average_mode*/);
+  calculate_display_average(rx); 
 
   create_visual(rx);
   if(rx->window!=NULL) {

@@ -751,6 +751,13 @@ static void fps_value_changed_cb(GtkWidget *widget, gpointer data) {
   receiver_fps_changed(rx);
 }
 
+
+static void panadapter_average_time_value_changed_cb(GtkWidget *widget, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  rx->display_average_time=gtk_range_get_value(GTK_RANGE(widget));
+  calculate_display_average(rx);
+}
+
 static void panadapter_high_value_changed_cb(GtkWidget *widget, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   rx->panadapter_high=gtk_range_get_value(GTK_RANGE(widget));
@@ -759,6 +766,16 @@ static void panadapter_high_value_changed_cb(GtkWidget *widget, gpointer data) {
 static void panadapter_low_value_changed_cb(GtkWidget *widget, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   rx->panadapter_low=gtk_range_get_value(GTK_RANGE(widget));
+}
+
+static void panadapter_filled_changed_cb(GtkWidget *widget, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  rx->panadapter_filled=rx->panadapter_filled==TRUE?FALSE:TRUE;
+}
+
+static void panadapter_gradient_changed_cb(GtkWidget *widget, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  rx->panadapter_gradient=rx->panadapter_gradient==TRUE?FALSE:TRUE;
 }
 
 
@@ -1094,26 +1111,47 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   gtk_widget_show(fps_scale);
   g_signal_connect(G_OBJECT(fps_scale),"value_changed",G_CALLBACK(fps_value_changed_cb),rx);
   gtk_grid_attach(GTK_GRID(panadapter_grid),fps_scale,1,0,1,1);
+  
+  GtkWidget *average_label=gtk_label_new("Average:");
+  gtk_grid_attach(GTK_GRID(panadapter_grid),average_label,0,1,1,1);
+
+  GtkWidget *average_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,1.0, 500.0, 1.00);
+  gtk_widget_set_size_request(average_scale,200,30);
+  gtk_range_set_value (GTK_RANGE(average_scale),rx->display_average_time);
+  gtk_widget_show(average_scale);
+  g_signal_connect(G_OBJECT(average_scale),"value_changed",G_CALLBACK(panadapter_average_time_value_changed_cb),rx);
+  gtk_grid_attach(GTK_GRID(panadapter_grid),average_scale,1,1,1,1);
 
   GtkWidget *high_label=gtk_label_new("High:");
-  gtk_grid_attach(GTK_GRID(panadapter_grid),high_label,0,1,1,1);
+  gtk_grid_attach(GTK_GRID(panadapter_grid),high_label,0,2,1,1);
 
   GtkWidget *panadapter_high_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-200.0, 20.0, 1.00);
   gtk_widget_set_size_request(panadapter_high_scale,200,30);
   gtk_range_set_value (GTK_RANGE(panadapter_high_scale),rx->panadapter_high);
   gtk_widget_show(panadapter_high_scale);
   g_signal_connect(G_OBJECT(panadapter_high_scale),"value_changed",G_CALLBACK(panadapter_high_value_changed_cb),rx);
-  gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_high_scale,1,1,1,1);
+  gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_high_scale,1,2,1,1);
 
   GtkWidget *waterfall_low_label=gtk_label_new("Low:");
-  gtk_grid_attach(GTK_GRID(panadapter_grid),waterfall_low_label,0,2,1,1);
+  gtk_grid_attach(GTK_GRID(panadapter_grid),waterfall_low_label,0,3,1,1);
 
   GtkWidget *panadapter_low_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-200.0, 20.0, 1.00);
   gtk_widget_set_size_request(panadapter_low_scale,200,30);
   gtk_range_set_value (GTK_RANGE(panadapter_low_scale),rx->panadapter_low);
   gtk_widget_show(panadapter_low_scale);
   g_signal_connect(G_OBJECT(panadapter_low_scale),"value_changed",G_CALLBACK(panadapter_low_value_changed_cb),rx);
-  gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_low_scale,1,2,1,1);
+  gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_low_scale,1,3,1,1);
+  
+  GtkWidget *panadapter_filled=gtk_check_button_new_with_label("Panadapter Filled");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (panadapter_filled), rx->panadapter_filled);
+  gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_filled,0,4,2,1);
+  g_signal_connect(panadapter_filled,"toggled",G_CALLBACK(panadapter_filled_changed_cb),rx);
+
+  GtkWidget *panadapter_gradient=gtk_check_button_new_with_label("Panadapter Gradient");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (panadapter_gradient), rx->panadapter_gradient);
+  gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_gradient,0,5,2,1);
+  g_signal_connect(panadapter_gradient,"toggled",G_CALLBACK(panadapter_gradient_changed_cb),rx);
+
 
   GtkWidget *waterfall_frame=gtk_frame_new("Waterfall");
   GtkWidget *waterfall_grid=gtk_grid_new();

@@ -64,19 +64,20 @@ static gboolean resize_timeout(void *data) {
     /* Initialize the surface to black */
     cairo_t *cr;
     cr = cairo_create (rx->panadapter_surface);
-#ifdef GRADIANT
-    cairo_pattern_t *pat=cairo_pattern_create_linear(0.0,0.0,0.0,rx->panadapter_height);
-    cairo_pattern_add_color_stop_rgba(pat,1.0,0.1,0.1,0.1,0.5);
-    cairo_pattern_add_color_stop_rgba(pat,0.0,0.5,0.5,0.5,0.5);
-    cairo_rectangle(cr, 0,0,rx->panadapter_width,rx->panadapter_height);
-    cairo_set_source (cr, pat);
-    cairo_fill(cr);
-    cairo_pattern_destroy(pat);
-#else
-    cairo_set_source_rgb (cr, 0.2, 0.2, 0.2);
+
+    if(rx->panadapter_gradient) {
+      cairo_pattern_t *pat=cairo_pattern_create_linear(0.0,0.0,0.0,rx->panadapter_height);
+      cairo_pattern_add_color_stop_rgba(pat,1.0,0.1,0.1,0.1,0.5);
+      cairo_pattern_add_color_stop_rgba(pat,0.0,0.5,0.5,0.5,0.5);
+      cairo_rectangle(cr, 0,0,rx->panadapter_width,rx->panadapter_height);
+      cairo_set_source (cr, pat);
+      cairo_fill(cr);
+      cairo_pattern_destroy(pat);
+    } else {
+      cairo_set_source_rgb (cr, 0.2, 0.2, 0.2);
     //cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
-    cairo_paint (cr);
-#endif
+      cairo_paint (cr);
+    }
     cairo_destroy(cr);
   }
   rx->panadapter_resize_timer=-1;
@@ -171,7 +172,8 @@ void update_rx_panadapter(RECEIVER *rx) {
   cairo_t *cr;
   cr = cairo_create (rx->panadapter_surface);
   cairo_set_line_width(cr, 1.0);
-#ifdef GRADIANT
+
+  if(rx->panadapter_gradient) {
     cairo_pattern_t *pat=cairo_pattern_create_linear(0.0,0.0,0.0,rx->panadapter_height);
     cairo_pattern_add_color_stop_rgba(pat,1.0,0.1,0.1,0.1,0.5);
     cairo_pattern_add_color_stop_rgba(pat,0.0,0.5,0.5,0.5,0.5);
@@ -179,12 +181,13 @@ void update_rx_panadapter(RECEIVER *rx) {
     cairo_set_source (cr, pat);
     cairo_fill(cr);
     cairo_pattern_destroy(pat);
-#else
+  } else {
+
     cairo_set_source_rgb (cr, 0.2, 0.2, 0.2);
     //cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
     cairo_rectangle(cr,0,0,display_width,display_height);
     cairo_fill(cr);
-#endif
+  }
 
 
   long long frequency=rx->frequency_a;
@@ -493,7 +496,7 @@ void update_rx_panadapter(RECEIVER *rx) {
     cairo_line_to(cr, (double)i, s2);
   }
 
-  if(radio->display_filled) {
+  if(rx->panadapter_filled) {
     cairo_close_path (cr);
 //#ifdef GRADIANT
     cairo_pattern_t *pat=cairo_pattern_create_linear(0.0,0.0,0.0,rx->panadapter_height);

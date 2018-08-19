@@ -293,8 +293,6 @@ g_print("audio: state_cb: PA_CONTEXT_AUTHORIZING\n");
                 case PA_CONTEXT_SETTING_NAME:
 g_print("audio: state_cb: PA_CONTEXT_SETTING_NAME\n");
                         break;
-                default:
-                        break;
                 case PA_CONTEXT_FAILED:
 g_print("audio: state_cb: PA_CONTEXT_FAILED\n");
                         *ready = 2;
@@ -311,6 +309,9 @@ g_print("audio: state_cb: PA_CONTEXT_READY\n");
                         n_output_devices=0;
                         op = pa_context_get_sink_info_list(pa_ctx,sink_list_cb,NULL);
                         break;
+                default:
+                        g_print("audio: state_cb: unknown state %d\n",state);
+                        break;
         }
 }
 
@@ -318,6 +319,7 @@ g_print("audio: state_cb: PA_CONTEXT_READY\n");
 void create_audio() {
   int i;
 
+g_print("audio: create_audio\n");
   main_loop=pa_glib_mainloop_new(NULL);
   main_loop_api=pa_glib_mainloop_get_api(main_loop);
   pa_ctx=pa_context_new(main_loop_api,"linhpsdr");

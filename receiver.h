@@ -47,7 +47,8 @@ typedef struct _receiver {
   gint output_samples;
   gint pixels;
   gint fps;
-
+  gdouble display_average_time;
+  
   gint64 frequency_a;
   gint64 lo_a;
   gint band_a;
@@ -124,6 +125,8 @@ typedef struct _receiver {
 
   gint panadapter_low;
   gint panadapter_high;
+  gboolean panadapter_filled;
+  gboolean panadapter_gradient;  
 
   GtkWidget *waterfall;
   gint waterfall_width;
@@ -208,5 +211,6 @@ extern void update_noise(RECEIVER *rx);
 extern void receiver_save_state(RECEIVER *rx);
 extern void receiver_change_sample_rate(RECEIVER *rx,int sample_rate);
 extern void set_agc(RECEIVER *rx);
+extern void calculate_display_average(RECEIVER *rx);
 extern void receiver_fps_changed(RECEIVER *rx);
 #endif
