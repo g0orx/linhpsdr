@@ -89,6 +89,8 @@ g_print("radio_save_state: %s\n",filename);
   setProperty("radio.receivers",value);
   sprintf(value,"%f",radio->meter_calibration);
   setProperty("radio.meter_calibration",value);
+  sprintf(value,"%f",radio->panadapter_calibration);
+  setProperty("radio.panadapter_calibration",value);
   sprintf(value,"%d",radio->cw_keyer_sidetone_frequency);
   setProperty("radio.cw_keyer_sidetone_frequency",value);
   sprintf(value,"%d",radio->cw_keyer_sidetone_volume);
@@ -221,7 +223,8 @@ void radio_restore_state(RADIO *radio) {
   
   value=getProperty("radio.meter_calibration");
   if(value) radio->meter_calibration=atof(value);
-
+  value=getProperty("radio.panadapter_calibration");
+  if(value) radio->panadapter_calibration=atof(value);
   value=getProperty("radio.cw_keyer_sidetone_frequency");
   if(value!=NULL) radio->cw_keyer_sidetone_frequency=atoi(value);
   value=getProperty("radio.cw_keyer_sidetone_volume");
