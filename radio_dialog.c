@@ -305,6 +305,16 @@ static void boost_cb(GtkWidget *widget, gpointer data) {
   radio->mic_boost=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 }
 
+static void smeter_calibrate_changed_cb(GtkWidget *widget, gpointer data) {
+  RADIO *radio=(RADIO *)data;
+  radio->meter_calibration=gtk_range_get_value(GTK_RANGE(widget));
+}
+
+static void panadapter_calibrate_changed_cb(GtkWidget *widget, gpointer data) {
+  RADIO *radio=(RADIO *)data;
+  radio->panadapter_calibration=gtk_range_get_value(GTK_RANGE(widget));
+}
+
 static void cw_keyer_speed_value_changed_cb(GtkWidget *widget, gpointer data) {
   RADIO *radio=(RADIO *)data;
   radio->cw_keyer_speed=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
@@ -677,8 +687,34 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (boost_b), radio->mic_boost);
     gtk_grid_attach(GTK_GRID(mic_grid),boost_b,x,y++,1,1);
     g_signal_connect(boost_b,"toggled",G_CALLBACK(boost_cb),radio);
-
   }
+
+  GtkWidget *calibration_frame=gtk_frame_new("Calibration [dBm]");
+  GtkWidget *calibration_grid=gtk_grid_new();
+  gtk_grid_set_row_homogeneous(GTK_GRID(calibration_grid),TRUE);
+  gtk_grid_set_column_homogeneous(GTK_GRID(calibration_grid),FALSE);
+  gtk_container_add(GTK_CONTAINER(calibration_frame),calibration_grid);
+  gtk_grid_attach(GTK_GRID(grid),calibration_frame,col,row++,1,1);
+
+  GtkWidget *smeter_label=gtk_label_new(" S-Meter:");
+  gtk_grid_attach(GTK_GRID(calibration_grid),smeter_label,0,1,1,1);
+
+  GtkWidget *smeter_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-50.0, 50.0, 1.00);
+  gtk_widget_set_size_request(smeter_scale,200,30);
+  gtk_range_set_value (GTK_RANGE(smeter_scale),radio->meter_calibration);
+  gtk_widget_show(smeter_scale);
+  g_signal_connect(G_OBJECT(smeter_scale),"value_changed",G_CALLBACK(smeter_calibrate_changed_cb),radio);
+  gtk_grid_attach(GTK_GRID(calibration_grid),smeter_scale,1,1,1,1);
+
+  GtkWidget *panadapter_label=gtk_label_new(" Panadapter:");
+  gtk_grid_attach(GTK_GRID(calibration_grid),panadapter_label,0,2,1,1);
+
+  GtkWidget *panadapter_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-50.0, 50.0, 1.00);
+  gtk_widget_set_size_request(panadapter_scale,200,30);
+  gtk_range_set_value (GTK_RANGE(panadapter_scale),radio->panadapter_calibration);
+  gtk_widget_show(panadapter_scale);
+  g_signal_connect(G_OBJECT(panadapter_scale),"value_changed",G_CALLBACK(panadapter_calibrate_changed_cb),radio);
+  gtk_grid_attach(GTK_GRID(calibration_grid),panadapter_scale,1,2,1,1);
 
   GtkWidget *cw_frame=gtk_frame_new("CW");
   GtkWidget *cw_grid=gtk_grid_new();

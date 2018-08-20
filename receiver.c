@@ -562,7 +562,7 @@ static gboolean update_timer_cb(void *data) {
         update_waterfall(rx);
       }
     }
-    double m=GetRXAMeter(rx->channel,rx->smeter)/*+meter_calibration*/;
+    double m=GetRXAMeter(rx->channel,rx->smeter) + radio->meter_calibration;
     update_meter(rx,m);
   }
   g_mutex_unlock(&rx->mutex);
