@@ -839,7 +839,9 @@ static void create_visual(RECEIVER *rx) {
       GTK_FILL, GTK_FILL, 0, 0);
 
   rx->meter=create_meter_visual(rx);
-  gtk_widget_set_size_request(rx->meter,154,60);
+//  gtk_widget_set_size_request(rx->meter,154,60);
+  gtk_widget_set_size_request(rx->meter,200,60);
+
   gtk_table_attach(GTK_TABLE(rx->table), rx->meter, 4, 6, 0, 1,
       GTK_FILL, GTK_FILL, 0, 0);
 
