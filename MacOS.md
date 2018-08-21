@@ -2,7 +2,7 @@
 
 ### Development environment
 
-Development and testing has been run on MacOS Sierra 10.12.6. Prerequisites are installed using [Homebrew](https://brew.sh/).
+Development and testing has been run on MacOS Sierra 10.12.6 and MacOS high Sierra 10.13.6. Prerequisites are installed using [Homebrew](https://brew.sh/).
 
 ### Prerequisites for building
 
