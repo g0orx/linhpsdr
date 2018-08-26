@@ -116,6 +116,7 @@ int connect_cnt = 0;
 
 int rigctlGetFilterLow();
 int rigctlGetFilterHigh();
+int rigctlGetMode(RECEIVER *rx);
 int rigctlSetFilterLow(int val);
 int rigctlSetFilterHigh(int val);
 int new_level;

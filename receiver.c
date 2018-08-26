@@ -100,8 +100,22 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].panadapter_gradient",rx->channel);
   sprintf(value,"%d",rx->panadapter_gradient);
   setProperty(name,value);
-  
-  
+
+  if(rx->waterfall_automatic == FALSE) {
+      sprintf(name,"receiver[%d].waterfall_low",rx->channel);
+      sprintf(value,"%d",rx->waterfall_low);
+      setProperty(name,value);  
+      sprintf(name,"receiver[%d].waterfall_high",rx->channel);
+      sprintf(value,"%d",rx->waterfall_high);
+      setProperty(name,value);
+  }
+  sprintf(name,"receiver[%d].waterfall_automatic",rx->channel);
+  sprintf(value,"%d",rx->waterfall_automatic);
+  setProperty(name,value);
+  sprintf(name,"receiver[%d].waterfall_ft8_marker",rx->channel);
+  sprintf(value,"%d",rx->waterfall_ft8_marker);
+  setProperty(name,value);
+
   sprintf(name,"receiver[%d].frequency_a",rx->channel);
   sprintf(value,"%ld",rx->frequency_a);
   setProperty(name,value);
@@ -144,6 +158,10 @@ void receiver_save_state(RECEIVER *rx) {
   setProperty(name,value);
   sprintf(name,"receiver[%d].bandstack",rx->channel);
   sprintf(value,"%d",rx->bandstack);
+  setProperty(name,value);
+
+  sprintf(name,"receiver[%d].remote_audio",rx->channel);
+  sprintf(value,"%d",rx->remote_audio);
   setProperty(name,value);
 
   sprintf(name,"receiver[%d].local_audio",rx->channel);
@@ -297,6 +315,10 @@ void receiver_restore_state(RECEIVER *rx) {
   value=getProperty(name);
   if(value) rx->split=atoi(value);
 
+  sprintf(name,"receiver[%d].remote_audio",rx->channel);
+  value=getProperty(name);
+  if(value) rx->remote_audio=atoi(value);
+
   sprintf(name,"receiver[%d].local_audio",rx->channel);
   value=getProperty(name);
   if(value) rx->local_audio=atoi(value);
@@ -398,6 +420,19 @@ void receiver_restore_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].panadapter_gradient",rx->channel);
   value=getProperty(name);
   if(value) rx->panadapter_gradient=atoi(value);
+
+  sprintf(name,"receiver[%d].waterfall_low",rx->channel);
+  value=getProperty(name);
+  if(value) rx->waterfall_low=atoi(value);
+  sprintf(name,"receiver[%d].waterfall_high",rx->channel);
+  value=getProperty(name);
+  if(value) rx->waterfall_high=atoi(value);
+  sprintf(name,"receiver[%d].waterfall_automatic",rx->channel);
+  value=getProperty(name);
+  if(value) rx->waterfall_automatic=atoi(value);
+  sprintf(name,"receiver[%d].waterfall_ft8_marker",rx->channel);
+  value=getProperty(name);
+  if(value) rx->waterfall_ft8_marker=atoi(value);
 }
 
 void receiver_change_sample_rate(RECEIVER *rx,int sample_rate) {
@@ -681,17 +716,17 @@ static void process_rx_buffer(RECEIVER *rx) {
     if(radio->active_receiver==rx) {
       switch(radio->discovered->protocol) {
         case PROTOCOL_1:
-          if(rx->local_audio) {
-            protocol1_audio_samples(rx,0,0);
-          } else {
+          if(rx->remote_audio) {
             protocol1_audio_samples(rx,left_audio_sample,right_audio_sample);
+          } else {
+            protocol1_audio_samples(rx,0,0);
           }
           break;
         case PROTOCOL_2:
-          if(rx->local_audio) {
-            protocol2_audio_samples(rx,0,0);
-          } else {
+          if(rx->remote_audio) {
             protocol2_audio_samples(rx,left_audio_sample,right_audio_sample);
+          } else {
+            protocol2_audio_samples(rx,0,0);
           }
           break;
       }
@@ -839,8 +874,7 @@ static void create_visual(RECEIVER *rx) {
       GTK_FILL, GTK_FILL, 0, 0);
 
   rx->meter=create_meter_visual(rx);
-//  gtk_widget_set_size_request(rx->meter,154,60);
-  gtk_widget_set_size_request(rx->meter,200,60);
+  gtk_widget_set_size_request(rx->meter,300,60);        // resize from 154 to 300 for custom s-meter
 
   gtk_table_attach(GTK_TABLE(rx->table), rx->meter, 4, 6, 0, 1,
       GTK_FILL, GTK_FILL, 0, 0);
@@ -1067,10 +1101,12 @@ g_print("create_receiver: channel=%d sample_rate=%d\n", channel, sample_rate);
   rx->panadapter_gradient=TRUE;
 
   rx->waterfall_automatic=TRUE;
+  rx->waterfall_ft8_marker=FALSE;
 
   rx->vfo_surface=NULL;
   rx->meter_surface=NULL;
 
+  rx->remote_audio=TRUE;        // on or off remote audio
   rx->local_audio=FALSE;
   rx->local_audio_buffer_size=4096; //112;
   rx->local_audio_buffer_offset=0;

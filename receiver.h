@@ -139,6 +139,7 @@ typedef struct _receiver {
   gint waterfall_low;
   gint waterfall_high;
   gboolean waterfall_automatic;
+  gboolean waterfall_ft8_marker;
   gint64 waterfall_frequency;
   gint waterfall_sample_rate;
   
@@ -151,6 +152,7 @@ typedef struct _receiver {
   short mixed_left_audio;
   short mixed_right_audio;
 
+  gboolean remote_audio;
   gboolean local_audio;
   gint local_audio_buffer_size;
   gint local_audio_buffer_offset;
