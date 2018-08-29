@@ -1066,15 +1066,15 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     gtk_grid_attach(GTK_GRID(grid),audio_frame,col,row++,2,2);
     row++;
 
-    GtkWidget *remote_audio=gtk_check_button_new_with_label("Remote Audio");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (remote_audio), rx->remote_audio);
-    gtk_grid_attach(GTK_GRID(audio_grid),remote_audio,2,0,1,1);
-    g_signal_connect(remote_audio,"toggled",G_CALLBACK(remote_audio_cb),rx);
-
     local_audio=gtk_check_button_new_with_label("Local Audio");
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (local_audio), rx->local_audio);
     gtk_grid_attach(GTK_GRID(audio_grid),local_audio,0,0,1,1);
     g_signal_connect(local_audio,"toggled",G_CALLBACK(local_audio_cb),rx);
+
+    GtkWidget *remote_audio=gtk_check_button_new_with_label("Remote Audio");
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (remote_audio), rx->remote_audio);
+    gtk_grid_attach(GTK_GRID(audio_grid),remote_audio,1,0,1,1);
+    g_signal_connect(remote_audio,"toggled",G_CALLBACK(remote_audio_cb),rx);
 
     audio_choice=gtk_combo_box_text_new();
     for(i=0;i<n_output_devices;i++) {
@@ -1085,7 +1085,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
         }
       }
     }
-    gtk_grid_attach(GTK_GRID(audio_grid),audio_choice,0,1,1,1);
+    gtk_grid_attach(GTK_GRID(audio_grid),audio_choice,0,1,2,1);
     g_signal_connect(audio_choice,"changed",G_CALLBACK(audio_choice_cb),rx);
     if(gtk_combo_box_get_active(GTK_COMBO_BOX(audio_choice))==-1) {
       gtk_widget_set_sensitive(local_audio, FALSE);
