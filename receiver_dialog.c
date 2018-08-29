@@ -794,6 +794,16 @@ static void waterfall_automatic_cb(GtkWidget *widget, gpointer data) {
   rx->waterfall_automatic=rx->waterfall_automatic==1?0:1;
 }
 
+static void waterfall_ft8_marker_cb(GtkWidget *widget, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  rx->waterfall_ft8_marker=rx->waterfall_ft8_marker==TRUE?FALSE:TRUE;
+}
+
+static void remote_audio_cb(GtkWidget *widget, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  rx->remote_audio=rx->remote_audio==TRUE?FALSE:TRUE;
+}
+
 static void local_audio_cb(GtkWidget *widget,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   rx->local_audio=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget));
@@ -1056,6 +1066,11 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     gtk_grid_attach(GTK_GRID(grid),audio_frame,col,row++,2,2);
     row++;
 
+    GtkWidget *remote_audio=gtk_check_button_new_with_label("Remote Audio");
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (remote_audio), rx->remote_audio);
+    gtk_grid_attach(GTK_GRID(audio_grid),remote_audio,2,0,1,1);
+    g_signal_connect(remote_audio,"toggled",G_CALLBACK(remote_audio_cb),rx);
+
     local_audio=gtk_check_button_new_with_label("Local Audio");
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (local_audio), rx->local_audio);
     gtk_grid_attach(GTK_GRID(audio_grid),local_audio,0,0,1,1);
@@ -1184,6 +1199,11 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (waterfall_automatic), rx->waterfall_automatic);
   gtk_grid_attach(GTK_GRID(waterfall_grid),waterfall_automatic,0,2,2,1);
   g_signal_connect(waterfall_automatic,"toggled",G_CALLBACK(waterfall_automatic_cb),rx);
+
+  GtkWidget *waterfall_ft8_marker=gtk_check_button_new_with_label("Waterfall FT8 Marker");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (waterfall_ft8_marker), rx->waterfall_ft8_marker);
+  gtk_grid_attach(GTK_GRID(waterfall_grid),waterfall_ft8_marker,0,3,2,1);
+  g_signal_connect(waterfall_ft8_marker,"toggled",G_CALLBACK(waterfall_ft8_marker_cb),rx);
 
 
   GtkWidget *equalizer_frame=gtk_frame_new("Equalizer");

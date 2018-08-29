@@ -74,6 +74,8 @@ typedef struct _radio {
   gint alex_rx_antenna;
   gint alex_tx_antenna;
   gdouble meter_calibration;
+  gdouble panadapter_calibration;
+  
   gint cw_keyer_sidetone_frequency;
   gint cw_keyer_sidetone_volume;
   gboolean cw_keys_reversed;

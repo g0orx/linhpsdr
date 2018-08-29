@@ -21,7 +21,7 @@ extern int launch_serial ();
 extern void disable_serial ();
 
 void  close_rigctl_ports ();
-int   rigctlGetMode();
+//int   rigctlGetMode();
 int   lookup_band(int);
 char * rigctlGetFilter();
 void set_freqB(long long);
