@@ -472,7 +472,7 @@ static gboolean band_select_cb(GtkWidget *widget,gpointer data) {
       frequency_a=10000000LL;
       break;
     default:
-      b=band_get_band(select->choice);
+      b=band_get_band(band);
       mode_a=USB;
       frequency_a=b->frequencyMin;
       lo_a=b->frequencyLO;
