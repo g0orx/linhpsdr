@@ -690,7 +690,7 @@ void band_cb(GtkWidget *menu_item,gpointer data) {
       frequency_a=10000000LL;
       break;
     default:
-      b=band_get_band(band);
+      b=band_get_band(choice->selection);
       mode_a=USB;
       frequency_a=b->frequencyMin;
       lo_a=b->frequencyLO;
