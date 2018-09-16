@@ -126,7 +126,8 @@ typedef struct _receiver {
   gint panadapter_low;
   gint panadapter_high;
   gboolean panadapter_filled;
-  gboolean panadapter_gradient;  
+  gboolean panadapter_gradient;
+  gboolean panadapter_agc_line;  
 
   GtkWidget *waterfall;
   gint waterfall_width;

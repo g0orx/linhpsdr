@@ -833,6 +833,10 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
 #endif
           break;
         case 3:  // RIGHT
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=0;
+          nb_cb(0, choice);
           break;
       }
       break;
@@ -866,6 +870,10 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
 #endif
           break;
         case 3:  // RIGHT
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=0;
+          nr_cb(0, choice);
           break;
       }
       break;
@@ -932,6 +940,10 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
 #endif
           break;
         case 3:  // RIGHT
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=AGC_OFF;
+          agc_cb(0, choice);
           break;
       }
       break;

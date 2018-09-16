@@ -778,6 +778,10 @@ static void panadapter_gradient_changed_cb(GtkWidget *widget, gpointer data) {
   rx->panadapter_gradient=rx->panadapter_gradient==TRUE?FALSE:TRUE;
 }
 
+static void panadapter_agc_line_changed_cb(GtkWidget *widget, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  rx->panadapter_agc_line=rx->panadapter_agc_line==TRUE?FALSE:TRUE;
+}
 
 static void waterfall_high_value_changed_cb(GtkWidget *widget, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
@@ -1167,6 +1171,10 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_gradient,0,5,2,1);
   g_signal_connect(panadapter_gradient,"toggled",G_CALLBACK(panadapter_gradient_changed_cb),rx);
 
+  GtkWidget *panadapter_agc_line=gtk_check_button_new_with_label("AGC Lines");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (panadapter_agc_line), rx->panadapter_agc_line);
+  gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_agc_line,0,6,2,1);
+  g_signal_connect(panadapter_agc_line,"toggled",G_CALLBACK(panadapter_agc_line_changed_cb),rx);
 
   GtkWidget *waterfall_frame=gtk_frame_new("Waterfall");
   GtkWidget *waterfall_grid=gtk_grid_new();
