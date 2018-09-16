@@ -229,7 +229,7 @@ static int which_button(int x,int y) {
     }
   }
   if(y>12 && y<48){
-    if(x>4 && x<212){
+    if(x>4 && x<364){
       button=BUTTON_VFO;
     }
   }
@@ -1265,38 +1265,40 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
       break;
       
     case BUTTON_VFO:
-      switch(event->button) {
-        case 1: //LEFT
-          if(!rx->locked) {
-            menu=gtk_menu_new();
-            for(i=0;i<BANDS+XVTRS;i++) {
+      if(x>4 && x<212) {
+        switch(event->button) {
+          case 1: //LEFT
+            if(!rx->locked) {
+              menu=gtk_menu_new();
+              for(i=0;i<BANDS+XVTRS;i++) {
 #ifdef LIMESDR
-              if(protocol!=LIMESDR_PROTOCOL) {
-                if(i>=band70 && i<=band3400) {
-                  continue;
+                if(protocol!=LIMESDR_PROTOCOL) {
+                  if(i>=band70 && i<=band3400) {
+                    continue;
+                  }
+                }
+#endif
+                band=(BAND*)band_get_band(i);
+                if(strlen(band->title)>0) {
+                menu_item=gtk_menu_item_new_with_label(band->title);
+                choice=g_new0(CHOICE,1);
+                choice->rx=rx;
+                choice->selection=i;
+                g_signal_connect(menu_item,"activate",G_CALLBACK(band_cb),choice);
+                gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
                 }
               }
-#endif
-              band=(BAND*)band_get_band(i);
-              if(strlen(band->title)>0) {
-              menu_item=gtk_menu_item_new_with_label(band->title);
-              choice=g_new0(CHOICE,1);
-              choice->rx=rx;
-              choice->selection=i;
-              g_signal_connect(menu_item,"activate",G_CALLBACK(band_cb),choice);
-              gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-              }
-            }
-            gtk_widget_show_all(menu);
+              gtk_widget_show_all(menu);
 #if GTK_CHECK_VERSION(3,22,0)
-            gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+              gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
 #else
-            gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+              gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
 #endif
-          }
-          break;
-        case 3: //RIGHT
-          break;
+            }
+            break;
+          case 3: //RIGHT
+            break;
+        }
       }
       break;
     case SLIDER_AF:
