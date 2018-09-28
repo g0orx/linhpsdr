@@ -1037,6 +1037,14 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           rx->frequency_b=temp_frequency;
           rx->mode_b=temp_mode;
           frequency_changed(rx);
+          receiver_mode_changed(rx,rx->mode_a);
+          if(radio->transmitter->rx==rx) {
+            if(rx->split) {
+              transmitter_set_mode(radio->transmitter,rx->mode_b);
+            } else {
+              transmitter_set_mode(radio->transmitter,rx->mode_a);
+            }
+          }
           break;
         case 3:  // RIGHT
           break;
