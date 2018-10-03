@@ -18,6 +18,7 @@
 */
 
 #include <gtk/gtk.h>
+#include <string.h>
 #include <wdsp.h>
 
 #include "agc.h"
@@ -30,6 +31,7 @@
 #include "wideband.h"
 #include "adc.h"
 #include "radio.h"
+#include "band.h"
 #include "main.h"
 #include "vfo.h"
 #include "bookmark_dialog.h"
@@ -56,6 +58,7 @@ enum {
   BUTTON_SPLIT,
   BUTTON_STEP,
   BUTTON_ZOOM,
+  BUTTON_VFO,
   SLIDER_AF,
   SLIDER_AGC
 };
@@ -225,6 +228,12 @@ static int which_button(int x,int y) {
       button=SLIDER_AGC;
     }
   }
+  if(y>12 && y<48){
+    if(x>4 && x<364){
+      button=BUTTON_VFO;
+    }
+  }
+
   return button;
 }
 
@@ -300,6 +309,407 @@ void zoom_cb(GtkWidget *menu_item,gpointer data) {
   update_vfo(choice->rx);
 }
 
+void band_cb(GtkWidget *menu_item,gpointer data) {
+  CHOICE *choice=(CHOICE *)data;
+  BAND *b;
+  int mode_a;
+  long long frequency_a;
+  long long lo_a=0LL;
+
+  switch(choice->selection) {
+    case band2200:
+      switch(choice->rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=LSB;
+          frequency_a=136000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWL;
+          frequency_a=136000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=LSB;
+          frequency_a=136000LL;
+          break;
+      }
+      break;
+    case band630:
+      switch(choice->rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+        case CWL:
+        case CWU:
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=CWL;
+          frequency_a=472100LL;
+          break;
+      }
+      break;
+    case band160:
+      switch(choice->rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=LSB;
+          frequency_a=1900000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWL;
+          frequency_a=1830000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=LSB;
+          frequency_a=1900000LL;
+          break;
+      }
+      break;
+    case band80:
+      switch(choice->rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=LSB;
+          frequency_a=3700000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWL;
+          frequency_a=3520000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=LSB;
+          frequency_a=3700000LL;
+          break;
+      }
+      break;
+    case band60:
+      switch(choice->rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=LSB;
+          switch(radio->region) {
+            case REGION_OTHER:
+              frequency_a=5330000LL;
+              break;
+            case REGION_UK:
+              frequency_a=5280000LL;
+              break;
+          }
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWL;
+          switch(radio->region) {
+            case REGION_OTHER:
+              frequency_a=5330000LL;
+              break;
+            case REGION_UK:
+              frequency_a=5280000LL;
+              break;
+          }
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=LSB;
+          switch(radio->region) {
+            case REGION_OTHER:
+              frequency_a=5330000LL;
+              break;
+            case REGION_UK:
+              frequency_a=5280000LL;
+              break;
+          }
+          break;
+      }
+      break;
+    case band40:
+      switch(choice->rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=LSB;
+          frequency_a=7100000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWL;
+          frequency_a=7020000LL;
+          break;
+        case DIGU:
+        case SPEC:
+        case DIGL:
+          mode_a=LSB;
+          frequency_a=7070000LL;
+          break;
+        case FMN:
+        case AM:
+        case SAM:
+        case DRM:
+          mode_a=LSB;
+          frequency_a=7100000LL;
+          break;
+      }
+      break;
+    case band30:
+      switch(choice->rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=USB;
+          frequency_a=10145000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWU;
+          frequency_a=10120000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=USB;
+          frequency_a=10145000LL;
+          break;
+      }
+      break;
+    case band20:
+      switch(choice->rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=USB;
+          frequency_a=14150000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWU;
+          frequency_a=14020000LL;
+          break;
+        case DIGU:
+        case SPEC:
+        case DIGL:
+          mode_a=USB;
+          frequency_a=14070000LL;
+          break;
+        case FMN:
+        case AM:
+        case SAM:
+        case DRM:
+          mode_a=USB;
+          frequency_a=14020000LL;
+          break;
+      }
+      break;
+    case band17:
+      switch(choice->rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=USB;
+          frequency_a=18140000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWU;
+          frequency_a=18080000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=USB;
+          frequency_a=18140000LL;
+          break;
+      }
+      break;
+    case band15:
+      switch(choice->rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=USB;
+          frequency_a=21200000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWU;
+          frequency_a=21080000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=USB;
+          frequency_a=21200000LL;
+          break;
+      }
+      break;
+    case band12:
+      switch(choice->rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=USB;
+          frequency_a=24960000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWU;
+          frequency_a=24900000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=USB;
+          frequency_a=24960000LL;
+          break;
+      }
+      break;
+    case band10:
+      switch(choice->rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=USB;
+          frequency_a=28300000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWU;
+          frequency_a=28020000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=USB;
+          frequency_a=28300000LL;
+          break;
+      }
+      break;
+    case band6:
+      switch(choice->rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=USB;
+          frequency_a=51000000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWU;
+          frequency_a=50090000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=USB;
+          frequency_a=51000000LL;
+          break;
+      }
+      break;
+#ifdef LIMESDR
+    case band70:
+      break;
+    case band220:
+      break;
+    case band430:
+      break;
+    case band902:
+      break;
+    case band1240:
+      break;
+    case band2300:
+      break;
+    case band3400:
+      break;
+    case bandAIR:
+      break;
+#endif
+    case bandGen:
+      mode_a=AM;
+      frequency_a=5975000LL;
+      break;
+    case bandWWV:
+      mode_a=SAM;
+      frequency_a=10000000LL;
+      break;
+    default:
+      b=band_get_band(choice->selection);
+      mode_a=USB;
+      frequency_a=b->frequencyMin;
+      lo_a=b->frequencyLO;
+      break;
+  }
+  choice->rx->mode_a=mode_a;
+  choice->rx->frequency_a=frequency_a;
+  choice->rx->lo_a=lo_a;
+  receiver_band_changed(choice->rx,band);
+  if(radio->transmitter->rx==choice->rx) {
+    if(choice->rx->split) {
+      transmitter_set_mode(radio->transmitter,choice->rx->mode_b);
+    } else {
+      transmitter_set_mode(radio->transmitter,choice->rx->mode_a);
+    }
+  }
+
+}
+
 void step_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
   choice->rx->step=choice->selection;
@@ -324,6 +734,7 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
   CHOICE *choice;
   FILTER *mode_filters;
   FILTER *filter;
+  BAND *band;
   int x=(int)event->x;
   int y=(int)event->y;
   char text[32];
@@ -422,6 +833,10 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
 #endif
           break;
         case 3:  // RIGHT
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=0;
+          nb_cb(0, choice);
           break;
       }
       break;
@@ -455,6 +870,10 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
 #endif
           break;
         case 3:  // RIGHT
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=0;
+          nr_cb(0, choice);
           break;
       }
       break;
@@ -521,6 +940,10 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
 #endif
           break;
         case 3:  // RIGHT
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=AGC_OFF;
+          agc_cb(0, choice);
           break;
       }
       break;
@@ -614,6 +1037,14 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           rx->frequency_b=temp_frequency;
           rx->mode_b=temp_mode;
           frequency_changed(rx);
+          receiver_mode_changed(rx,rx->mode_a);
+          if(radio->transmitter->rx==rx) {
+            if(rx->split) {
+              transmitter_set_mode(radio->transmitter,rx->mode_b);
+            } else {
+              transmitter_set_mode(radio->transmitter,rx->mode_a);
+            }
+          }
           break;
         case 3:  // RIGHT
           break;
@@ -840,6 +1271,44 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           break;
       }
       break;
+      
+    case BUTTON_VFO:
+      if(x>4 && x<212) {
+        switch(event->button) {
+          case 1: //LEFT
+            if(!rx->locked) {
+              menu=gtk_menu_new();
+              for(i=0;i<BANDS+XVTRS;i++) {
+#ifdef LIMESDR
+                if(protocol!=LIMESDR_PROTOCOL) {
+                  if(i>=band70 && i<=band3400) {
+                    continue;
+                  }
+                }
+#endif
+                band=(BAND*)band_get_band(i);
+                if(strlen(band->title)>0) {
+                menu_item=gtk_menu_item_new_with_label(band->title);
+                choice=g_new0(CHOICE,1);
+                choice->rx=rx;
+                choice->selection=i;
+                g_signal_connect(menu_item,"activate",G_CALLBACK(band_cb),choice);
+                gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+                }
+              }
+              gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
+              gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+              gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
+            }
+            break;
+          case 3: //RIGHT
+            break;
+        }
+      }
+      break;
     case SLIDER_AF:
       rx->volume=(double)(x-460)/100.0;
       if(rx->volume>1.0) rx->volume=1.0;
@@ -907,7 +1376,7 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
       }
       SetRXAAGCTop(rx->channel, rx->agc_gain);
       break;
-    case BUTTON_NONE:
+    case BUTTON_VFO:
       if(x>4 && x<212) {
         if(!rx->locked) {
           int digit=(x-5)/17;

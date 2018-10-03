@@ -435,34 +435,36 @@ void update_rx_panadapter(RECEIVER *rx) {
 
     GetRXAAGCHangLevel(rx->channel, &hang);
     GetRXAAGCThresh(rx->channel, &thresh, 4096.0, (double)rx->sample_rate);
+    
+    if(rx->panadapter_agc_line) {
+      double knee_y=thresh+(double)radio->adc[rx->adc].attenuation+radio->panadapter_calibration;
+      knee_y = floor((rx->panadapter_high - knee_y)*dbm_per_line);
 
-    double knee_y=thresh+(double)radio->adc[rx->adc].attenuation+radio->panadapter_calibration;
-    knee_y = floor((rx->panadapter_high - knee_y)*dbm_per_line);
+      double hang_y=hang+(double)radio->adc[rx->adc].attenuation+radio->panadapter_calibration;
+      hang_y = floor((rx->panadapter_high - hang_y)*dbm_per_line);
 
-    double hang_y=hang+(double)radio->adc[rx->adc].attenuation+radio->panadapter_calibration;
-    hang_y = floor((rx->panadapter_high - hang_y)*dbm_per_line);
+      if(rx->agc!=AGC_MEDIUM && rx->agc!=AGC_FAST) {
+        cairo_set_source_rgb (cr, 1.0, 1.0, 0.0);
+        cairo_move_to(cr,x,hang_y-8.0);
+        cairo_rectangle(cr, x, hang_y-8.0,8.0,8.0);
+        cairo_fill(cr);
+        cairo_move_to(cr,x,hang_y);
+        cairo_line_to(cr,(double)display_width-x,hang_y);
+        cairo_stroke(cr);
+        cairo_move_to(cr,x+8.0,hang_y);
+        cairo_show_text(cr, "-H");
+      }
 
-    if(rx->agc!=AGC_MEDIUM && rx->agc!=AGC_FAST) {
-      cairo_set_source_rgb (cr, 1.0, 1.0, 0.0);
-      cairo_move_to(cr,x,hang_y-8.0);
-      cairo_rectangle(cr, x, hang_y-8.0,8.0,8.0);
+      cairo_set_source_rgb (cr, 0.0, 1.0, 0.0);
+      cairo_move_to(cr,x,knee_y-8.0);
+      cairo_rectangle(cr, x, knee_y-8.0,8.0,8.0);
       cairo_fill(cr);
-      cairo_move_to(cr,x,hang_y);
-      cairo_line_to(cr,(double)display_width-x,hang_y);
+      cairo_move_to(cr,x,knee_y);
+      cairo_line_to(cr,(double)display_width-x,knee_y);
       cairo_stroke(cr);
-      cairo_move_to(cr,x+8.0,hang_y);
-      cairo_show_text(cr, "-H");
+      cairo_move_to(cr,x+8.0,knee_y);
+      cairo_show_text(cr, "-G");      
     }
-
-    cairo_set_source_rgb (cr, 0.0, 1.0, 0.0);
-    cairo_move_to(cr,x,knee_y-8.0);
-    cairo_rectangle(cr, x, knee_y-8.0,8.0,8.0);
-    cairo_fill(cr);
-    cairo_move_to(cr,x,knee_y);
-    cairo_line_to(cr,(double)display_width-x,knee_y);
-    cairo_stroke(cr);
-    cairo_move_to(cr,x+8.0,knee_y);
-    cairo_show_text(cr, "-G");
   }
 
 
