@@ -1,5 +1,5 @@
 /* Copyright (C)
-* 2018 - John Melton, G0ORX/N6LYT
+* 2018 - Claudio Girardi, IN3OTD/DK1CG
 *
 * This program is free software; you can redistribute it and/or
 * modify it under the terms of the GNU General Public License
@@ -17,16 +17,4 @@
 *
 */
 
-#ifndef _OLD_PROTOCOL_H
-#define _OLD_PROTOCOL_H
-
-extern void protocol1_stop();
-extern void protocol1_run();
-
-extern void protocol1_init(RADIO *r);
-extern void protocol1_set_mic_sample_rate(int rate);
-
-extern void protocol1_process_local_mic(RADIO *r);
-extern void protocol1_audio_samples(RECEIVER *rx,short left_audio_sample,short right_audio_sample);
-extern void protocol1_iq_samples(int isample,int qsample,int lasample,int rasample);
-#endif
+extern GtkWidget *create_eer_dialog(RADIO *r);

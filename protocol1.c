@@ -940,12 +940,13 @@ void protocol1_audio_samples(RECEIVER *rx,short left_audio_sample,short right_au
   }
 }
 
-void protocol1_iq_samples(int isample,int qsample) {
+void protocol1_iq_samples(int isample,int qsample,int lasample,int rasample) {
   if(isTransmitting(radio)) {
-    output_buffer[output_buffer_index++]=0;
-    output_buffer[output_buffer_index++]=0;
-    output_buffer[output_buffer_index++]=0;
-    output_buffer[output_buffer_index++]=0;
+    output_buffer[output_buffer_index++]=lasample>>8;
+    output_buffer[output_buffer_index++]=lasample;
+    output_buffer[output_buffer_index++]=rasample>>8;
+    output_buffer[output_buffer_index++]=rasample;
+
     output_buffer[output_buffer_index++]=isample>>8;
     output_buffer[output_buffer_index++]=isample;
     output_buffer[output_buffer_index++]=qsample>>8;
@@ -1499,7 +1500,7 @@ void ozy_send_buffer() {
         output_buffer[C0]=0x22;
         output_buffer[C1]=(radio->transmitter->eer_pwm_min>>2) & 0xFF;
         output_buffer[C2]=radio->transmitter->eer_pwm_min & 0x03;
-        output_buffer[C3]=(radio->transmitter->eer_pwm_max>>3) & 0xFF;
+        output_buffer[C3]=(radio->transmitter->eer_pwm_max>>2) & 0xFF;
         output_buffer[C4]=radio->transmitter->eer_pwm_max & 0x03;
         break;
       case 10:
