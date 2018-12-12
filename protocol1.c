@@ -112,6 +112,7 @@ static int last_level=-1;
 #define LT2208_RANDOM_OFF         0x00
 #define LT2208_RANDOM_ON          0x10
 
+// for Hermes-Lite FPGA FW version < 40 only
 static gboolean lna_dither[] = {TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE,
             TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE,
             TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE,
@@ -120,6 +121,7 @@ static gboolean lna_dither[] = {TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE,
             FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,
             FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,
             FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE};
+// for Hermes-Lite FPGA FW version < 40 only
 static guchar lna_att[] = {31, 30, 29, 28, 27, 26, 25, 24,
             23, 22, 21, 20, 19, 18, 17, 16,
             15, 14, 13, 12, 11, 10, 9, 8,
@@ -1073,7 +1075,10 @@ void ozy_send_buffer() {
       output_buffer[C3]|=LT2208_RANDOM_ON;
     }
     if(radio->discovered->device==DEVICE_HERMES_LITE) {
-      output_buffer[C3]|=lna_dither[radio->adc[0].attenuation+12];
+      if(radio->ozy_software_version<40) {
+        // old LNA gain control method, see HL2 wiki for details
+        output_buffer[C3]|=lna_dither[radio->adc[0].attenuation+12];
+      }
     } else {
       if(radio->adc[0].dither) {
         output_buffer[C3]|=LT2208_DITHER_ON;
@@ -1400,7 +1405,12 @@ void ozy_send_buffer() {
         if(radio->discovered->device==DEVICE_HERMES || radio->discovered->device==DEVICE_ANGELIA || radio->discovered->device==DEVICE_ORION || radio->discovered->device==DEVICE_ORION2) {
           output_buffer[C4]=0x20|(int)radio->adc[0].attenuation;
         } else if(radio->discovered->device==DEVICE_HERMES_LITE) {
-          output_buffer[C4]=lna_att[radio->adc[0].attenuation+12];
+          if(radio->ozy_software_version>=40) {
+            // different LNA gain setting method, see HL2 wiki for details
+            output_buffer[C4]=0x40|(radio->adc[0].attenuation+12);
+          } else {
+            output_buffer[C4]=lna_att[radio->adc[0].attenuation+12];
+          }
         } else {
           output_buffer[C4]=0x00;
         }
