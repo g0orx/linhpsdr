@@ -169,7 +169,10 @@ g_print("radio_save_state: %s\n",filename);
 
   sprintf(value,"%d",radio->region);
   setProperty("radio.region",value);
-  
+
+  sprintf(value,"%d",radio->classE);
+  setProperty("radio.classE",value);
+
   sprintf(value,"%d",rigctl_enable);
   setProperty("rigctl_enable",value);
   sprintf(value,"%d",rigctl_port_base);
@@ -301,6 +304,8 @@ void radio_restore_state(RADIO *radio) {
   if(value!=NULL) radio->linein_gain=atoi(value);
   value=getProperty("radio.region");
   if(value!=NULL) radio->region=atoi(value);
+  value=getProperty("radio.classE");
+  if(value!=NULL) radio->classE=atoi(value);
 
   value=getProperty("rigctl_enable");
   if(value!=NULL) rigctl_enable=atoi(value);

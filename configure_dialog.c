@@ -37,6 +37,7 @@
 #include "transmitter_dialog.h"
 #include "puresignal_dialog.h"
 #include "pa_dialog.h"
+#include "eer_dialog.h"
 #include "oc_dialog.h"
 #include "xvtr_dialog.h"
 #include "receiver_dialog.h"
@@ -101,6 +102,7 @@ GtkWidget *create_configure_dialog(RADIO *radio,int tab) {
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_transmitter_dialog(radio->transmitter),gtk_label_new("TX"));
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_puresignal_dialog(radio->transmitter),gtk_label_new("Pure Signal"));
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_pa_dialog(radio),gtk_label_new("PA"));
+  gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_eer_dialog(radio),gtk_label_new("EER"));
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_oc_dialog(radio),gtk_label_new("OC"));
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_xvtr_dialog(radio),gtk_label_new("XVTR"));
 

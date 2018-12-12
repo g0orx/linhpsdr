@@ -53,6 +53,7 @@ radio_dialog.c\
 receiver_dialog.c\
 transmitter_dialog.c\
 pa_dialog.c\
+eer_dialog.c\
 wideband_dialog.c\
 about_dialog.c\
 button_text.c\
@@ -101,6 +102,7 @@ radio_dialog.h\
 receiver_dialog.h\
 transmitter_dialog.h\
 pa_dialog.h\
+eer_dialog.h\
 wideband_dialog.h\
 about_dialog.h\
 button_text.h\
@@ -148,6 +150,7 @@ radio_dialog.o\
 receiver_dialog.o\
 transmitter_dialog.o\
 pa_dialog.o\
+eer_dialog.o\
 wideband_dialog.o\
 about_dialog.o\
 button_text.o\
