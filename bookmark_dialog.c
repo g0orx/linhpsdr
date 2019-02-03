@@ -24,6 +24,8 @@
 #include <sys/socket.h>
 #include <arpa/inet.h> //inet_addr
 
+#include <SoapySDR/Device.h>
+
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"

@@ -29,8 +29,6 @@
 #include "alex.h"
 #include "property.h"
 
-//#define LIMESDR
-
 int band=band20;
 int xvtr_band=BANDS;
 
@@ -119,7 +117,7 @@ BANDSTACK_ENTRY bandstack_entries6[] =
      {50125000LL,USB,F5,200,2800,200,2800},
      {50200000LL,USB,F5,200,2800,200,2800}};
 
-#ifdef LIMESDR
+#ifdef SOAPYSDR
 BANDSTACK_ENTRY bandstack_entries70[] =
     {{70010000LL,CWU,F6,200,2800,200,2800},
      {70200000LL,USB,F5,200,2800,200,2800},
@@ -197,7 +195,7 @@ BANDSTACK bandstack15={3,1,bandstack_entries15};
 BANDSTACK bandstack12={3,1,bandstack_entries12};
 BANDSTACK bandstack10={3,1,bandstack_entries10};
 BANDSTACK bandstack6={3,1,bandstack_entries6};
-#ifdef LIMESDR
+#ifdef SOAPYSDR
 BANDSTACK bandstack70={3,1,bandstack_entries70};
 BANDSTACK bandstack144={6,1,bandstack_entries144};
 BANDSTACK bandstack220={3,1,bandstack_entries220};
@@ -275,7 +273,7 @@ BAND bands[BANDS+XVTRS] =
      {"12",&bandstack12,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,24890000LL,24990000LL,0LL,0LL,0},
      {"10",&bandstack10,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,28000000LL,29700000LL,0LL,0LL,0},
      {"6",&bandstack6,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,50000000LL,54000000LL,0LL,0LL,0},
-#ifdef LIMESDR
+#ifdef SOAPYSDR
      {"70",&bandstack70,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0LL,0LL,0},
      {"144",&bandstack144,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,144000000LL,148000000LL,0LL,0LL,0},
      {"220",&bandstack144,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,222000000LL,224980000LL,0LL,0LL,0},

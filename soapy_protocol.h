@@ -1,5 +1,5 @@
 /* Copyright (C)
-* 2018 - John Melton, G0ORX/N6LYT
+* 2015 - John Melton, G0ORX/N6LYT
 *
 * This program is free software; you can redistribute it and/or
 * modify it under the terms of the GNU General Public License
@@ -17,26 +17,20 @@
 *
 */
 
-#include <gtk/gtk.h>
-#include <gdk/gdk.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
+#ifndef _LIME_PROTOCOL_H
+#define _LIME_PROTOCOL_H
 
-#include "discovered.h"
-#include "discovery.h"
-#include "protocol1_discovery.h"
-#include "protocol2_discovery.h"
-#ifdef SOAPYSDR
-#include "soapy_discovery.h"
-#endif
+#define BUFFER_SIZE 1024
 
-void discovery() {
-g_print("discovery\n");
-  devices=0;
-  protocol1_discovery();
-  protocol2_discovery();
-#ifdef SOAPYSDR
-  soapy_discovery();
+SoapySDRDevice *get_soapy_device();
+
+void soapy_protocol_init(RADIO *r,int rx);
+void soapy_protocol_stop();
+void soapy_protocol_set_frequency(long long f);
+void soapy_protocol_set_antenna(int ant);
+void soapy_protocol_set_lna_gain(int gain);
+void soapy_protocol_set_gain(char *name,int gain);
+void soapy_protocol_set_attenuation(int attenuation);
+void soapy_protocol_change_sample_rate(int rate);
+
 #endif
-}

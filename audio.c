@@ -33,6 +33,8 @@
 #include <pulse/glib-mainloop.h>
 #include <pulse/simple.h>
 
+#include <SoapySDR/Device.h>
+
 #include "adc.h"
 #include "discovered.h"
 #include "wideband.h"

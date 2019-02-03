@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <wdsp.h>
+
 #include "alex.h"
 #include "discovered.h"
 #include "mode.h"

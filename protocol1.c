@@ -1226,7 +1226,7 @@ void ozy_send_buffer() {
 #endif
             long long rx_frequency=0;
             if(rx!=NULL) {
-              rx_frequency=rx->frequency_a-rx->lo_a;
+              rx_frequency=rx->frequency_a-rx->lo_a+rx->error_a;
               if(rx->rit_enabled) {
                 rx_frequency+=rx->rit;
               }

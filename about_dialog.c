@@ -27,6 +27,8 @@
 #include <arpa/inet.h>
 #include <wdsp.h>
 
+#include <SoapySDR/Device.h>
+
 #include "discovered.h"
 #include "receiver.h"
 #include "transmitter.h"

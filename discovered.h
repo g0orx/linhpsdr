@@ -22,6 +22,10 @@
 
 #include <netinet/in.h>
 
+#ifdef SOAPYSDR
+#include <SoapySDR/Device.h>
+#endif
+
 #define MAX_DEVICES 16
 
 #define OLD_DEVICE_METIS 0
@@ -42,14 +46,17 @@
 
 
 enum {
-  DEVICE_UNKNOWN=-1,
-  DEVICE_METIS=0,
-  DEVICE_HERMES,
-  DEVICE_HERMES2,
-  DEVICE_ANGELIA,
-  DEVICE_ORION,
-  DEVICE_ORION2,
-  DEVICE_HERMES_LITE
+  DEVICE_UNKNOWN=-1
+  ,DEVICE_METIS=0
+  ,DEVICE_HERMES
+  ,DEVICE_HERMES2
+  ,DEVICE_ANGELIA
+  ,DEVICE_ORION
+  ,DEVICE_ORION2
+  ,DEVICE_HERMES_LITE
+#ifdef SOAPYSDR
+  ,DEVICE_SOAPYSDR_USB
+#endif
 };
 
 #define STATE_AVAILABLE 2
@@ -57,6 +64,9 @@ enum {
 
 #define PROTOCOL_1 0
 #define PROTOCOL_2 1
+#ifdef SOAPYSDR
+#define PROTOCOL_SOAPYSDR 3
+#endif
 
 struct _DISCOVERED {
     int protocol;
@@ -66,6 +76,8 @@ struct _DISCOVERED {
     int status;
     int supported_receivers;
     int adcs;
+    double frequency_min;
+    double frequency_max;
     union {
       struct network {
         unsigned char mac_address[6];

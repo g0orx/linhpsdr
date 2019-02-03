@@ -26,6 +26,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include <SoapySDR/Device.h>
+
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"
@@ -44,7 +46,7 @@
 #include "about_dialog.h"
 #include "wideband_dialog.h"
 
-int rx_base=6; // number of tabs before receivers
+int rx_base=7; // number of tabs before receivers
 
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   RADIO *radio=(RADIO *)data;

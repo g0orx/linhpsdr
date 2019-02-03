@@ -22,6 +22,8 @@
 #include <string.h>
 #include <gtk/gtk.h>
 
+#include <SoapySDR/Device.h>
+
 #include "error_handler.h"
 #include "discovered.h"
 #include "receiver.h"
