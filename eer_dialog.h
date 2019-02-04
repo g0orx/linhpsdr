@@ -1,5 +1,5 @@
 /* Copyright (C)
-* 2018 - John Melton, G0ORX/N6LYT
+* 2018 - Claudio Girardi, IN3OTD/DK1CG
 *
 * This program is free software; you can redistribute it and/or
 * modify it under the terms of the GNU General Public License
@@ -17,26 +17,4 @@
 *
 */
 
-#include <gtk/gtk.h>
-#include <gdk/gdk.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "discovered.h"
-#include "discovery.h"
-#include "protocol1_discovery.h"
-#include "protocol2_discovery.h"
-#ifdef SOAPYSDR
-#include "soapy_discovery.h"
-#endif
-
-void discovery() {
-g_print("discovery\n");
-  devices=0;
-  protocol1_discovery();
-  protocol2_discovery();
-#ifdef SOAPYSDR
-  soapy_discovery();
-#endif
-}
+extern GtkWidget *create_eer_dialog(RADIO *r);

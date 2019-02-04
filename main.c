@@ -102,15 +102,27 @@ static void tree_selection_changed_cb (GtkTreeSelection *selection, gpointer dat
   GtkTreeIter iter;
   GtkTreeModel *model;
   gchar *ip;
+  gchar *protocol;
   gint i;
 
 g_print("tree_selection_changed_cb\n");
   if (gtk_tree_selection_get_selected (selection, &model, &iter)) {
     gtk_tree_model_get (model, &iter, IP_COLUMN, &ip, -1);
+    gtk_tree_model_get (model, &iter, PROTOCOL_COLUMN, &protocol, -1);
     for(i=0;i<devices;i++) {
-      if(g_strcmp0(ip,inet_ntoa(discovered[i].info.network.address.sin_addr))==0) {
-        break;
+#ifdef SOAPYSDR
+      if(discovered[i].device!=DEVICE_SOAPYSDR_USB) {
+#endif
+        if(g_strcmp0(ip,inet_ntoa(discovered[i].info.network.address.sin_addr))==0) {
+          break;
+        }
+#ifdef SOAPYSDR
+      } else {
+        if(g_strcmp0(protocol,"SoapySDR")==0) {
+          break;
+        }
       }
+#endif
     }
     if(i<devices) {
       g_print("found %d\n",i);
@@ -134,6 +146,9 @@ g_print("tree_selection_changed_cb\n");
 static int discover(void *data) {
   char v[32];
   char mac[32];
+  char protocol[32];
+  char ip[32];
+  char iface[32];
   gint i;
   GtkCellRenderer *renderer;
   GtkTreeIter iter;
@@ -172,24 +187,51 @@ static int discover(void *data) {
 
     for(i=0;i<devices;i++) {
       d=&discovered[i];
-      sprintf(v,"%d.%d", d->software_version/10, d->software_version%10);
-      sprintf(mac,"%02X:%02X:%02X:%02X:%02X:%02X",
-        d->info.network.mac_address[0],
-        d->info.network.mac_address[1],
-        d->info.network.mac_address[2],
-        d->info.network.mac_address[3],
-        d->info.network.mac_address[4],
-        d->info.network.mac_address[5]);
+
+#ifdef SOAPYSDR
+      if(d->device==DEVICE_SOAPYSDR_USB) {
+        sprintf(v,"%d.%d.%d", d->software_version/100,(d->software_version%100)/10, d->software_version%10);
+        strcpy(mac,"");
+        strcpy(ip,"");
+        strcpy(iface,"USB");
+      } else {
+#endif
+        sprintf(v,"%d.%d", d->software_version/10, d->software_version%10);
+        sprintf(mac,"%02X:%02X:%02X:%02X:%02X:%02X",
+          d->info.network.mac_address[0],
+          d->info.network.mac_address[1],
+          d->info.network.mac_address[2],
+          d->info.network.mac_address[3],
+          d->info.network.mac_address[4],
+          d->info.network.mac_address[5]);
+        strcpy(ip,inet_ntoa(d->info.network.address.sin_addr));
+        strcpy(iface,d->info.network.interface_name);
+#ifdef SOAPYSDR
+      }
+#endif
+
+      if(d->protocol==PROTOCOL_1) {
+        strcpy(protocol,"1");
+      } else if(d->protocol==PROTOCOL_2) {
+        strcpy(protocol,"2");
+#ifdef SOAPYSDR
+      } else if(d->protocol==PROTOCOL_SOAPYSDR) {
+        strcpy(protocol,"SoapySDR");
+#endif
+      } else {
+        strcpy(protocol,"UNKNOWN");
+      }
+     
 
 g_print("adding %s\n",d->name);
       gtk_list_store_append(store,i==0?&iter0:&iter);
       gtk_list_store_set(store,i==0?&iter0:&iter,
         NAME_COLUMN, d->name,
-        PROTOCOL_COLUMN, d->protocol==PROTOCOL_1?"1":"2",
+        PROTOCOL_COLUMN, protocol,
         VERSION_COLUMN, v,
-          IP_COLUMN, inet_ntoa(d->info.network.address.sin_addr),
+        IP_COLUMN, ip,
         MAC_COLUMN, mac,
-        INTERFACE_COLUMN, d->info.network.interface_name,
+        INTERFACE_COLUMN, iface,
         STATUS_COLUMN, d->status==2?"Idle":"In Use",
         -1);
     }
@@ -290,6 +332,9 @@ gboolean retry_cb(GtkWidget *widget,gpointer data) {
 gboolean start_cb(GtkWidget *widget,gpointer data) { 
   char v[32];
   char mac[32];
+  char ip[32];
+  char iface[32];
+  char protocol[32];
   gchar title[128];
   char *value;
   gint x=-1;
@@ -298,22 +343,40 @@ gboolean start_cb(GtkWidget *widget,gpointer data) {
   gint height;
 
   if(d!=NULL && d->status==STATE_AVAILABLE) {
-    g_snprintf(v,sizeof(v),"%d.%d", d->software_version/10, d->software_version%10);
-    g_snprintf(mac,sizeof(mac),"%02X:%02X:%02X:%02X:%02X:%02X",
+#ifdef SOAPYSDR
+    if(d->device==DEVICE_SOAPYSDR_USB) {
+      g_snprintf(v,sizeof(v),"%d.%d.%d", d->software_version/100, (d->software_version%100)/10, d->software_version%10);
+      strcpy(mac,"");
+      strcpy(ip,"");
+      strcpy(protocol,"SoapySDR");
+      strcpy(iface,"USB");
+    } else {
+#endif
+      g_snprintf(v,sizeof(v),"%d.%d", d->software_version/10, d->software_version%10);
+      g_snprintf(mac,sizeof(mac),"%02X:%02X:%02X:%02X:%02X:%02X",
         d->info.network.mac_address[0],
         d->info.network.mac_address[1],
         d->info.network.mac_address[2],
         d->info.network.mac_address[3],
         d->info.network.mac_address[4],
         d->info.network.mac_address[5]);
-    g_snprintf((gchar *)&title,sizeof(title),"Linux HPSDR (%s): %s P%d v%s %s (%s) on %s",
+      if(d->protocol==1) {
+        strcpy(protocol,"P1");
+      } else {
+        strcpy(protocol,"P2");
+      }
+      strcpy(iface,d->info.network.interface_name);
+#ifdef SOAPYSDR
+    }
+#endif
+    g_snprintf((gchar *)&title,sizeof(title),"Linux HPSDR (%s): %s %s v%s %s (%s) on %s",
       version,
       d->name,
-      d->protocol==PROTOCOL_1?1:2,
+      protocol,
       v,
-      inet_ntoa(d->info.network.address.sin_addr),
+      ip,
       mac,
-      d->info.network.interface_name);
+      iface);
 
     g_print("starting %s\n",title);
     gdk_window_set_cursor(gtk_widget_get_window(main_window),gdk_cursor_new(GDK_WATCH));

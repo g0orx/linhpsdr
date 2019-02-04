@@ -23,6 +23,10 @@
 #include <stdint.h>
 #include <gtk/gtk.h>
 
+#ifdef SOAPYSDR
+#include <SoapySDR/Device.h>
+#endif
+
 #include "discovered.h"
 #include "band.h"
 #include "adc.h"

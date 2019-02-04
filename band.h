@@ -37,8 +37,9 @@ enum {
    band12,
    band10,
    band6,
-#ifdef LIMESDR
+#ifdef SOAPYSDR
    band70,
+   band144,
    band220,
    band430,
    band902,

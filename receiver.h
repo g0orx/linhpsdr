@@ -29,6 +29,8 @@ typedef struct _receiver {
 
   gint sample_rate;
   gint buffer_size;
+  gint dsp_rate;
+  gint output_rate;
 
   gint fft_size;
   gboolean low_latency;
@@ -49,8 +51,15 @@ typedef struct _receiver {
   gint fps;
   gdouble display_average_time;
   
+  gboolean ctun;
+  gint64 ctun_offset;
+
+  gint64 frequency_min;
+  gint64 frequency_max;
+
   gint64 frequency_a;
   gint64 lo_a;
+  gint64 error_a;
   gint band_a;
   gint mode_a;
   gint filter_a;
@@ -59,6 +68,7 @@ typedef struct _receiver {
 
   gint64 frequency_b;
   gint64 lo_b;
+  gint64 error_b;
   gint band_b;
   gint mode_b;
   gint filter_b;
@@ -206,6 +216,7 @@ extern gboolean receiver_scroll_event_cb(GtkWidget *widget, GdkEventScroll *even
 extern void receiver_filter_changed(RECEIVER *rx,int filter);
 extern void receiver_mode_changed(RECEIVER *rx,int mode);
 extern void receiver_band_changed(RECEIVER *rx,int band);
+extern void receiver_xvtr_changed(RECEIVER *rx);
 extern void set_filter(RECEIVER *rx,int low,int high);
 extern void set_deviation(RECEIVER *rx);
 

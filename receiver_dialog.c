@@ -97,6 +97,7 @@ static gboolean band_select_cb(GtkWidget *widget,gpointer data) {
   int mode_a;
   long long frequency_a;
   long long lo_a=0LL;
+  long long error_a=0LL;
 
   switch(band) {
     case band2200:
@@ -445,22 +446,42 @@ static gboolean band_select_cb(GtkWidget *widget,gpointer data) {
           break;
       }
       break;
-#ifdef LIMESDR
+#ifdef SOAPYSDR
     case band70:
+      mode_a=USB;
+      frequency_a=70200000;
+      break;
+    case band144:
+      mode_a=USB;
+      frequency_a=144200000;
       break;
     case band220:
+      mode_a=USB;
+      frequency_a=220200000;
       break;
     case band430:
+      mode_a=USB;
+      frequency_a=432200000;
       break;
     case band902:
+      mode_a=USB;
+      frequency_a=902200000;
       break;
     case band1240:
+      mode_a=USB;
+      frequency_a=1240200000;
       break;
     case band2300:
+      mode_a=USB;
+      frequency_a=2300300000;
       break;
     case band3400:
+      mode_a=USB;
+      frequency_a=3400300000;
       break;
     case bandAIR:
+      mode_a=AM;
+      frequency_a=118800000;
       break;
 #endif
     case bandGen:
@@ -476,6 +497,7 @@ static gboolean band_select_cb(GtkWidget *widget,gpointer data) {
       mode_a=USB;
       frequency_a=b->frequencyMin;
       lo_a=b->frequencyLO;
+      error_a=b->errorLO;
       break;
   }
   if(band!=rx->band_a) {
@@ -491,6 +513,7 @@ static gboolean band_select_cb(GtkWidget *widget,gpointer data) {
   rx->band_a=band;
   rx->frequency_a=frequency_a;
   rx->lo_a=lo_a;
+  rx->error_a=error_a;
   receiver_band_changed(rx,band);
   update_mode(rx,mode_a);
   if(radio->transmitter->rx==rx) {
@@ -535,6 +558,7 @@ static gboolean deviation_select_cb(GtkWidget *widget,gpointer data) {
   }
   set_deviation(rx);
   transmitter_set_deviation(radio->transmitter);
+  update_vfo(rx);
 /*
   set_button_text_color(last_filter,"black");
   last_filter=widget;
@@ -630,6 +654,7 @@ g_print("update_filters: new filter grid %p\n",rx->filter_grid);
 
     default:
       for(i=0;i<FILTERS-2;i++) {
+/*
         FILTER* band_filter=&band_filters[i];
         GtkWidget *b=gtk_button_new_with_label(band_filters[i].title);
         if(i==rx->filter_a) {
@@ -643,6 +668,7 @@ g_print("update_filters: new filter grid %p\n",rx->filter_grid);
         select->choice=i;
         g_signal_connect(b,"pressed",G_CALLBACK(filter_select_cb),(gpointer)select);
         gtk_grid_attach(GTK_GRID(rx->filter_grid),b,i%FILTER_COLUMNS,i/FILTER_COLUMNS,1,1);
+*/
       }
 
   // last 2 are var1 and var2
@@ -995,6 +1021,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     g_signal_connect(sample_rate_1536,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
   }
 
+/*
   GtkWidget *band_frame=gtk_frame_new("Band");
   rx->band_grid=gtk_grid_new();
   gtk_grid_set_row_homogeneous(GTK_GRID(rx->band_grid),TRUE);
@@ -1004,8 +1031,8 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   row++;
 
   for(i=0;i<BANDS+XVTRS;i++) {
-#ifdef LIMESDR
-    if(protocol!=LIMESDR_PROTOCOL) {
+#ifdef SOAPYSDR
+    if(radio->discovered->protocol!=PROTOCOL_SOAPYSDR) {
       if(i>=band70 && i<=band3400) {
         continue;
       }
@@ -1031,8 +1058,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   gtk_grid_set_row_homogeneous(GTK_GRID(rx->mode_grid),TRUE);
   gtk_grid_set_column_homogeneous(GTK_GRID(rx->mode_grid),TRUE);
   gtk_container_add(GTK_CONTAINER(mode_frame),rx->mode_grid);
-  gtk_grid_attach(GTK_GRID(grid),mode_frame,col,row++,1,2);
-  row++;
+  gtk_grid_attach(GTK_GRID(grid),mode_frame,col,row++,1,1);
 
   for(i=0;i<MODES;i++) {
     GtkWidget *b=gtk_button_new_with_label(mode_string[i]);
@@ -1048,14 +1074,13 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
       select->choice=i;
     g_signal_connect(b,"pressed",G_CALLBACK(mode_select_cb),(gpointer)select);
   }
+*/
 
   band=band_get_band(rx->band_a);
   FILTER* band_filters=filters[rx->mode_a];
   FILTER* band_filter=&band_filters[rx->filter_a];
   rx->filter_frame=gtk_frame_new("Filter");
-  gtk_grid_attach(GTK_GRID(grid),rx->filter_frame,col,row++,1,3);
-  row++;
-  row++;
+  gtk_grid_attach(GTK_GRID(grid),rx->filter_frame,col,row++,1,1);
 
   update_filters(rx);
 
@@ -1067,7 +1092,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     gtk_grid_set_row_homogeneous(GTK_GRID(audio_grid),TRUE);
     gtk_grid_set_column_homogeneous(GTK_GRID(audio_grid),TRUE);
     gtk_container_add(GTK_CONTAINER(audio_frame),audio_grid);
-    gtk_grid_attach(GTK_GRID(grid),audio_frame,col,row++,2,2);
+    gtk_grid_attach(GTK_GRID(grid),audio_frame,col,row++,1,2);
     row++;
 
     local_audio=gtk_check_button_new_with_label("Local Audio");
@@ -1116,8 +1141,10 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   gtk_grid_set_row_homogeneous(GTK_GRID(panadapter_grid),TRUE);
   gtk_grid_set_column_homogeneous(GTK_GRID(panadapter_grid),FALSE);
   gtk_container_add(GTK_CONTAINER(panadapter_frame),panadapter_grid);
-  gtk_grid_attach(GTK_GRID(grid),panadapter_frame,col,row++,1,1);
+  gtk_grid_attach(GTK_GRID(grid),panadapter_frame,col,row++,1,3);
 
+  row++;
+  row++;
   
   GtkWidget *fps_label=gtk_label_new("FPS:");
   gtk_grid_attach(GTK_GRID(panadapter_grid),fps_label,0,0,1,1);

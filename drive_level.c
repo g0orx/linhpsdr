@@ -21,6 +21,10 @@
 
 #include <wdsp.h>
 
+#ifdef SOAPYSDR
+#include <SoapySDR/Device.h>
+#endif
+
 #include "discovered.h"
 #include "wideband.h"
 #include "adc.h"

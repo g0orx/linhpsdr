@@ -52,6 +52,7 @@ enum {
   BUTTON_CAT,
   BUTTON_RIT,
   VALUE_RIT,
+  BUTTON_CTUN,
   BUTTON_ATOB,
   BUTTON_BTOA,
   BUTTON_ASWAPB,
@@ -221,8 +222,8 @@ static int which_button(int x,int y) {
     }
   } else if(y>=48) {
     button=(x-5)/35;
-  } else if(x>=460) {
-    if(y<=30) {
+  } else if(x>=560) {
+    if(y<=35) {
       button=SLIDER_AF;
     } else {
       button=SLIDER_AGC;
@@ -663,7 +664,7 @@ void band_cb(GtkWidget *menu_item,gpointer data) {
           break;
       }
       break;
-#ifdef LIMESDR
+#ifdef SOAPYSDR
     case band70:
       break;
     case band220:
@@ -699,6 +700,7 @@ void band_cb(GtkWidget *menu_item,gpointer data) {
   choice->rx->mode_a=mode_a;
   choice->rx->frequency_a=frequency_a;
   choice->rx->lo_a=lo_a;
+  choice->rx->ctun_offset=0;
   receiver_band_changed(choice->rx,band);
   if(radio->transmitter->rx==choice->rx) {
     if(choice->rx->split) {
@@ -777,20 +779,36 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
     case BUTTON_FILTER:
       switch(event->button) {
         case 1:  // LEFT
-          mode_filters=filters[rx->mode_a];
-          menu=gtk_menu_new();
-          for(i=0;i<FILTERS;i++) {
-            if(i>=FVar1) {
-              sprintf(text,"%s (%d..%d)",mode_filters[i].title,mode_filters[i].low,mode_filters[i].high);
-              menu_item=gtk_menu_item_new_with_label(text);
-            } else {
-              menu_item=gtk_menu_item_new_with_label(mode_filters[i].title);
-            }
+          if(rx->mode_a==FMN) {
+            menu=gtk_menu_new();
+            menu_item=gtk_menu_item_new_with_label("2.5k Dev");
             choice=g_new0(CHOICE,1);
             choice->rx=rx;
-            choice->selection=i;
+            choice->selection=0;
             g_signal_connect(menu_item,"activate",G_CALLBACK(filter_cb),choice);
             gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+            menu_item=gtk_menu_item_new_with_label("5.0k Dev");
+            choice=g_new0(CHOICE,1);
+            choice->rx=rx;
+            choice->selection=1;
+            g_signal_connect(menu_item,"activate",G_CALLBACK(filter_cb),choice);
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+          } else {
+            mode_filters=filters[rx->mode_a];
+            menu=gtk_menu_new();
+            for(i=0;i<FILTERS;i++) {
+              if(i>=FVar1) {
+                sprintf(text,"%s (%d..%d)",mode_filters[i].title,mode_filters[i].low,mode_filters[i].high);
+                menu_item=gtk_menu_item_new_with_label(text);
+              } else {
+                menu_item=gtk_menu_item_new_with_label(mode_filters[i].title);
+              }
+              choice=g_new0(CHOICE,1);
+              choice->rx=rx;
+              choice->selection=i;
+              g_signal_connect(menu_item,"activate",G_CALLBACK(filter_cb),choice);
+              gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+            }
           }
           gtk_widget_show_all(menu);
 #if GTK_CHECK_VERSION(3,22,0)
@@ -1005,6 +1023,10 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           rx->rit=0;
           break;
       }
+      break;
+    case BUTTON_CTUN:
+          rx->ctun=!rx->ctun;
+          rx->ctun_offset=0;
       break;
     case BUTTON_ATOB:
       switch(event->button) {
@@ -1279,8 +1301,8 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
             if(!rx->locked) {
               menu=gtk_menu_new();
               for(i=0;i<BANDS+XVTRS;i++) {
-#ifdef LIMESDR
-                if(protocol!=LIMESDR_PROTOCOL) {
+#ifdef SOAPYSDR
+                if(radio->discovered->protocol!=PROTOCOL_SOAPYSDR) {
                   if(i>=band70 && i<=band3400) {
                     continue;
                   }
@@ -1310,14 +1332,14 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
       }
       break;
     case SLIDER_AF:
-      rx->volume=(double)(x-460)/100.0;
+      rx->volume=(double)(x-560)/100.0;
       if(rx->volume>1.0) rx->volume=1.0;
       if(rx->volume<0.0) rx->volume=0.0;
       SetRXAPanelGain1(rx->channel,rx->volume);
       update_vfo(rx);
       break;
     case SLIDER_AGC:
-      rx->agc_gain=(double)(x-460)-20.0;
+      rx->agc_gain=(double)(x-560)-20.0;
       if(rx->agc_gain>120.0) rx->agc_gain=120.0;
       if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
       SetRXAAGCTop(rx->channel, rx->agc_gain);
@@ -1383,39 +1405,42 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
           long long step=0LL;
           switch(digit) {
             case 0:
-              //step=1000000000LL;
+              step=10000000000LL;
               break;
             case 1:
-              //step=100000000LL;
+              step=1000000000LL;
               break;
             case 2:
-              step=10000000LL;
+              step=100000000LL;
               break;
             case 3:
-              step=1000000LL;
+              step=10000000LL;
               break;
             case 4:
-              step=0LL;
+              step=1000000LL;
               break;
             case 5:
-              step=100000LL;
-              break;
-            case 6:
-              step=10000LL;
-              break;
-            case 7:
-              step=1000LL;
-              break;
-            case 8:
               step=0LL;
               break;
+            case 6:
+              step=100000LL;
+              break;
+            case 7:
+              step=10000LL;
+              break;
+            case 8:
+              step=1000LL;
+              break;
             case 9:
-              step=100LL;
+              step=0LL;
               break;
             case 10:
-              step=10LL;
+              step=100LL;
               break;
             case 11:
+              step=10LL;
+              break;
+            case 12:
               step=1LL;
               break;
           }
@@ -1432,39 +1457,42 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
           long long step=0LL;
           switch(digit) {
             case 0:
-              //step=1000000000LL;
+              step=10000000000LL;
               break;
             case 1:
-              //step=100000000LL;
+              step=1000000000LL;
               break;
             case 2:
-              step=10000000LL;
+              step=100000000LL;
               break;
             case 3:
-              step=1000000LL;
+              step=10000000LL;
               break;
             case 4:
-              step=0LL;
+              step=1000000LL;
               break;
             case 5:
-              step=100000LL;
-              break;
-            case 6:
-              step=10000LL;
-              break;
-            case 7:
-              step=1000LL;
-              break;
-            case 8:
               step=0LL;
               break;
+            case 6:
+              step=100000LL;
+              break;
+            case 7:
+              step=10000LL;
+              break;
+            case 8:
+              step=1000LL;
+              break;
             case 9:
-              step=100LL;
+              step=0LL;
               break;
             case 10:
-              step=10LL;
+              step=100LL;
               break;
             case 11:
+              step=10LL;
+              break;
+            case 12:
               step=1LL;
               break;
           }
@@ -1560,7 +1588,7 @@ void update_vfo(RECEIVER *rx) {
     cr = cairo_create (rx->vfo_surface);
     cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
     cairo_paint (cr);
-    long long af=rx->frequency_a;
+    long long af=rx->frequency_a+rx->ctun_offset;
     long long bf=rx->frequency_b;
 
     cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
@@ -1579,7 +1607,7 @@ void update_vfo(RECEIVER *rx) {
     } else {
       cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
     }
-    sprintf(temp,"%4lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
+    sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
     cairo_move_to(cr, 5, 38);
     cairo_set_font_size(cr, 28);
     cairo_show_text(cr, temp);
@@ -1598,7 +1626,7 @@ void update_vfo(RECEIVER *rx) {
     } else {
       cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
     }
-    sprintf(temp,"%4lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
+    sprintf(temp,"%5lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
     cairo_move_to(cr, 220, 38);
     cairo_set_font_size(cr, 20);
     cairo_show_text(cr, temp);
@@ -1624,7 +1652,15 @@ void update_vfo(RECEIVER *rx) {
     x+=35;
 
     cairo_move_to(cr, x, 58);
-    cairo_show_text(cr, band_filters[rx->filter_a].title);
+    if(rx->mode_a==FMN) {
+      if(rx->deviation==2500) {
+        cairo_show_text(cr, "8000");
+      } else {
+        cairo_show_text(cr, "16000");
+      }
+    } else {
+      cairo_show_text(cr, band_filters[rx->filter_a].title);
+    }
     x+=35;
 
     cairo_move_to(cr, x, 58);
@@ -1726,8 +1762,17 @@ void update_vfo(RECEIVER *rx) {
       cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
       sprintf(temp,"%ld",rx->rit);
       cairo_show_text(cr, temp);
-      x+=35;
     }
+    x+=35;
+
+    cairo_move_to(cr,x,58);
+    if(rx->ctun) {
+      cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+    } else {
+      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+    }
+    cairo_show_text(cr, "CTUN");
+    x+=35;
 
     x=70;
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
@@ -1763,7 +1808,7 @@ void update_vfo(RECEIVER *rx) {
     cairo_show_text(cr, temp);
 
 
-    x=400;
+    x=500;
 
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_set_font_size(cr,10);
@@ -1802,7 +1847,7 @@ void update_vfo(RECEIVER *rx) {
     cairo_stroke(cr);
 
 
-    x=400;
+    x=500;
 
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_set_font_size(cr,10);

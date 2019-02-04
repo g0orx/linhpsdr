@@ -24,6 +24,10 @@
 #include <sys/socket.h>
 #include <arpa/inet.h> //inet_addr
 
+#ifdef SOAPYSDR
+#include <SoapySDR/Device.h>
+#endif
+
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"

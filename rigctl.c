@@ -37,6 +37,7 @@
 // IP stuff below
 #include <sys/socket.h>
 #include <arpa/inet.h> //inet_addr
+
 #include "receiver.h"
 #ifdef PIHPSDR
 #include "toolbar.h"

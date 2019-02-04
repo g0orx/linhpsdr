@@ -450,7 +450,7 @@ void protocol2_high_priority() {
       for(r=0;r<radio->discovered->supported_receivers;r++) {
         if(radio->receiver[r]!=NULL) {
           int v=radio->receiver[r]->channel;
-          rxFrequency=radio->receiver[r]->frequency_a-radio->receiver[r]->lo_a;
+          rxFrequency=radio->receiver[r]->frequency_a-radio->receiver[r]->lo_a+radio->receiver[r]->error_a;
           if(radio->receiver[r]->rit_enabled) {
             rxFrequency+=radio->receiver[r]->rit;
           }
@@ -477,9 +477,9 @@ void protocol2_high_priority() {
 
       // tx
       if(radio->transmitter->rx!=NULL) {
-        txFrequency=radio->transmitter->rx->frequency_a-radio->transmitter->rx->lo_a;
+        txFrequency=radio->transmitter->rx->frequency_a-radio->transmitter->rx->lo_a+radio->transmitter->rx->error_a;
         if(radio->transmitter->rx->split) {
-          txFrequency=radio->transmitter->rx->frequency_b-radio->transmitter->rx->lo_b;
+          txFrequency=radio->transmitter->rx->frequency_b-radio->transmitter->rx->lo_b+radio->transmitter->rx->error_b;
         }
 
         switch(radio->transmitter->rx->mode_a) {

@@ -89,6 +89,42 @@ void save_xvtr () {
   }
 }
 
+void update_receiver(int band) {
+  int i;
+  for(i=0;i<MAX_RECEIVERS;i++) {
+    if(radio->receiver[i]->band_a==band) {
+    }
+  }
+}
+
+void min_frequency_cb(GtkEditable *editable,gpointer user_data) {
+  int i=GPOINTER_TO_INT(user_data);
+  BAND *xvtr=band_get_band(i);
+  const char minf=gtk_entry_get_text(GTK_ENTRY(min_frequency[i]));
+  xvtr->frequencyMin=atoll(minf)*1000000;
+}
+
+void max_frequency_cb(GtkEditable *editable,gpointer user_data) {
+  int i=GPOINTER_TO_INT(user_data);
+  BAND *xvtr=band_get_band(i);
+  const char maxf=gtk_entry_get_text(GTK_ENTRY(max_frequency[i]));
+  xvtr->frequencyMax=atoll(maxf)*1000000;
+}
+
+void lo_frequency_cb(GtkEditable *editable,gpointer user_data) {
+  int i=GPOINTER_TO_INT(user_data);
+  BAND *xvtr=band_get_band(i);
+  const char lof=gtk_entry_get_text(GTK_ENTRY(lo_frequency[i]));
+  xvtr->frequencyLO=atoll(lof)*1000000;
+}
+
+void lo_error_cb(GtkEditable *editable,gpointer user_data) {
+  int i=GPOINTER_TO_INT(user_data);
+  BAND *xvtr=band_get_band(i);
+  const char errorf=gtk_entry_get_text(GTK_ENTRY(lo_error[i]));
+  xvtr->errorLO=atoll(errorf);
+}
+
 GtkWidget *create_xvtr_dialog(RADIO *radio) {
   int row;
   int col;
@@ -130,24 +166,28 @@ GtkWidget *create_xvtr_dialog(RADIO *radio) {
     sprintf(temp,"%lld",xvtr->frequencyMin/1000000LL);
     gtk_entry_set_text(GTK_ENTRY(min_frequency[i]),temp);
     gtk_grid_attach(GTK_GRID(grid),min_frequency[i],col++,row,1,1);
+    g_signal_connect(min_frequency[i],"changed",G_CALLBACK(min_frequency_cb),GINT_TO_POINTER(i));
 
     max_frequency[i]=gtk_entry_new();
     gtk_entry_set_width_chars(GTK_ENTRY(max_frequency[i]),7);
     sprintf(temp,"%lld",xvtr->frequencyMax/1000000LL);
     gtk_entry_set_text(GTK_ENTRY(max_frequency[i]),temp);
     gtk_grid_attach(GTK_GRID(grid),max_frequency[i],col++,row,1,1);
+    g_signal_connect(max_frequency[i],"changed",G_CALLBACK(max_frequency_cb),GINT_TO_POINTER(i));
 
     lo_frequency[i]=gtk_entry_new();
     gtk_entry_set_width_chars(GTK_ENTRY(lo_frequency[i]),7);
     sprintf(temp,"%lld",xvtr->frequencyLO/1000000LL);
     gtk_entry_set_text(GTK_ENTRY(lo_frequency[i]),temp);
     gtk_grid_attach(GTK_GRID(grid),lo_frequency[i],col++,row,1,1);
+    g_signal_connect(lo_frequency[i],"changed",G_CALLBACK(lo_frequency_cb),GINT_TO_POINTER(i));
 
     lo_error[i]=gtk_entry_new();
     gtk_entry_set_width_chars(GTK_ENTRY(lo_error[i]),9);
     sprintf(temp,"%lld",xvtr->errorLO);
     gtk_entry_set_text(GTK_ENTRY(lo_error[i]),temp);
     gtk_grid_attach(GTK_GRID(grid),lo_error[i],col++,row,1,1);
+    g_signal_connect(lo_error[i],"changed",G_CALLBACK(lo_error_cb),GINT_TO_POINTER(i));
 
     disable_pa[i]=gtk_check_button_new();
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(disable_pa[i]),xvtr->disablePA);

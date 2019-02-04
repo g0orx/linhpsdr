@@ -64,7 +64,6 @@ static void discover(struct ifaddrs* iface) {
 
     int optval = 1;
     setsockopt(discovery_socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-    setsockopt(discovery_socket, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 
     sa = (struct sockaddr_in *) iface->ifa_addr;
     mask = (struct sockaddr_in *) iface->ifa_netmask;
@@ -170,42 +169,56 @@ g_print("discover_receive_thread\n");
                             strcpy(discovered[devices].name,"Metis");
                             discovered[devices].supported_receivers=5;
                             discovered[devices].adcs=1;
+                            discovered[devices].frequency_min=0.0;
+                            discovered[devices].frequency_max=61440000.0;
                             break;
                         case OLD_DEVICE_HERMES:
                             discovered[devices].device=DEVICE_HERMES;
                             strcpy(discovered[devices].name,"Hermes");
                             discovered[devices].supported_receivers=5;
                             discovered[devices].adcs=1;
+                            discovered[devices].frequency_min=0.0;
+                            discovered[devices].frequency_max=61440000.0;
                             break;
                         case OLD_DEVICE_ANGELIA:
                             discovered[devices].device=DEVICE_ANGELIA;
                             strcpy(discovered[devices].name,"Angelia");
                             discovered[devices].supported_receivers=7;
                             discovered[devices].adcs=2;
+                            discovered[devices].frequency_min=0.0;
+                            discovered[devices].frequency_max=61440000.0;
                             break;
                         case OLD_DEVICE_ORION:
                             discovered[devices].device=DEVICE_ORION;
                             strcpy(discovered[devices].name,"Orion");
                             discovered[devices].supported_receivers=7;
                             discovered[devices].adcs=2;
+                            discovered[devices].frequency_min=0.0;
+                            discovered[devices].frequency_max=61440000.0;
                             break;
                         case OLD_DEVICE_HERMES_LITE:
                             discovered[devices].device=DEVICE_HERMES_LITE;
                             strcpy(discovered[devices].name,"Hermes Lite");
                             discovered[devices].supported_receivers=7;
                             discovered[devices].adcs=1;
+                            discovered[devices].frequency_min=0.0;
+                            discovered[devices].frequency_max=30720000.0;
                             break;
                         case OLD_DEVICE_ORION2:
                             discovered[devices].device=DEVICE_ORION2;
                             strcpy(discovered[devices].name,"Orion 2");
                             discovered[devices].supported_receivers=7;
                             discovered[devices].adcs=2;
+                            discovered[devices].frequency_min=0.0;
+                            discovered[devices].frequency_max=61440000.0;
                             break;
                         default:
                             discovered[devices].device=DEVICE_UNKNOWN;
                             strcpy(discovered[devices].name,"Unknown");
                             discovered[devices].supported_receivers=7;
                             discovered[devices].adcs=1;
+                            discovered[devices].frequency_min=0.0;
+                            discovered[devices].frequency_max=61440000.0;
                             break;
                     }
                     discovered[devices].software_version=buffer[9]&0xFF;

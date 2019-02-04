@@ -26,6 +26,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#ifdef SOAPYSDR
+#include <SoapySDR/Device.h>
+#endif
+
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"
@@ -37,13 +41,14 @@
 #include "transmitter_dialog.h"
 #include "puresignal_dialog.h"
 #include "pa_dialog.h"
+#include "eer_dialog.h"
 #include "oc_dialog.h"
 #include "xvtr_dialog.h"
 #include "receiver_dialog.h"
 #include "about_dialog.h"
 #include "wideband_dialog.h"
 
-int rx_base=6; // number of tabs before receivers
+int rx_base=7; // number of tabs before receivers
 
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   RADIO *radio=(RADIO *)data;
@@ -101,6 +106,7 @@ GtkWidget *create_configure_dialog(RADIO *radio,int tab) {
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_transmitter_dialog(radio->transmitter),gtk_label_new("TX"));
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_puresignal_dialog(radio->transmitter),gtk_label_new("Pure Signal"));
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_pa_dialog(radio),gtk_label_new("PA"));
+  gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_eer_dialog(radio),gtk_label_new("EER"));
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_oc_dialog(radio),gtk_label_new("OC"));
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_xvtr_dialog(radio),gtk_label_new("XVTR"));
 

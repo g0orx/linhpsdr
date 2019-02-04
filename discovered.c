@@ -17,6 +17,10 @@
 *
 */
 
+#ifdef SOAPYSDR
+#include <SoapySDR/Device.h>
+#endif
+
 #include "discovered.h"
 
 int selected_device=0;

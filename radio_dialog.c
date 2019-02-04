@@ -26,7 +26,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"
@@ -36,6 +35,9 @@
 #include "main.h"
 #include "protocol1.h"
 #include "protocol2.h"
+#ifdef SOAPYSDR
+#include "soapy_protocol.h"
+#endif
 #include "audio.h"
 #include "rigctl.h"
 
@@ -91,6 +93,9 @@ static void update_controls() {
     case ORION_1:
     case ORION_2:
     case HERMES_LITE:
+#ifdef SOAPYSDR
+    case SOAPYSDR_USB:
+#endif
       radio->filter_board=NONE;
       break;
   }
@@ -136,6 +141,10 @@ static void update_controls() {
       break;
     case HERMES_LITE:
       break;
+#ifdef SOAPYSDR
+    case SOAPYSDR_USB:
+      break;
+#endif
     default:
       gtk_widget_set_sensitive(adc0_antenna_combo_box, FALSE);
       gtk_widget_set_sensitive(adc0_filters_combo_box, FALSE);
@@ -202,6 +211,10 @@ static void adc0_antenna_cb(GtkComboBox *widget,gpointer data) {
   radio->adc[0].antenna=gtk_combo_box_get_active(widget);
   if(radio->discovered->protocol==PROTOCOL_2) {
     protocol2_high_priority();
+#ifdef SOAPYSDR
+  } else if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
+    soapy_protocol_set_antenna(radio->adc[0].antenna);
+#endif
   }
 }
 
@@ -391,6 +404,18 @@ static void lna_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   }
 }
 
+#ifdef SOAPYSDR
+static void gain_value_changed_cb(GtkWidget *widget, gpointer data) {
+  ADC *adc=(ADC *)data;
+  int gain;
+  if(radio->model==SOAPYSDR_USB) {
+    //adc->pga=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
+    gain=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
+    soapy_protocol_set_gain(gtk_widget_get_name(widget),gain);
+  }
+}
+#endif
+
 static void attenuation_value_changed_cb(GtkWidget *widget, gpointer data) {
   ADC *adc=(ADC *)data;
   adc->attenuation=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
@@ -455,17 +480,26 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"ORION");
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"ORION 2");
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"HERMES LITE");
+#ifdef SOAPYSDR
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"SoapySDR");
+#endif
   gtk_combo_box_set_active(GTK_COMBO_BOX(model_combo_box),radio->model);
   g_signal_connect(model_combo_box,"changed",G_CALLBACK(model_cb),radio);
   gtk_grid_attach(GTK_GRID(model_grid),model_combo_box,0,0,1,1);
 
-  filter_board_combo_box=gtk_combo_box_text_new();
-  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"ALEX FILTERS");
-  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"APOLLO FILTERS");
-  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"NONE");
-  gtk_combo_box_set_active(GTK_COMBO_BOX(filter_board_combo_box),radio->filter_board);
-  g_signal_connect(filter_board_combo_box,"changed",G_CALLBACK(filter_board_cb),radio);
-  gtk_grid_attach(GTK_GRID(model_grid),filter_board_combo_box,1,0,1,1);
+#ifdef SOAPYSDR
+  if(radio->discovered->device!=DEVICE_SOAPYSDR_USB) {
+#endif
+    filter_board_combo_box=gtk_combo_box_text_new();
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"ALEX FILTERS");
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"APOLLO FILTERS");
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"NONE");
+    gtk_combo_box_set_active(GTK_COMBO_BOX(filter_board_combo_box),radio->filter_board);
+    g_signal_connect(filter_board_combo_box,"changed",G_CALLBACK(filter_board_cb),radio);
+    gtk_grid_attach(GTK_GRID(model_grid),filter_board_combo_box,1,0,1,1);
+#ifdef SOAPYSDR
+  }
+#endif
 
   if(radio->discovered->protocol==PROTOCOL_1) {
     GtkWidget *sample_rate_combo_box=gtk_combo_box_text_new();
@@ -502,11 +536,54 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   if(radio->discovered->device==DEVICE_HERMES_LITE) {
     GtkWidget *lna_gain_label=gtk_label_new("LNA Gain:");
     gtk_grid_attach(GTK_GRID(adc0_grid),lna_gain_label,0,0,1,1);
-
     GtkWidget *lna_gain_b=gtk_spin_button_new_with_range(-12.0,48.0,1.0);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(lna_gain_b),(double)radio->adc[0].attenuation);
     gtk_grid_attach(GTK_GRID(adc0_grid),lna_gain_b,1,0,1,1);
     g_signal_connect(lna_gain_b,"value_changed",G_CALLBACK(lna_gain_value_changed_cb),&radio->adc[0]);
+#ifdef SOAPYSDR
+  } else if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
+    GtkWidget *antenna_label=gtk_label_new("Antenna:");
+    gtk_grid_attach(GTK_GRID(adc0_grid),antenna_label,0,0,1,1);
+    adc0_antenna_combo_box=gtk_combo_box_text_new();
+
+    SoapySDRDevice *sdr=get_soapy_device();
+    size_t length;
+
+    char** names = SoapySDRDevice_listAntennas(sdr, SOAPY_SDR_RX, 0, &length);
+
+    for(i=0;i<length;i++) {
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,names[i]);
+    }
+
+    gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_antenna_combo_box),radio->adc[0].antenna);
+    g_signal_connect(adc0_antenna_combo_box,"changed",G_CALLBACK(adc0_antenna_cb),radio);
+    gtk_grid_attach(GTK_GRID(adc0_grid),adc0_antenna_combo_box,1,0,1,1);
+
+    char **gains = SoapySDRDevice_listGains(sdr, SOAPY_SDR_RX, 0, &length);
+
+    for(i=0;i<length;i++) {
+      GtkWidget *gain_label=gtk_label_new(gains[i]);
+      gtk_grid_attach(GTK_GRID(adc0_grid),gain_label,0,1+i,1,1);
+      SoapySDRRange range=SoapySDRDevice_getGainElementRange(sdr, SOAPY_SDR_RX, 0, gains[i]);
+      if(range.step==0.0) {
+        range.step=1.0;
+      }
+      GtkWidget *gain_b=gtk_spin_button_new_with_range(range.minimum,range.maximum,range.step);
+      gtk_widget_set_name (gain_b, gains[i]);
+      if(strcmp(gains[i],"TUNER")==0) {
+        gtk_spin_button_set_value(GTK_SPIN_BUTTON(gain_b),(double)radio->adc[0].tuner);
+      } else if(strcmp(gains[i],"LNA")==0) {
+        gtk_spin_button_set_value(GTK_SPIN_BUTTON(gain_b),(double)radio->adc[0].lna);
+      } else if(strcmp(gains[i],"PGA")==0) {
+        gtk_spin_button_set_value(GTK_SPIN_BUTTON(gain_b),(double)radio->adc[0].pga);
+      } else if(strcmp(gains[i],"TIA")==0) {
+        gtk_spin_button_set_value(GTK_SPIN_BUTTON(gain_b),(double)radio->adc[0].tia);
+      }
+      gtk_grid_attach(GTK_GRID(adc0_grid),gain_b,1,1+i,1,1);
+      g_signal_connect(gain_b,"value_changed",G_CALLBACK(gain_value_changed_cb),&radio->adc[0]);
+    }
+    SoapySDRStrings_clear(&gains, length);
+#endif
   } else {
     adc0_antenna_combo_box=gtk_combo_box_text_new();
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"ANT_1");

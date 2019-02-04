@@ -170,6 +170,8 @@ void update_rx_panadapter(RECEIVER *rx) {
   //clear_panadater_surface();
   cairo_t *cr;
   cr = cairo_create (rx->panadapter_surface);
+  cairo_select_font_face(cr, "FreeMono", CAIRO_FONT_SLANT_NORMAL,CAIRO_FONT_WEIGHT_NORMAL);
+  cairo_set_font_size(cr, 12);
   cairo_set_line_width(cr, 1.0);
 
   if(rx->panadapter_gradient) {
@@ -219,8 +221,8 @@ void update_rx_panadapter(RECEIVER *rx) {
   // filter
   //cairo_set_source_rgba (cr, 0.25, 0.25, 0.25, 0.75);
   cairo_set_source_rgba (cr, 0.5, 0.5, 0.5, 0.75);
-  double filter_left=(double)display_width/2.0+(((double)rx->filter_low+rx->offset)/rx->hz_per_pixel);
-  double filter_right=(double)display_width/2.0+(((double)rx->filter_high+rx->offset)/rx->hz_per_pixel);
+  double filter_left=(double)display_width/2.0+(((double)rx->filter_low+rx->ctun_offset)/rx->hz_per_pixel);
+  double filter_right=(double)display_width/2.0+(((double)rx->filter_high+rx->ctun_offset)/rx->hz_per_pixel);
   cairo_rectangle(cr, filter_left, 0.0, filter_right-filter_left, (double)display_height);
   cairo_fill(cr);
 
@@ -236,9 +238,6 @@ void update_rx_panadapter(RECEIVER *rx) {
   cairo_set_source_rgb (cr, 1.0, 1.0, 1.0);
 
   double dbm_per_line=(double)display_height/((double)rx->panadapter_high-(double)rx->panadapter_low);
-  cairo_set_line_width(cr, 1.0);
-  cairo_select_font_face(cr, "FreeMono", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-  cairo_set_font_size(cr, 12);
 
   for(i=rx->panadapter_high;i>=rx->panadapter_low;i--) {
     int mod=abs(i)%20;
@@ -329,6 +328,8 @@ void update_rx_panadapter(RECEIVER *rx) {
           break;
       }
       break;
+    case 512000:
+    case 524288:
     case 768000:
       switch(rx->zoom) {
         case 1:
@@ -351,7 +352,7 @@ void update_rx_panadapter(RECEIVER *rx) {
       break;
     case 1048576:
     case 1536000:
-    case 2097152:
+    case 2048000:
       switch(rx->zoom) {
         case 1: 
           divisor1=100000LL;
@@ -384,7 +385,6 @@ void update_rx_panadapter(RECEIVER *rx) {
     if(x>70) {
       if((f2%divisor1)==0LL) {
         cairo_set_source_rgb (cr, 1.0, 1.0, 0.0);
-        cairo_set_line_width(cr, 1.0);
         cairo_move_to(cr,(double)x,10.0);
         cairo_line_to(cr,(double)x,(double)display_height);
         cairo_stroke(cr);
@@ -424,6 +424,7 @@ void update_rx_panadapter(RECEIVER *rx) {
         cairo_line_to(cr,(double)i,(double)display_height);
         cairo_stroke(cr);
       }
+      cairo_set_line_width(cr, 1.0);
     }
   }
             
@@ -470,9 +471,8 @@ void update_rx_panadapter(RECEIVER *rx) {
 
   // cursor
   cairo_set_source_rgb (cr, 1.0, 0.0, 0.0);
-  cairo_set_line_width(cr, 1.0);
-  cairo_move_to(cr,(double)(display_width/2.0)+(rx->offset/rx->hz_per_pixel),0.0);
-  cairo_line_to(cr,(double)(display_width/2.0)+(rx->offset/rx->hz_per_pixel),(double)display_height);
+  cairo_move_to(cr,(double)(display_width/2.0)+(rx->ctun_offset/rx->hz_per_pixel),0.0);
+  cairo_line_to(cr,(double)(display_width/2.0)+(rx->ctun_offset/rx->hz_per_pixel),(double)display_height);
   cairo_stroke(cr);
 
   // signal
@@ -502,7 +502,6 @@ void update_rx_panadapter(RECEIVER *rx) {
 //#endif
   }
   cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-  cairo_set_line_width(cr, 1.0);
   cairo_stroke(cr);
 
 #ifdef FREEDV

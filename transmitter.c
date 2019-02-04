@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <wdsp.h>
+
 #include "alex.h"
 #include "discovered.h"
 #include "mode.h"
@@ -137,7 +138,33 @@ void transmitter_save_state(TRANSMITTER *tx) {
   sprintf(name,"transmitter[%d].ctcss_frequency",tx->channel);
   sprintf(value,"%f",tx->ctcss_frequency);
   setProperty(name,value);
-
+  sprintf(name,"transmitter[%d].eer",tx->channel);
+  sprintf(value,"%i",tx->eer);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_amiq",tx->channel);
+  sprintf(value,"%i",tx->eer_amiq);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_pgain",tx->channel);
+  sprintf(value,"%f",tx->eer_pgain);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_mgain",tx->channel);
+  sprintf(value,"%f",tx->eer_mgain);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_pdelay",tx->channel);
+  sprintf(value,"%f",tx->eer_pdelay);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_mdelay",tx->channel);
+  sprintf(value,"%f",tx->eer_mdelay);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_enable_delays",tx->channel);
+  sprintf(value,"%i",tx->eer_enable_delays);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_pwm_min",tx->channel);
+  sprintf(value,"%i",tx->eer_pwm_min);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_pwm_max",tx->channel);
+  sprintf(value,"%i",tx->eer_pwm_max);
+  setProperty(name,value);
 }
 
 void transmitter_restore_state(TRANSMITTER *tx) {
@@ -234,6 +261,33 @@ void transmitter_restore_state(TRANSMITTER *tx) {
   sprintf(name,"transmitter[%d].ctcss_frequency",tx->channel);
   value=getProperty(name);
   if(value) tx->ctcss_frequency=atof(value);
+  sprintf(name,"transmitter[%d].eer",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer=atoi(value);
+  sprintf(name,"transmitter[%d].eer_amiq",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_amiq=atoi(value);
+  sprintf(name,"transmitter[%d].eer_pgain",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_pgain=atof(value);
+  sprintf(name,"transmitter[%d].eer_mgain",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_mgain=atof(value);
+  sprintf(name,"transmitter[%d].eer_pdelay",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_pdelay=atof(value);
+  sprintf(name,"transmitter[%d].eer_mdelay",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_mdelay=atof(value);
+  sprintf(name,"transmitter[%d].eer_enable_delays",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_enable_delays=atoi(value);
+  sprintf(name,"transmitter[%d].eer_pwm_min",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_pwm_min=atoi(value);
+  sprintf(name,"transmitter[%d].eer_pwm_max",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_pwm_max=atoi(value);
 }
 
 static gboolean update_timer_cb(void *data) {
@@ -323,6 +377,40 @@ void transmitter_set_ps(TRANSMITTER *tx,gboolean state) {
   }
 }
 
+void transmitter_enable_eer(TRANSMITTER *tx,gboolean state) {
+  tx->eer=state;
+  SetEERRun(0, tx->eer);
+}
+void transmitter_set_eer_mode_amiq(TRANSMITTER *tx,gboolean state) {
+  tx->eer_amiq=state;
+  SetEERAMIQ(0, tx->eer_amiq); // 0=phase only, 1=magnitude and phase, 2=magnitude only (not supported here)
+}
+
+void transmitter_enable_eer_delays(TRANSMITTER *tx,gboolean state) {
+  tx->eer_enable_delays=state;
+  SetEERRunDelays(0, tx->eer_enable_delays);
+}
+
+void transmitter_set_eer_pgain(TRANSMITTER *tx,gdouble gain) {
+  tx->eer_pgain=gain;
+  SetEERPgain(0, tx->eer_pgain);
+}
+
+void transmitter_set_eer_pdelay(TRANSMITTER *tx,gdouble delay) {
+  tx->eer_pdelay=delay;
+  SetEERPdelay(0, tx->eer_pdelay/1e6);
+}
+
+void transmitter_set_eer_mgain(TRANSMITTER *tx,gdouble gain) {
+  tx->eer_mgain=gain;
+  SetEERMgain(0, tx->eer_mgain);
+}
+
+void transmitter_set_eer_mdelay(TRANSMITTER *tx,gdouble delay) {
+  tx->eer_mdelay=delay;
+  SetEERMdelay(0, tx->eer_mdelay/1e6);
+}
+
 void transmitter_set_twotone(TRANSMITTER *tx,gboolean state) {
 g_print("transmitter_set_twotone: %d\n",state);
   tx->ps_twotone=state;
@@ -348,10 +436,15 @@ void transmitter_set_ps_sample_rate(TRANSMITTER *tx,int rate) {
 static void full_tx_buffer(TRANSMITTER *tx) {
   long isample;
   long qsample;
+  long lsample;
+  long rsample;
   double gain;
   int j;
   int error;
   int mode;
+
+// round half towards zero
+#define ROUNDHTZ(x) ((x)>=0.0?(long)floor((x)*gain+0.5):(long)ceil((x)*gain-0.5))
 
   switch(radio->discovered->protocol) {
 #ifdef RADIOBERRY
@@ -384,14 +477,25 @@ static void full_tx_buffer(TRANSMITTER *tx) {
       }
     }
 */
+
     for(j=0;j<tx->output_samples;j++) {
-      double is=tx->iq_output_buffer[j*2];
-      double qs=tx->iq_output_buffer[(j*2)+1];
-      isample=is>=0.0?(long)floor(is*gain+0.5):(long)ceil(is*gain-0.5);
-      qsample=qs>=0.0?(long)floor(qs*gain+0.5):(long)ceil(qs*gain-0.5);
+      tx->inI[j]=tx->iq_output_buffer[j*2];
+      tx->inQ[j]=tx->iq_output_buffer[(j*2)+1];
+    }
+    // EER processing
+    // input is TX IQ samples in inI,inQ
+    // output phase/IQ/magnitude is written back to inI,inQ and
+    //   outMI,outMQ contain the scaled and delayed input samples
+    xeerEXTF(0, tx->inI, tx->inQ, tx->inI, tx->inQ, tx->outMI, tx->outMQ, isTransmitting(radio), tx->output_samples);
+
+    for(j=0;j<tx->output_samples;j++) {
+      isample=ROUNDHTZ(tx->inI[j]);
+      qsample=ROUNDHTZ(tx->inQ[j]);
+      lsample=ROUNDHTZ(tx->outMI[j]);
+      rsample=ROUNDHTZ(tx->outMQ[j]);
       switch(radio->discovered->protocol) {
         case PROTOCOL_1:
-          protocol1_iq_samples(isample,qsample);
+          protocol1_iq_samples(isample,qsample,lsample,rsample);
           break;
         case PROTOCOL_2:
           protocol2_iq_samples(isample,qsample);
@@ -406,6 +510,7 @@ static void full_tx_buffer(TRANSMITTER *tx) {
       }
     }
   }
+#undef ROUNDHTZ
 }
 
 void add_mic_sample(TRANSMITTER *tx,short mic_sample) {
@@ -673,6 +778,12 @@ g_print("create_transmitter: channel=%d\n",channel);
   tx->alex_forward_power=0;
   tx->alex_reverse_power=0;
 
+  tx->eer_amiq=1;
+  tx->eer_pgain=0.5;
+  tx->eer_mgain=0.5;
+  tx->eer_pdelay=200;
+  tx->eer_mdelay=200;
+  tx->eer_enable_delays=TRUE;
   tx->eer_pwm_min=100;
   tx->eer_pwm_max=800;
 
@@ -703,6 +814,12 @@ g_print("create_transmitter: channel=%d\n",channel);
   tx->mic_samples=0;
   tx->mic_input_buffer=g_new(gdouble,2*tx->buffer_size);
   tx->iq_output_buffer=g_new(gdouble,2*tx->output_samples);
+
+  // EER buffers
+  tx->inI=g_new(gfloat,tx->output_samples);
+  tx->inQ=g_new(gfloat,tx->output_samples);
+  tx->outMI=g_new(gfloat,tx->output_samples);
+  tx->outMQ=g_new(gfloat,tx->output_samples);
 
   tx->pre_emphasize=FALSE;
   tx->enable_equalizer=FALSE;
@@ -803,6 +920,19 @@ g_print("create_transmitter: channel=%d\n",channel);
 
   SetTXACompressorGain(tx->channel, tx->compressor_level);
   SetTXACompressorRun(tx->channel, tx->compressor);
+
+  create_eerEXT(0, // id
+                0, // run
+                tx->buffer_size, // size
+                48000, // rate
+                tx->eer_mgain, // mgain
+                tx->eer_pgain, // pgain
+                tx->eer_enable_delays, // rundelays
+                tx->eer_mdelay/1e6, // mdelay
+                tx->eer_pdelay/1e6, // pdelay
+                tx->eer_amiq); // amiq
+
+  SetEERRun(0, 1);
 
   transmitter_set_mode(tx,mode);
 

@@ -43,8 +43,10 @@
 #include "tx_panadapter.h"
 #include "protocol1.h"
 #include "protocol2.h"
+#ifdef SOAPYSDR
+#include "soapy_protocol.h"
+#endif
 #include "main.h"
-//#include "radio_dialog.h"
 #include "configure_dialog.h"
 #include "audio.h"
 #include "vfo.h"
@@ -67,7 +69,15 @@ void radio_save_state(RADIO *radio) {
   gint x,y;
   gint width,height;
   char filename[128];
-  sprintf(filename,"%s/.local/share/linhpsdr/%02X-%02X-%02X-%02X-%02X-%02X.props",
+#ifdef SOAPYSDR
+  if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
+    sprintf(filename,"%s/.local/share/linhpsdr/%s.props",
+                        g_get_home_dir(),
+                        radio->discovered->name);
+  } else {
+#endif
+
+    sprintf(filename,"%s/.local/share/linhpsdr/%02X-%02X-%02X-%02X-%02X-%02X.props",
                         g_get_home_dir(),
                         radio->discovered->info.network.mac_address[0],
                         radio->discovered->info.network.mac_address[1],
@@ -75,6 +85,9 @@ void radio_save_state(RADIO *radio) {
                         radio->discovered->info.network.mac_address[3],
                         radio->discovered->info.network.mac_address[4],
                         radio->discovered->info.network.mac_address[5]);
+#ifdef SOAPYSDR
+  }
+#endif
 
 g_print("radio_save_state: %s\n",filename);
   initProperties();
@@ -146,6 +159,16 @@ g_print("radio_save_state: %s\n",filename);
   setProperty("radio.adc[0].preamp",value);
   sprintf(value,"%d",radio->adc[0].attenuation);
   setProperty("radio.adc[0].attenuation",value);
+#ifdef SOAPYSDR
+  sprintf(value,"%d",radio->adc[0].lna);
+  setProperty("radio.adc[0].lna",value);
+  sprintf(value,"%d",radio->adc[0].pga);
+  setProperty("radio.adc[0].pga",value);
+  sprintf(value,"%d",radio->adc[0].tia);
+  setProperty("radio.adc[0].tia",value);
+  sprintf(value,"%d",radio->adc[0].tuner);
+  setProperty("radio.adc[0].tuner",value);
+#endif
 
   sprintf(value,"%d",radio->adc[1].filters);
   setProperty("radio.adc[1].filters",value);
@@ -163,13 +186,26 @@ g_print("radio_save_state: %s\n",filename);
   setProperty("radio.adc[1].preamp",value);
   sprintf(value,"%d",radio->adc[1].attenuation);
   setProperty("radio.adc[1].attenuation",value);
+#ifdef SOAPYSDR
+  sprintf(value,"%d",radio->adc[1].lna);
+  setProperty("radio.adc[1].lna",value);
+  sprintf(value,"%d",radio->adc[1].pga);
+  setProperty("radio.adc[1].pga",value);
+  sprintf(value,"%d",radio->adc[1].tia);
+  setProperty("radio.adc[1].tia",value);
+  sprintf(value,"%d",radio->adc[1].tuner);
+  setProperty("radio.adc[1].tuner",value);
+#endif
 
   sprintf(value,"%d",radio->filter_board);
   setProperty("radio.filter_board",value);
 
   sprintf(value,"%d",radio->region);
   setProperty("radio.region",value);
-  
+
+  sprintf(value,"%d",radio->classE);
+  setProperty("radio.classE",value);
+
   sprintf(value,"%d",rigctl_enable);
   setProperty("rigctl_enable",value);
   sprintf(value,"%d",rigctl_port_base);
@@ -204,7 +240,14 @@ void radio_restore_state(RADIO *radio) {
   char name[80];
   char *value;
   char filename[128];
-  sprintf(filename,"%s/.local/share/linhpsdr/%02X-%02X-%02X-%02X-%02X-%02X.props",
+#ifdef SOAPYSDR
+  if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
+    sprintf(filename,"%s/.local/share/linhpsdr/%s.props",
+                        g_get_home_dir(),
+                        radio->discovered->name);
+  } else {
+#endif
+    sprintf(filename,"%s/.local/share/linhpsdr/%02X-%02X-%02X-%02X-%02X-%02X.props",
                         g_get_home_dir(),
                         radio->discovered->info.network.mac_address[0],
                         radio->discovered->info.network.mac_address[1],
@@ -212,6 +255,9 @@ void radio_restore_state(RADIO *radio) {
                         radio->discovered->info.network.mac_address[3],
                         radio->discovered->info.network.mac_address[4],
                         radio->discovered->info.network.mac_address[5]);
+#ifdef SOAPYSDR
+  }
+#endif
 
   loadProperties(filename);
 
@@ -262,6 +308,16 @@ void radio_restore_state(RADIO *radio) {
   if(value!=NULL) radio->adc[0].preamp=atoi(value);
   value=getProperty("radio.adc[0].attenuation");
   if(value!=NULL) radio->adc[0].attenuation=atoi(value);
+#ifdef SOAPYSDR
+  value=getProperty("radio.adc[0].lna");
+  if(value!=NULL) radio->adc[0].lna=atoi(value);
+  value=getProperty("radio.adc[0].pga");
+  if(value!=NULL) radio->adc[0].pga=atoi(value);
+  value=getProperty("radio.adc[0].tia");
+  if(value!=NULL) radio->adc[0].tia=atoi(value);
+  value=getProperty("radio.adc[0].tuner");
+  if(value!=NULL) radio->adc[0].tuner=atoi(value);
+#endif
 
   value=getProperty("radio.adc[1].filters");
   if(value!=NULL) radio->adc[1].filters=atoi(value);
@@ -279,6 +335,16 @@ void radio_restore_state(RADIO *radio) {
   if(value!=NULL) radio->adc[1].preamp=atoi(value);
   value=getProperty("radio.adc[1].attenuation");
   if(value!=NULL) radio->adc[1].attenuation=atoi(value);
+#ifdef SOAPYSDR
+  value=getProperty("radio.adc[1].lna");
+  if(value!=NULL) radio->adc[1].lna=atoi(value);
+  value=getProperty("radio.adc[1].pga");
+  if(value!=NULL) radio->adc[1].pga=atoi(value);
+  value=getProperty("radio.adc[1].tia");
+  if(value!=NULL) radio->adc[1].tia=atoi(value);
+  value=getProperty("radio.adc[1].tuner");
+  if(value!=NULL) radio->adc[1].tuner=atoi(value);
+#endif
 
   value=getProperty("radio.local_microphone");
   if(value!=NULL) radio->local_microphone=atoi(value);
@@ -301,6 +367,8 @@ void radio_restore_state(RADIO *radio) {
   if(value!=NULL) radio->linein_gain=atoi(value);
   value=getProperty("radio.region");
   if(value!=NULL) radio->region=atoi(value);
+  value=getProperty("radio.classE");
+  if(value!=NULL) radio->classE=atoi(value);
 
   value=getProperty("rigctl_enable");
   if(value!=NULL) rigctl_enable=atoi(value);
@@ -348,10 +416,21 @@ void vox_changed(RADIO *r) {
 }
 
 void frequency_changed(RECEIVER *rx) {
-  if(radio->discovered->protocol==PROTOCOL_2) {
-    protocol2_high_priority();
+fprintf(stderr,"frequency_changed: channel=%d frequency=%ld ctun=%d ctun_offset=%ld\n",rx->channel,rx->frequency_a,rx->ctun,rx->ctun_offset);
+  if(rx->ctun) {
+    SetRXAShiftFreq(rx->channel, (double)rx->ctun_offset);
+    RXANBPSetShiftFrequency(rx->channel, (double)rx->ctun_offset);
+    SetRXAShiftRun(rx->channel, 1);
+  } else {
+    if(radio->discovered->protocol==PROTOCOL_2) {
+      protocol2_high_priority();
+#ifdef SOAPYSDR
+    } else if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
+      soapy_protocol_set_frequency(rx->frequency_a);
+#endif
+    }
+    rx->band_a=get_band_from_frequency(rx->frequency_a);
   }
-  rx->band_a=get_band_from_frequency(rx->frequency_a);
 }
 
 gboolean isTransmitting(RADIO *r) {
@@ -555,7 +634,6 @@ g_print("add_receiver: using receiver %d\n",i);
     r->receiver[i]=create_receiver(i,r->sample_rate);
     r->receivers++;
 g_print("add_receiver: receivers now %d\n",r->receivers);
-//    protocol1_run();
     if(r->discovered->protocol==PROTOCOL_2) {
       protocol2_start_receiver(r->receiver[i]);
     }
@@ -760,17 +838,42 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
     case DEVICE_HERMES_LITE:
       r->model=HERMES_LITE;
       break;
+#ifdef SOAPYSDR
+    case DEVICE_SOAPYSDR_USB:
+      r->model=SOAPYSDR_USB;
+      break;
+#endif
     default:
       r->model=HERMES;
       break;
   }
-  r->sample_rate=192000;
-  r->buffer_size=2048;
-  r->alex_rx_antenna=0; // ANT 1
-  r->alex_tx_antenna=0; // ANT 1
+#ifdef SOAPYSDR
+  if(r->model==SOAPYSDR_USB) {
+    r->sample_rate=1536000;
+    r->buffer_size=32768;
+    r->alex_rx_antenna=3; // LNAW
+    r->alex_tx_antenna=0; // ANT 1
+  } else {
+#endif
+    r->sample_rate=192000;
+    r->buffer_size=2048;
+    r->alex_rx_antenna=0; // ANT 1
+    r->alex_tx_antenna=0; // ANT 1
+#ifdef SOAPYSDR
+  }
+#endif
   r->receivers=0;
-  r->meter_calibration=0.0;
-  r->panadapter_calibration=0.0;
+#ifdef SOAPYSDR
+  if(d->device==DEVICE_SOAPYSDR_USB) {
+    r->meter_calibration=-20.0;
+    r->panadapter_calibration=-20.0;
+  } else {
+#endif
+    r->meter_calibration=0.0;
+    r->panadapter_calibration=0.0;
+#ifdef SOAPYSDR
+  }
+#endif
   
   for(i=0;i<r->receivers;i++) {
     r->receiver[i]=NULL;
@@ -828,6 +931,12 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
   r->adc[0].random=FALSE;
   r->adc[0].preamp=FALSE;
   r->adc[0].attenuation=0;
+#ifdef SOAPYSDR
+  r->adc[0].lna=16;
+  r->adc[0].pga=6;
+  r->adc[0].tia=6;
+  r->adc[0].tuner=0;
+#endif
   r->adc[1].antenna=ANTENNA_1;
   r->adc[1].filters=AUTOMATIC;
   r->adc[1].hpf=HPF_9_5;
@@ -836,6 +945,12 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
   r->adc[1].random=FALSE;
   r->adc[1].preamp=FALSE;
   r->adc[1].attenuation=0;
+#ifdef SOAPYSDR
+  r->adc[1].lna=16;
+  r->adc[1].pga=6;
+  r->adc[1].tia=6;
+  r->adc[1].tia=0;
+#endif
 
   r->wideband=NULL;
 
@@ -863,6 +978,11 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
     case PROTOCOL_2:
       protocol2_init(r);
       break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      soapy_protocol_init(r,0);
+      break;
+#endif
   }
 
   create_audio();

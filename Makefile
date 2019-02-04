@@ -12,7 +12,33 @@ GTKLIBS=`pkg-config --libs gtk+-3.0`
 
 AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
 
-OPTIONS=-g -Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3
+# uncomment the line below to include SoapySDR support
+#
+# Note: SoapySDR support has only been tested with the RTL-SDR and LimeSDR
+#
+#       If you want to build with SoapySDR support you will need to install:
+#
+#       sudo apt-get install libsoapysdr-dev
+#	sudo apt-get install soapysdr-module-rtlsdr
+#	sudo apt-get install soapysdr-module-lms7
+#
+#SOAPYSDR_INCLUDE=SOAPYSDR
+
+ifeq ($(SOAPYSDR_INCLUDE),SOAPYSDR)
+SOAPYSDR_OPTIONS=-D SOAPYSDR
+SOAPYSDR_LIBS=-lSoapySDR
+SOAPYSDR_SOURCES= \
+soapy_discovery.c \
+soapy_protocol.c
+SOAPYSDR_HEADERS= \
+soapy_discovery.h \
+soapy_protocol.h
+SOAPYSDR_OBJS= \
+soapy_discovery.o \
+soapy_protocol.o
+endif
+
+OPTIONS=-g -Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) -O3
 #OPTIONS=-g -Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
 LIBS=-lrt -lm -lpthread -lwdsp
@@ -53,6 +79,7 @@ radio_dialog.c\
 receiver_dialog.c\
 transmitter_dialog.c\
 pa_dialog.c\
+eer_dialog.c\
 wideband_dialog.c\
 about_dialog.c\
 button_text.c\
@@ -101,6 +128,7 @@ radio_dialog.h\
 receiver_dialog.h\
 transmitter_dialog.h\
 pa_dialog.h\
+eer_dialog.h\
 wideband_dialog.h\
 about_dialog.h\
 button_text.h\
@@ -148,6 +176,7 @@ radio_dialog.o\
 receiver_dialog.o\
 transmitter_dialog.o\
 pa_dialog.o\
+eer_dialog.o\
 wideband_dialog.o\
 about_dialog.o\
 button_text.o\
@@ -164,13 +193,13 @@ frequency.o\
 rigctl.o\
 error_handler.o
 
-all: prebuild  $(PROGRAM) $(HEADERS) $(SOURCES)
+all: prebuild  $(PROGRAM) $(HEADERS) $(SOURCES) $(SOAPYSDR_SOURCES)
 
 prebuild:
 	rm -f version.o
 
-$(PROGRAM):  $(OBJS)
-	$(LINK) -o $(PROGRAM) $(OBJS) $(GTKLIBS) $(LIBS) $(AUDIO_LIBS)
+$(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS)
+	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(GTKLIBS) $(LIBS) $(AUDIO_LIBS) $(SOAPYSDR_LIBS)
 
 .c.o:
 	$(COMPILE) -c -o $@ $<

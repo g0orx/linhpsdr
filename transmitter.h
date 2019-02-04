@@ -48,6 +48,13 @@ typedef struct _transmitter {
   gboolean tune_use_drive;
   gint attenuation;
 
+  gboolean eer;
+  gint eer_amiq;
+  gdouble eer_pgain;
+  gdouble eer_pdelay;
+  gdouble eer_mgain;
+  gdouble eer_mdelay;
+  gboolean eer_enable_delays;
   gint eer_pwm_min;
   gint eer_pwm_max;
 
@@ -65,6 +72,7 @@ typedef struct _transmitter {
   gint mic_samples;
   gdouble *mic_input_buffer;
   gdouble *iq_output_buffer;
+  gfloat *inI, *inQ, *outMI, *outMQ; // for EER
   gint mic_sample_rate;
   gint mic_dsp_rate;
   gint iq_output_rate;
@@ -129,5 +137,13 @@ extern void transmitter_set_ctcss(TRANSMITTER *tx,gboolean run,gdouble frequency
 extern void transmitter_set_ps(TRANSMITTER *tx,gboolean state);
 extern void transmitter_set_twotone(TRANSMITTER *tx,gboolean state);
 extern void transmitter_set_ps_sample_rate(TRANSMITTER *tx,int rate);
+
+extern void transmitter_enable_eer(TRANSMITTER *tx,gboolean state);
+extern void transmitter_set_eer_mode_amiq(TRANSMITTER *tx,gboolean state);
+extern void transmitter_enable_eer_delays(TRANSMITTER *tx,gboolean state);
+extern void transmitter_set_eer_pgain(TRANSMITTER *tx,gdouble gain);
+extern void transmitter_set_eer_pdelay(TRANSMITTER *tx,gdouble delay);
+extern void transmitter_set_eer_mgain(TRANSMITTER *tx,gdouble gain);
+extern void transmitter_set_eer_mdelay(TRANSMITTER *tx,gdouble delay);
 
 #endif

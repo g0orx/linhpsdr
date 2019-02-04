@@ -41,7 +41,10 @@ enum {
   ANGELIA,
   ORION_1,
   ORION_2,
-  HERMES_LITE
+  HERMES_LITE,
+#ifdef SOAPYSDR
+  SOAPYSDR_USB
+#endif
 };
 
 enum {
