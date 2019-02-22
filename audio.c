@@ -33,7 +33,9 @@
 #include <pulse/glib-mainloop.h>
 #include <pulse/simple.h>
 
+#ifdef SOAPYSDR
 #include <SoapySDR/Device.h>
+#endif
 
 #include "adc.h"
 #include "discovered.h"

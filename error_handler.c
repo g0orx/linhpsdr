@@ -22,7 +22,9 @@
 #include <string.h>
 #include <gtk/gtk.h>
 
+#ifdef SOAPYSDR
 #include <SoapySDR/Device.h>
+#endif
 
 #include "error_handler.h"
 #include "discovered.h"
