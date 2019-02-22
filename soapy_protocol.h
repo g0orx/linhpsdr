@@ -26,7 +26,7 @@ SoapySDRDevice *get_soapy_device();
 
 void soapy_protocol_init(RADIO *r,int rx);
 void soapy_protocol_stop();
-void soapy_protocol_set_frequency(long long f);
+void soapy_protocol_set_frequency(gint64 f);
 void soapy_protocol_set_antenna(int ant);
 void soapy_protocol_set_lna_gain(int gain);
 void soapy_protocol_set_gain(char *name,int gain);

@@ -100,28 +100,28 @@ void update_receiver(int band) {
 void min_frequency_cb(GtkEditable *editable,gpointer user_data) {
   int i=GPOINTER_TO_INT(user_data);
   BAND *xvtr=band_get_band(i);
-  const char minf=gtk_entry_get_text(GTK_ENTRY(min_frequency[i]));
+  const char* minf=gtk_entry_get_text(GTK_ENTRY(min_frequency[i]));
   xvtr->frequencyMin=atoll(minf)*1000000;
 }
 
 void max_frequency_cb(GtkEditable *editable,gpointer user_data) {
   int i=GPOINTER_TO_INT(user_data);
   BAND *xvtr=band_get_band(i);
-  const char maxf=gtk_entry_get_text(GTK_ENTRY(max_frequency[i]));
+  const char* maxf=gtk_entry_get_text(GTK_ENTRY(max_frequency[i]));
   xvtr->frequencyMax=atoll(maxf)*1000000;
 }
 
 void lo_frequency_cb(GtkEditable *editable,gpointer user_data) {
   int i=GPOINTER_TO_INT(user_data);
   BAND *xvtr=band_get_band(i);
-  const char lof=gtk_entry_get_text(GTK_ENTRY(lo_frequency[i]));
+  const char* lof=gtk_entry_get_text(GTK_ENTRY(lo_frequency[i]));
   xvtr->frequencyLO=atoll(lof)*1000000;
 }
 
 void lo_error_cb(GtkEditable *editable,gpointer user_data) {
   int i=GPOINTER_TO_INT(user_data);
   BAND *xvtr=band_get_band(i);
-  const char errorf=gtk_entry_get_text(GTK_ENTRY(lo_error[i]));
+  const char* errorf=gtk_entry_get_text(GTK_ENTRY(lo_error[i]));
   xvtr->errorLO=atoll(errorf);
 }
 

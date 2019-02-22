@@ -72,11 +72,6 @@ static int rate_samples;
 
 static int running;
 
-void soapy_protocol_set_frequency(long long f);
-void soapy_protocol_set_antenna(int ant);
-void soapy_protocol_set_gain(char *name,int gain);
-
-
 SoapySDRDevice *get_soapy_device() {
   return soapy_device;
 }
@@ -251,12 +246,12 @@ void soapy_protocol_stop() {
   running=0;
 }
 
-void soapy_protocol_set_frequency(long long f) {
+void soapy_protocol_set_frequency(gint64 f) {
   int rc;
   char *ant;
 
   if(soapy_device!=NULL) {
-fprintf(stderr,"soapy_protocol: setFrequency: %lld\n",f);
+fprintf(stderr,"soapy_protocol: setFrequency: %ld\n",f);
     rc=SoapySDRDevice_setFrequency(soapy_device,SOAPY_SDR_RX,soapy_receiver,(double)f,NULL);
     if(rc!=0) {
       fprintf(stderr,"soapy_protocol: SoapySDRDevice_setFrequency() failed: %s\n",SoapySDRDevice_lastError());
