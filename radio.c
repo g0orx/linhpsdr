@@ -416,7 +416,7 @@ void vox_changed(RADIO *r) {
 }
 
 void frequency_changed(RECEIVER *rx) {
-fprintf(stderr,"frequency_changed: channel=%d frequency=%ld lo=%ld error=%ld ctun=%d ctun_offset=%ld\n",rx->channel,rx->frequency_a,rx->lo_a,rx->error_a,rx->ctun,rx->ctun_offset);
+//fprintf(stderr,"frequency_changed: channel=%d frequency=%ld lo=%ld error=%ld ctun=%d ctun_offset=%ld\n",rx->channel,rx->frequency_a,rx->lo_a,rx->error_a,rx->ctun,rx->ctun_offset);
   if(rx->ctun) {
     SetRXAShiftFreq(rx->channel, (double)rx->ctun_offset);
     RXANBPSetShiftFrequency(rx->channel, (double)rx->ctun_offset);
@@ -981,6 +981,7 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
 #ifdef SOAPYSDR
     case PROTOCOL_SOAPYSDR:
       soapy_protocol_init(r,0);
+      frequency_changed(r->receiver[0]);
       break;
 #endif
   }

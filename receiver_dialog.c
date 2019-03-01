@@ -1100,10 +1100,17 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     gtk_grid_attach(GTK_GRID(audio_grid),local_audio,0,0,1,1);
     g_signal_connect(local_audio,"toggled",G_CALLBACK(local_audio_cb),rx);
 
-    GtkWidget *remote_audio=gtk_check_button_new_with_label("Remote Audio");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (remote_audio), rx->remote_audio);
-    gtk_grid_attach(GTK_GRID(audio_grid),remote_audio,1,0,1,1);
-    g_signal_connect(remote_audio,"toggled",G_CALLBACK(remote_audio_cb),rx);
+    if(radio->discovered->device!=DEVICE_HERMES_LITE
+#ifdef SOAPYSDR
+       && radio->discovered->device!=DEVICE_SOAPYSDR_USB
+#endif
+      ) {
+
+      GtkWidget *remote_audio=gtk_check_button_new_with_label("Remote Audio");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (remote_audio), rx->remote_audio);
+      gtk_grid_attach(GTK_GRID(audio_grid),remote_audio,1,0,1,1);
+      g_signal_connect(remote_audio,"toggled",G_CALLBACK(remote_audio_cb),rx);
+    }
 
     audio_choice=gtk_combo_box_text_new();
     for(i=0;i<n_output_devices;i++) {
@@ -1121,20 +1128,115 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     }
   }
 
+  GtkWidget *equalizer_frame=gtk_frame_new("Equalizer");
+  GtkWidget *equalizer_grid=gtk_grid_new();
+  gtk_grid_set_row_homogeneous(GTK_GRID(equalizer_grid),FALSE);
+  gtk_grid_set_column_homogeneous(GTK_GRID(equalizer_grid),TRUE);
+  gtk_container_add(GTK_CONTAINER(equalizer_frame),equalizer_grid);
+  gtk_grid_attach(GTK_GRID(grid),equalizer_frame,col,row++,1,4);
+
+  GtkWidget *enable_b=gtk_check_button_new_with_label("Enable Equalizer");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (enable_b), rx->enable_equalizer);
+  g_signal_connect(enable_b,"toggled",G_CALLBACK(enable_cb),rx);
+  gtk_grid_attach(GTK_GRID(equalizer_grid),enable_b,0,0,4,1);
+
+  GtkWidget *label=gtk_label_new("Preamp");
+  gtk_grid_attach(GTK_GRID(equalizer_grid),label,0,1,1,1);
+
+  label=gtk_label_new("Low");
+  gtk_grid_attach(GTK_GRID(equalizer_grid),label,1,1,1,1);
+
+  label=gtk_label_new("Mid");
+  gtk_grid_attach(GTK_GRID(equalizer_grid),label,2,1,1,1);
+
+  label=gtk_label_new("High");
+  gtk_grid_attach(GTK_GRID(equalizer_grid),label,3,1,1,1);
+
+  GtkWidget *preamp_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
+  gtk_range_set_value(GTK_RANGE(preamp_scale),(double)rx->equalizer[0]);
+  GtkAdjustment *adj=gtk_range_get_adjustment(GTK_RANGE(preamp_scale));
+  gtk_adjustment_set_page_increment(adj,1.0);
+  g_signal_connect(preamp_scale,"value-changed",G_CALLBACK(preamp_value_changed_cb),rx);
+  gtk_grid_attach(GTK_GRID(equalizer_grid),preamp_scale,0,2,1,10);
+  gtk_widget_set_size_request(preamp_scale,10,270);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-12.0,GTK_POS_LEFT,"-12dB");
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),0.0,GTK_POS_LEFT,"0dB");
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),12.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),15.0,GTK_POS_LEFT,"15dB");
+
+  GtkWidget *low_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
+  gtk_range_set_value(GTK_RANGE(low_scale),(double)rx->equalizer[1]);
+  adj=gtk_range_get_adjustment(GTK_RANGE(low_scale));
+  gtk_adjustment_set_page_increment(adj,1.0);
+  g_signal_connect(low_scale,"value-changed",G_CALLBACK(low_value_changed_cb),rx);
+  gtk_grid_attach(GTK_GRID(equalizer_grid),low_scale,1,2,1,10);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),-12.0,GTK_POS_LEFT,"-12dB");
+  gtk_scale_add_mark(GTK_SCALE(low_scale),-9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),-6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),-3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),0.0,GTK_POS_LEFT,"0dB");
+  gtk_scale_add_mark(GTK_SCALE(low_scale),3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),12.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),15.0,GTK_POS_LEFT,"15dB");
+
+  GtkWidget *mid_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
+  gtk_range_set_value(GTK_RANGE(mid_scale),(double)rx->equalizer[2]);
+  adj=gtk_range_get_adjustment(GTK_RANGE(mid_scale));
+  gtk_adjustment_set_page_increment(adj,1.0);
+  g_signal_connect(mid_scale,"value-changed",G_CALLBACK(mid_value_changed_cb),rx);
+  gtk_grid_attach(GTK_GRID(equalizer_grid),mid_scale,2,2,1,10);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),-12.0,GTK_POS_LEFT,"-12dB");
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),-9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),-6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),-3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),0.0,GTK_POS_LEFT,"0dB");
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),12.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),15.0,GTK_POS_LEFT,"15dB");
+
+  GtkWidget *high_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
+  gtk_range_set_value(GTK_RANGE(high_scale),(double)rx->equalizer[3]);
+  adj=gtk_range_get_adjustment(GTK_RANGE(high_scale));
+  gtk_adjustment_set_page_increment(adj,1.0);
+  g_signal_connect(high_scale,"value-changed",G_CALLBACK(high_value_changed_cb),rx);
+  gtk_grid_attach(GTK_GRID(equalizer_grid),high_scale,3,2,1,10);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),-12.0,GTK_POS_LEFT,"-12dB");
+  gtk_scale_add_mark(GTK_SCALE(high_scale),-9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),-6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),-3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),0.0,GTK_POS_LEFT,"0dB");
+  gtk_scale_add_mark(GTK_SCALE(high_scale),3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),12.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),15.0,GTK_POS_LEFT,"15dB");
+
   col++;
   row=0;
 
-  GtkWidget *tx_frame=gtk_frame_new("TX Frequency");
-  GtkWidget *tx_grid=gtk_grid_new();
-  gtk_grid_set_row_homogeneous(GTK_GRID(tx_grid),TRUE);
-  gtk_grid_set_column_homogeneous(GTK_GRID(tx_grid),TRUE);
-  gtk_container_add(GTK_CONTAINER(tx_frame),tx_grid);
-  gtk_grid_attach(GTK_GRID(grid),tx_frame,col,row++,1,1);
+  if(strcmp(radio->discovered->name,"rtlsdr")!=0) {
+    GtkWidget *tx_frame=gtk_frame_new("TX Frequency");
+    GtkWidget *tx_grid=gtk_grid_new();
+    gtk_grid_set_row_homogeneous(GTK_GRID(tx_grid),TRUE);
+    gtk_grid_set_column_homogeneous(GTK_GRID(tx_grid),TRUE);
+    gtk_container_add(GTK_CONTAINER(tx_frame),tx_grid);
+    gtk_grid_attach(GTK_GRID(grid),tx_frame,col,row++,1,1);
 
-  tx_control=gtk_check_button_new_with_label("Use This Receivers Frequency");
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (tx_control), radio->transmitter->rx==rx);
-  gtk_grid_attach(GTK_GRID(tx_grid),tx_control,0,0,1,1);
-  g_signal_connect(tx_control,"toggled",G_CALLBACK(tx_cb),rx);
+    tx_control=gtk_check_button_new_with_label("Use This Receivers Frequency");
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (tx_control), radio->transmitter->rx==rx);
+    gtk_grid_attach(GTK_GRID(tx_grid),tx_control,0,0,1,1);
+    g_signal_connect(tx_control,"toggled",G_CALLBACK(tx_cb),rx);
+  }
 
   GtkWidget *panadapter_frame=gtk_frame_new("Panadapter");
   GtkWidget *panadapter_grid=gtk_grid_new();
@@ -1152,7 +1254,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   GtkWidget *fps_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,1.0, 50.0, 1.00);
   gtk_widget_set_size_request(fps_scale,200,30);
   gtk_range_set_value (GTK_RANGE(fps_scale),rx->fps);
-  GtkAdjustment *adj=gtk_range_get_adjustment(GTK_RANGE(fps_scale));
+  adj=gtk_range_get_adjustment(GTK_RANGE(fps_scale));
   gtk_adjustment_set_page_increment(adj,1.0);
   gtk_widget_show(fps_scale);
   g_signal_connect(G_OBJECT(fps_scale),"value_changed",G_CALLBACK(fps_value_changed_cb),rx);
@@ -1239,100 +1341,6 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (waterfall_ft8_marker), rx->waterfall_ft8_marker);
   gtk_grid_attach(GTK_GRID(waterfall_grid),waterfall_ft8_marker,0,3,2,1);
   g_signal_connect(waterfall_ft8_marker,"toggled",G_CALLBACK(waterfall_ft8_marker_cb),rx);
-
-
-  GtkWidget *equalizer_frame=gtk_frame_new("Equalizer");
-  GtkWidget *equalizer_grid=gtk_grid_new();
-  gtk_grid_set_row_homogeneous(GTK_GRID(equalizer_grid),FALSE);
-  gtk_grid_set_column_homogeneous(GTK_GRID(equalizer_grid),TRUE);
-  gtk_container_add(GTK_CONTAINER(equalizer_frame),equalizer_grid);
-  gtk_grid_attach(GTK_GRID(grid),equalizer_frame,col,row++,1,4);
-
-  GtkWidget *enable_b=gtk_check_button_new_with_label("Enable Equalizer");
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (enable_b), rx->enable_equalizer);
-  g_signal_connect(enable_b,"toggled",G_CALLBACK(enable_cb),rx);
-  gtk_grid_attach(GTK_GRID(equalizer_grid),enable_b,0,0,4,1);
-
-  GtkWidget *label=gtk_label_new("Preamp");
-  gtk_grid_attach(GTK_GRID(equalizer_grid),label,0,1,1,1);
-
-  label=gtk_label_new("Low");
-  gtk_grid_attach(GTK_GRID(equalizer_grid),label,1,1,1,1);
-
-  label=gtk_label_new("Mid");
-  gtk_grid_attach(GTK_GRID(equalizer_grid),label,2,1,1,1);
-
-  label=gtk_label_new("High");
-  gtk_grid_attach(GTK_GRID(equalizer_grid),label,3,1,1,1);
-
-  GtkWidget *preamp_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
-  gtk_range_set_value(GTK_RANGE(preamp_scale),(double)rx->equalizer[0]);
-  adj=gtk_range_get_adjustment(GTK_RANGE(preamp_scale));
-  gtk_adjustment_set_page_increment(adj,1.0);
-  g_signal_connect(preamp_scale,"value-changed",G_CALLBACK(preamp_value_changed_cb),rx);
-  gtk_grid_attach(GTK_GRID(equalizer_grid),preamp_scale,0,2,1,10);
-  gtk_widget_set_size_request(preamp_scale,10,270);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-12.0,GTK_POS_LEFT,"-12dB");
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),0.0,GTK_POS_LEFT,"0dB");
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),12.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),15.0,GTK_POS_LEFT,"15dB");
-
-  GtkWidget *low_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
-  gtk_range_set_value(GTK_RANGE(low_scale),(double)rx->equalizer[1]);
-  adj=gtk_range_get_adjustment(GTK_RANGE(low_scale));
-  gtk_adjustment_set_page_increment(adj,1.0);
-  g_signal_connect(low_scale,"value-changed",G_CALLBACK(low_value_changed_cb),rx);
-  gtk_grid_attach(GTK_GRID(equalizer_grid),low_scale,1,2,1,10);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),-12.0,GTK_POS_LEFT,"-12dB");
-  gtk_scale_add_mark(GTK_SCALE(low_scale),-9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),-6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),-3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),0.0,GTK_POS_LEFT,"0dB");
-  gtk_scale_add_mark(GTK_SCALE(low_scale),3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),12.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),15.0,GTK_POS_LEFT,"15dB");
-
-  GtkWidget *mid_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
-  gtk_range_set_value(GTK_RANGE(mid_scale),(double)rx->equalizer[2]);
-  adj=gtk_range_get_adjustment(GTK_RANGE(mid_scale));
-  gtk_adjustment_set_page_increment(adj,1.0);
-  g_signal_connect(mid_scale,"value-changed",G_CALLBACK(mid_value_changed_cb),rx);
-  gtk_grid_attach(GTK_GRID(equalizer_grid),mid_scale,2,2,1,10);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),-12.0,GTK_POS_LEFT,"-12dB");
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),-9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),-6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),-3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),0.0,GTK_POS_LEFT,"0dB");
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),12.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),15.0,GTK_POS_LEFT,"15dB");
-
-  GtkWidget *high_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
-  gtk_range_set_value(GTK_RANGE(high_scale),(double)rx->equalizer[3]);
-  adj=gtk_range_get_adjustment(GTK_RANGE(high_scale));
-  gtk_adjustment_set_page_increment(adj,1.0);
-  g_signal_connect(high_scale,"value-changed",G_CALLBACK(high_value_changed_cb),rx);
-  gtk_grid_attach(GTK_GRID(equalizer_grid),high_scale,3,2,1,10);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),-12.0,GTK_POS_LEFT,"-12dB");
-  gtk_scale_add_mark(GTK_SCALE(high_scale),-9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),-6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),-3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),0.0,GTK_POS_LEFT,"0dB");
-  gtk_scale_add_mark(GTK_SCALE(high_scale),3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),12.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),15.0,GTK_POS_LEFT,"15dB");
 
   return grid;
 }

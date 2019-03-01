@@ -164,6 +164,19 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(value,"%d",rx->filter_b);
   setProperty(name,value);
 
+  sprintf(name,"receiver[%d].ctun",rx->channel);
+  sprintf(value,"%d",rx->ctun);
+  setProperty(name,value);
+  sprintf(name,"receiver[%d].ctun_offset",rx->channel);
+  sprintf(value,"%ld",rx->ctun_offset);
+  setProperty(name,value);
+  sprintf(name,"receiver[%d].ctun_min",rx->channel);
+  sprintf(value,"%ld",rx->ctun_min);
+  setProperty(name,value);
+  sprintf(name,"receiver[%d].ctun_max",rx->channel);
+  sprintf(value,"%ld",rx->ctun_max);
+  setProperty(name,value);
+  
   sprintf(name,"receiver[%d].split",rx->channel);
   sprintf(value,"%d",rx->split);
   setProperty(name,value);
@@ -337,6 +350,19 @@ void receiver_restore_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].filter_b",rx->channel);
   value=getProperty(name);
   if(value) rx->filter_b=atoi(value);
+
+  sprintf(name,"receiver[%d].ctun",rx->channel);
+  value=getProperty(name);
+  if(value) rx->ctun=atoi(value);
+  sprintf(name,"receiver[%d].ctun_offset",rx->channel);
+  value=getProperty(name);
+  if(value) rx->ctun_offset=atol(value);
+  sprintf(name,"receiver[%d].ctun_min",rx->channel);
+  value=getProperty(name);
+  if(value) rx->ctun_min=atol(value);
+  sprintf(name,"receiver[%d].ctun_max",rx->channel);
+  value=getProperty(name);
+  if(value) rx->ctun_max=atol(value);
 
   sprintf(name,"receiver[%d].split",rx->channel);
   value=getProperty(name);
@@ -543,7 +569,7 @@ gboolean receiver_button_press_event_cb(GtkWidget *widget, GdkEventButton *event
   return TRUE;
 }
 
-static void update_frequency(RECEIVER *rx) {
+void update_frequency(RECEIVER *rx) {
   update_vfo(rx);
   if(radio->transmitter!=NULL) {
     if(radio->transmitter->rx==rx) {
@@ -563,7 +589,7 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
           // drag
           hz=(gint64)((double)(x-rx->last_x)*rx->hz_per_pixel);
           if(rx->ctun) {
-            rx->ctun_offset-=hz;
+            rx->ctun_offset=(rx->ctun_offset-hz)/rx->step*rx->step;
           } else {
             rx->frequency_a=(rx->frequency_a+hz)/rx->step*rx->step;
           }
@@ -571,7 +597,7 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
           // move to this frequency
           hz=(gint64)((double)(x-(rx->panadapter_width/2))*rx->hz_per_pixel);
           if(rx->ctun) {
-            rx->ctun_offset=hz;
+            rx->ctun_offset=hz/rx->step*rx->step;
           } else {
             rx->frequency_a=(rx->frequency_a+hz)/rx->step*rx->step;
             if(rx->mode_a==CWL) {
@@ -580,6 +606,10 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
               rx->frequency_a-=radio->cw_keyer_sidetone_frequency;
             }
           }
+        }
+        if(rx->ctun) {
+          if(rx->ctun_offset < rx->ctun_min) rx->ctun_offset=rx->ctun_min;
+          if(rx->ctun_offset > rx->ctun_max) rx->ctun_offset=rx->ctun_max;
         }
         rx->last_x=x;
         frequency_changed(rx);
@@ -602,9 +632,13 @@ gboolean receiver_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *even
       int moved=rx->last_x-x;
       gint64 hz=(gint64)((double)moved*rx->hz_per_pixel);
       if(rx->ctun) {
-        rx->ctun_offset+=hz;
+        rx->ctun_offset=(rx->ctun_offset-hz)/rx->step*rx->step;
       } else {
         rx->frequency_a=(rx->frequency_a+hz)/rx->step*rx->step;
+      }
+      if(rx->ctun) {
+        if(rx->ctun_offset < rx->ctun_min) rx->ctun_offset=rx->ctun_min;
+        if(rx->ctun_offset > rx->ctun_max) rx->ctun_offset=rx->ctun_max;
       }
       rx->last_x=x;
       rx->has_moved=TRUE;
@@ -631,6 +665,10 @@ gboolean receiver_scroll_event_cb(GtkWidget *widget, GdkEventScroll *event, gpoi
       } else {
         rx->frequency_a=rx->frequency_a-rx->step;
       }
+    }
+    if(rx->ctun) {
+      if(rx->ctun_offset < rx->ctun_min) rx->ctun_offset=rx->ctun_min;
+      if(rx->ctun_offset > rx->ctun_max) rx->ctun_offset=rx->ctun_max;
     }
     frequency_changed(rx);
     update_frequency(rx);
@@ -659,13 +697,13 @@ static gboolean update_timer_cb(void *data) {
 }
  
 static void set_mode(RECEIVER *rx,int m) {
-fprintf(stderr,"set_mode: %d\n",m);
+//fprintf(stderr,"set_mode: %d\n",m);
   rx->mode_a=m;
   SetRXAMode(rx->channel, m);
 }
 
 void set_filter(RECEIVER *rx,int low,int high) {
-fprintf(stderr,"set_filter: %d %d\n",low,high);
+//fprintf(stderr,"set_filter: %d %d\n",low,high);
   if(rx->mode_a==CWL) {
     rx->filter_low=-radio->cw_keyer_sidetone_frequency-low;
     rx->filter_high=-radio->cw_keyer_sidetone_frequency+high;
@@ -728,7 +766,7 @@ void receiver_filter_changed(RECEIVER *rx,int filter) {
 }
 
 void receiver_mode_changed(RECEIVER *rx,int mode) {
-fprintf(stderr,"receiver_mode_changed: %d\n",mode);
+//fprintf(stderr,"receiver_mode_changed: %d\n",mode);
   set_mode(rx,mode);
   receiver_filter_changed(rx,rx->filter_a);
 }
@@ -1090,6 +1128,10 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
     }
   }
    
+  rx->sample_rate=sample_rate;
+  rx->dsp_rate=96000;
+  rx->output_rate=48000;
+
   rx->frequency_a=14200000;
   rx->band_a=band20;
   rx->mode_a=USB;
@@ -1103,6 +1145,8 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
 
   rx->ctun=FALSE;
   rx->ctun_offset=0;
+  rx->ctun_min=-rx->sample_rate/2;
+  rx->ctun_max=rx->sample_rate/2;
 
   rx->frequency_b=14300000;
   rx->band_b=band20;
@@ -1131,9 +1175,6 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
   rx->pixels=0;
   rx->pixel_samples=NULL;
   rx->waterfall_pixbuf=NULL;
-  rx->sample_rate=sample_rate;
-  rx->dsp_rate=96000;
-  rx->output_rate=48000;
   rx->iq_sequence=0;
 #ifdef SOAPYSDR
   if(radio->discovered->device=DEVICE_SOAPYSDR_USB) {
@@ -1269,6 +1310,7 @@ g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d 
   RXASetNC(rx->channel, rx->fft_size);
   RXASetMP(rx->channel, rx->low_latency);
 
+  frequency_changed(rx);
   receiver_mode_changed(rx,rx->mode_a);
 
   SetRXAPanelGain1(rx->channel, rx->volume);

@@ -188,6 +188,8 @@ static int discover(void *data) {
     for(i=0;i<devices;i++) {
       d=&discovered[i];
 
+g_print("discovered: %d device=%d\n",i,discovered[i].device);
+
 #ifdef SOAPYSDR
       if(d->device==DEVICE_SOAPYSDR_USB) {
         sprintf(v,"%d.%d.%d", d->software_version/100,(d->software_version%100)/10, d->software_version%10);

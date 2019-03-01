@@ -1027,6 +1027,10 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
     case BUTTON_CTUN:
           rx->ctun=!rx->ctun;
           rx->ctun_offset=0;
+          rx->ctun_min=-rx->sample_rate/2;
+          rx->ctun_max=rx->sample_rate/2;
+          frequency_changed(rx);
+          update_frequency(rx);
       break;
     case BUTTON_ATOB:
       switch(event->button) {

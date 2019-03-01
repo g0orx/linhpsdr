@@ -53,6 +53,8 @@ typedef struct _receiver {
   
   gboolean ctun;
   gint64 ctun_offset;
+  gint64 ctun_min;
+  gint64 ctun_max;
 
   gint64 frequency_min;
   gint64 frequency_max;
@@ -227,4 +229,6 @@ extern void receiver_change_sample_rate(RECEIVER *rx,int sample_rate);
 extern void set_agc(RECEIVER *rx);
 extern void calculate_display_average(RECEIVER *rx);
 extern void receiver_fps_changed(RECEIVER *rx);
+
+extern void update_frequency(RECEIVER *rx);
 #endif
