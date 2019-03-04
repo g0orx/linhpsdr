@@ -24,6 +24,7 @@
 #include "radio.h"
 #include "main.h"
 #include "protocol1.h"
+#include "soapy_protocol.h"
 #include "audio.h"
 #include "signal.h"
 #include "vfo.h"

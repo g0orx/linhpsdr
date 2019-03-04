@@ -411,7 +411,7 @@ static void gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   if(radio->model==SOAPYSDR_USB) {
     //adc->pga=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
     gain=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
-    soapy_protocol_set_gain(gtk_widget_get_name(widget),gain);
+    soapy_protocol_set_gain((char *)gtk_widget_get_name(widget),gain);
   }
 }
 #endif
