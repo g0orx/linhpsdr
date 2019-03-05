@@ -30,6 +30,7 @@ void soapy_protocol_set_frequency(gint64 f);
 void soapy_protocol_set_antenna(int ant);
 void soapy_protocol_set_lna_gain(int gain);
 void soapy_protocol_set_gain(char *name,int gain);
+int soapy_protocol_get_gain(char *name);
 void soapy_protocol_set_attenuation(int attenuation);
 void soapy_protocol_change_sample_rate(int rate);
 

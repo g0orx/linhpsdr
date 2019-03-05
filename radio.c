@@ -64,6 +64,7 @@ static GtkWidget *add_wideband_b;
 static void rxtx(RADIO *r);
 
 void radio_save_state(RADIO *radio) {
+  char name[80];
   char value[80];
   int i;
   gint x,y;
@@ -159,15 +160,15 @@ g_print("radio_save_state: %s\n",filename);
   setProperty("radio.adc[0].preamp",value);
   sprintf(value,"%d",radio->adc[0].attenuation);
   setProperty("radio.adc[0].attenuation",value);
+
 #ifdef SOAPYSDR
-  sprintf(value,"%d",radio->adc[0].lna);
-  setProperty("radio.adc[0].lna",value);
-  sprintf(value,"%d",radio->adc[0].pga);
-  setProperty("radio.adc[0].pga",value);
-  sprintf(value,"%d",radio->adc[0].tia);
-  setProperty("radio.adc[0].tia",value);
-  sprintf(value,"%d",radio->adc[0].tuner);
-  setProperty("radio.adc[0].tuner",value);
+  if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
+    for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
+      sprintf(name,"radio.adc[0].gain.%s",radio->discovered->info.soapy.gain[i]);
+      sprintf(value,"%d", soapy_protocol_get_gain(radio->discovered->info.soapy.gain[i]));
+      setProperty(name,value);
+    }
+  }
 #endif
 
   sprintf(value,"%d",radio->adc[1].filters);
@@ -186,15 +187,16 @@ g_print("radio_save_state: %s\n",filename);
   setProperty("radio.adc[1].preamp",value);
   sprintf(value,"%d",radio->adc[1].attenuation);
   setProperty("radio.adc[1].attenuation",value);
+
 #ifdef SOAPYSDR
-  sprintf(value,"%d",radio->adc[1].lna);
-  setProperty("radio.adc[1].lna",value);
-  sprintf(value,"%d",radio->adc[1].pga);
-  setProperty("radio.adc[1].pga",value);
-  sprintf(value,"%d",radio->adc[1].tia);
-  setProperty("radio.adc[1].tia",value);
-  sprintf(value,"%d",radio->adc[1].tuner);
-  setProperty("radio.adc[1].tuner",value);
+  if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
+    for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
+      sprintf(name,"radio.adc[1].gain.%s",radio->discovered->info.soapy.gain[i]);
+      sprintf(value,"%d", soapy_protocol_get_gain(radio->discovered->info.soapy.gain[i]));
+      setProperty(name,value);
+    }
+  }
+
 #endif
 
   sprintf(value,"%d",radio->filter_board);
@@ -308,15 +310,15 @@ void radio_restore_state(RADIO *radio) {
   if(value!=NULL) radio->adc[0].preamp=atoi(value);
   value=getProperty("radio.adc[0].attenuation");
   if(value!=NULL) radio->adc[0].attenuation=atoi(value);
+
 #ifdef SOAPYSDR
-  value=getProperty("radio.adc[0].lna");
-  if(value!=NULL) radio->adc[0].lna=atoi(value);
-  value=getProperty("radio.adc[0].pga");
-  if(value!=NULL) radio->adc[0].pga=atoi(value);
-  value=getProperty("radio.adc[0].tia");
-  if(value!=NULL) radio->adc[0].tia=atoi(value);
-  value=getProperty("radio.adc[0].tuner");
-  if(value!=NULL) radio->adc[0].tuner=atoi(value);
+  if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
+    for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
+      sprintf(name,"radio.adc[0].gain.%s",radio->discovered->info.soapy.gain[i]) ;
+      value=getProperty(name);
+      if(value!=NULL) radio->adc[0].gain[i]=atoi(value);
+    }
+  }
 #endif
 
   value=getProperty("radio.adc[1].filters");
@@ -335,15 +337,15 @@ void radio_restore_state(RADIO *radio) {
   if(value!=NULL) radio->adc[1].preamp=atoi(value);
   value=getProperty("radio.adc[1].attenuation");
   if(value!=NULL) radio->adc[1].attenuation=atoi(value);
+
 #ifdef SOAPYSDR
-  value=getProperty("radio.adc[1].lna");
-  if(value!=NULL) radio->adc[1].lna=atoi(value);
-  value=getProperty("radio.adc[1].pga");
-  if(value!=NULL) radio->adc[1].pga=atoi(value);
-  value=getProperty("radio.adc[1].tia");
-  if(value!=NULL) radio->adc[1].tia=atoi(value);
-  value=getProperty("radio.adc[1].tuner");
-  if(value!=NULL) radio->adc[1].tuner=atoi(value);
+  if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
+    for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
+      sprintf(name,"radio.adc[1].gain.%s",radio->discovered->info.soapy.gain[i]) ;
+      value=getProperty(name);
+      if(value!=NULL) radio->adc[1].gain[i]=atoi(value);
+    }
+  }
 #endif
 
   value=getProperty("radio.local_microphone");
@@ -932,10 +934,12 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
   r->adc[0].preamp=FALSE;
   r->adc[0].attenuation=0;
 #ifdef SOAPYSDR
-  r->adc[0].lna=16;
-  r->adc[0].pga=6;
-  r->adc[0].tia=6;
-  r->adc[0].tuner=0;
+  if(r->discovered->device==DEVICE_SOAPYSDR_USB) {
+    r->adc[0].gain=malloc(r->discovered->info.soapy.gains*sizeof(gint));
+    for (size_t i = 0; i < r->discovered->info.soapy.gains; i++) {
+      r->adc[0].gain[i]=0;
+    }
+  }
 #endif
   r->adc[1].antenna=ANTENNA_1;
   r->adc[1].filters=AUTOMATIC;
@@ -946,10 +950,12 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
   r->adc[1].preamp=FALSE;
   r->adc[1].attenuation=0;
 #ifdef SOAPYSDR
-  r->adc[1].lna=16;
-  r->adc[1].pga=6;
-  r->adc[1].tia=6;
-  r->adc[1].tia=0;
+  if(r->discovered->device==DEVICE_SOAPYSDR_USB) {
+    r->adc[1].gain=malloc(r->discovered->info.soapy.gains*sizeof(gint));
+    for (size_t i = 0; i < r->discovered->info.soapy.gains; i++) {
+      r->adc[1].gain[i]=0;
+    }
+  }
 #endif
 
   r->wideband=NULL;
@@ -981,6 +987,9 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
 #ifdef SOAPYSDR
     case PROTOCOL_SOAPYSDR:
       soapy_protocol_init(r,0);
+      for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
+        soapy_protocol_set_gain(radio->discovered->info.soapy.gain[i],radio->adc[0].gain[i]);
+      } 
       frequency_changed(r->receiver[0]);
       break;
 #endif

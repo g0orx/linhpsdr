@@ -136,15 +136,11 @@ fprintf(stderr,"soapy_protocol: set baseband frequency\n");
 */
   
   soapy_protocol_set_antenna(r->adc[0].antenna);
-  if(strcmp(r->discovered->name,"limesdr")==0) {
+/*
     soapy_protocol_set_gain("LNA",r->adc[0].lna);
     soapy_protocol_set_gain("PGA",r->adc[0].pga);
     soapy_protocol_set_gain("TIA",r->adc[0].tia);
-  }
-  if(strcmp(r->discovered->name,"rtlsdr")==0) {
-    soapy_protocol_set_gain("TUNER",r->adc[0].tuner);
-  }
-
+*/
 fprintf(stderr,"soapy_protocol: receive_thread: SoapySDRDevice_setupStream\n");
   size_t channels=(size_t)soapy_receiver;
   rc=SoapySDRDevice_setupStream(soapy_device,&stream,SOAPY_SDR_RX,SOAPY_SDR_CF32,NULL,0,NULL);
@@ -262,72 +258,28 @@ void soapy_protocol_set_frequency(gint64 f) {
 
 void soapy_protocol_set_antenna(int ant) {
   int rc;
- // char *antstr;
   if(soapy_device!=NULL) {
-/*
-    antstr=SoapySDRDevice_getAntenna(soapy_device,SOAPY_SDR_RX,soapy_receiver);
-    fprintf(stderr,"soapy_protocol: set_antenna: current antenna=%s\n",antstr);
-*/
-    switch(ant) {
-      case 0:
-fprintf(stderr,"soapy_protocol: setAntenna: NONE\n");
-        rc=SoapySDRDevice_setAntenna(soapy_device,SOAPY_SDR_RX,soapy_receiver,"NONE");
-        if(rc!=0) {
-          fprintf(stderr,"soapy_protocol: SoapySDRDevice_setAntenna NONE failed: %s\n",SoapySDRDevice_lastError());
-        }
-        break;
-      case 1:
-fprintf(stderr,"soapy_protocol: setAntenna: LNAH\n");
-        rc=SoapySDRDevice_setAntenna(soapy_device,SOAPY_SDR_RX,soapy_receiver,"LNAH");
-        if(rc!=0) {
-          fprintf(stderr,"soapy_protocol: SoapySDRDevice_setAntenna LNAH failed: %s\n",SoapySDRDevice_lastError());
-        }
-        break;
-      case 2:
-fprintf(stderr,"soapy_protocol: setAntenna: LNAL\n");
-        rc=SoapySDRDevice_setAntenna(soapy_device,SOAPY_SDR_RX,soapy_receiver,"LNAL");
-        if(rc!=0) {
-          fprintf(stderr,"soapy_protocol: SoapySDRDevice_setAntenna LNAL failed: %s\n",SoapySDRDevice_lastError());
-        }
-        break;
-      case 3:
-fprintf(stderr,"soapy_protocol: setAntenna: LNAW\n");
-        rc=SoapySDRDevice_setAntenna(soapy_device,SOAPY_SDR_RX,soapy_receiver,"LNAW");
-        if(rc!=0) {
-          fprintf(stderr,"soapy_protocol: SoapySDRDevice_setAntenna LNAW failed: %s\n",SoapySDRDevice_lastError());
-        }
-        break;
-      case 4:
-fprintf(stderr,"soapy_protocol: setAntenna: LB1\n");
-        rc=SoapySDRDevice_setAntenna(soapy_device,SOAPY_SDR_RX,soapy_receiver,"LB1");
-        if(rc!=0) {
-          fprintf(stderr,"soapy_protocol: SoapySDRDevice_setAntenna LNAW failed: %s\n",SoapySDRDevice_lastError());
-        }
-        break;
-      case 5:
-fprintf(stderr,"soapy_protocol: setAntenna: LB2\n");
-        rc=SoapySDRDevice_setAntenna(soapy_device,SOAPY_SDR_RX,soapy_receiver,"LB2");
-        if(rc!=0) {
-          fprintf(stderr,"soapy_protocol: SoapySDRDevice_setAntenna LNAW failed: %s\n",SoapySDRDevice_lastError());
-        }
-        break;
+    fprintf(stderr,"soapy_protocol: set_antenna: %s\n",radio->discovered->info.soapy.antenna[ant]);
+    rc=SoapySDRDevice_setAntenna(soapy_device,SOAPY_SDR_RX,soapy_receiver,radio->discovered->info.soapy.antenna[ant]);
+    if(rc!=0) {
+      fprintf(stderr,"soapy_protocol: SoapySDRDevice_setAntenna NONE failed: %s\n",SoapySDRDevice_lastError());
     }
-/*
-    antstr=SoapySDRDevice_getAntenna(soapy_device,SOAPY_SDR_RX,soapy_receiver);
-    fprintf(stderr,"soapy_protocol: set_antenna: antenna=%s\n",antstr);
-*/
-  } else {
-    fprintf(stderr,"soapy_protocol: setAntenna: device is NULL\n");
-    saved_antenna=ant;
   }
 }
 
 void soapy_protocol_set_gain(char *name,int gain) {
   int rc;
-  fprintf(stderr,"soapy_protocol: settIng Gain %s=%f\n",name,(double)gain);
+fprintf(stderr,"soapy_protocol: settIng Gain %s=%f\n",name,(double)gain);
   rc=SoapySDRDevice_setGainElement(soapy_device,SOAPY_SDR_RX,soapy_receiver,name,(double)gain);
   if(rc!=0) {
     fprintf(stderr,"soapy_protocol: SoapySDRDevice_setGain %s failed: %s\n",name,SoapySDRDevice_lastError());
   }
+}
+
+int soapy_protocol_get_gain(char *name) {
+  double gain;
+  gain=SoapySDRDevice_getGainElement(soapy_device,SOAPY_SDR_RX,soapy_receiver,name);
+fprintf(stderr,"soapy_protocol: gettIng Gain %s=%f\n",name,gain);
+  return (int)gain;
 }
 

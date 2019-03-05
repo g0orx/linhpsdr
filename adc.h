@@ -63,10 +63,7 @@ typedef struct _adc {
   gboolean preamp;
   gint attenuation;
 #ifdef SOAPYSDR
-  gint lna;
-  gint pga;
-  gint tia;
-  gint tuner;
+  gint *gain;
 #endif
 } ADC;
 

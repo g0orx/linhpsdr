@@ -8,7 +8,7 @@
 #include "soapy_discovery.h"
 
 static void get_info(char *driver) {
-  size_t length, ranges_length;
+  size_t rates_length, gains_length, ranges_length, antennas_length;
   int i;
   SoapySDRKwargs args={};
   int version=0;
@@ -32,9 +32,9 @@ static void get_info(char *driver) {
     }
   }
 
-  SoapySDRRange *rates=SoapySDRDevice_getSampleRateRange(sdr, SOAPY_SDR_RX, 0, &length);
+  SoapySDRRange *rates=SoapySDRDevice_getSampleRateRange(sdr, SOAPY_SDR_RX, 0, &rates_length);
   fprintf(stderr,"Rx sample rates: ");
-  for (size_t i = 0; i < length; i++) {
+  for (size_t i = 0; i < rates_length; i++) {
     fprintf(stderr,"%f -> %f (%f),", rates[i].minimum, rates[i].maximum, rates[i].minimum/48000.0);
   }
   fprintf(stderr,"\n");
@@ -45,20 +45,13 @@ static void get_info(char *driver) {
   for (size_t i = 0; i < ranges_length; i++) fprintf(stderr,"[%f Hz -> %f Hz step=%f], ", ranges[i].minimum, ranges[i].maximum,ranges[i].step);
   fprintf(stderr,"\n");
 
-  char** names = SoapySDRDevice_listAntennas(sdr, SOAPY_SDR_RX, 0, &length);
+  char** antennas = SoapySDRDevice_listAntennas(sdr, SOAPY_SDR_RX, 0, &antennas_length);
   fprintf(stderr, "Rx antennas: ");
-  for (size_t i = 0; i < length; i++) fprintf(stderr, "%s, ", names[i]);
+  for (size_t i = 0; i < antennas_length; i++) fprintf(stderr, "%s, ", antennas[i]);
   fprintf(stderr,"\n");
-  SoapySDRStrings_clear(&names, length);
 
-  char **gains = SoapySDRDevice_listGains(sdr, SOAPY_SDR_RX, 0, &length);
+  char **gains = SoapySDRDevice_listGains(sdr, SOAPY_SDR_RX, 0, &gains_length);
   fprintf(stderr,"Rx gains: \n");
-  for (size_t i = 0; i < length; i++) {
-    fprintf(stderr,"%s ", gains[i]);
-    SoapySDRRange range=SoapySDRDevice_getGainElementRange(sdr, SOAPY_SDR_RX, 0, gains[i]);
-    fprintf(stderr,"%f -> %f step=%f\n",range.minimum,range.maximum,range.step);
-  }
-  SoapySDRStrings_clear(&gains, length);
 
   if(devices<MAX_DEVICES) {
     discovered[devices].device=DEVICE_SOAPYSDR_USB;
@@ -70,6 +63,17 @@ static void get_info(char *driver) {
     discovered[devices].software_version=version;
     discovered[devices].frequency_min=ranges[0].minimum;
     discovered[devices].frequency_max=ranges[0].maximum;
+    discovered[devices].info.soapy.gains=gains_length;
+    discovered[devices].info.soapy.gain=gains;
+    discovered[devices].info.soapy.range=malloc(gains_length*sizeof(SoapySDRRange));
+    for (size_t i = 0; i < gains_length; i++) {
+      fprintf(stderr,"%s ", gains[i]);
+      SoapySDRRange range=SoapySDRDevice_getGainElementRange(sdr, SOAPY_SDR_RX, 0, gains[i]);
+      fprintf(stderr,"%f -> %f step=%f\n",range.minimum,range.maximum,range.step);
+      discovered[devices].info.soapy.range[i]=range;
+    }
+    discovered[devices].info.soapy.antennas=antennas_length;
+    discovered[devices].info.soapy.antenna=antennas;
     devices++;
   }
 

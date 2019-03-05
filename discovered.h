@@ -88,6 +88,13 @@ struct _DISCOVERED {
         struct sockaddr_in interface_netmask;
         char interface_name[64];
       } network;
+      struct soapy {
+        size_t gains;
+        char **gain;
+        SoapySDRRange *range;
+        size_t antennas;
+        char **antenna;
+      } soapy;
     } info;
 };
 
