@@ -316,6 +316,7 @@ void band_cb(GtkWidget *menu_item,gpointer data) {
   int mode_a;
   long long frequency_a;
   long long lo_a=0LL;
+  long long error_a=0LL;
 
   switch(choice->selection) {
     case band2200:
@@ -695,11 +696,13 @@ void band_cb(GtkWidget *menu_item,gpointer data) {
       mode_a=USB;
       frequency_a=b->frequencyMin;
       lo_a=b->frequencyLO;
+      error_a=b->errorLO;
       break;
   }
   choice->rx->mode_a=mode_a;
   choice->rx->frequency_a=frequency_a;
   choice->rx->lo_a=lo_a;
+  choice->rx->error_a=error_a;
   choice->rx->ctun_offset=0;
   receiver_band_changed(choice->rx,band);
   if(radio->transmitter->rx==choice->rx) {
@@ -1031,6 +1034,9 @@ fprintf(stderr,"vfo_press_event_cb: x=%d y=%d\n",x,y);
           rx->ctun_offset=0;
           rx->ctun_min=-rx->sample_rate/2;
           rx->ctun_max=rx->sample_rate/2;
+          if(!rx->ctun) {
+            SetRXAShiftRun(rx->channel, 0);
+          }
           frequency_changed(rx);
           update_frequency(rx);
       break;
