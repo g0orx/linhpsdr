@@ -1,4 +1,4 @@
-
+#include <gtk/gtk.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,6 +53,12 @@ static void get_info(char *driver) {
   char **gains = SoapySDRDevice_listGains(sdr, SOAPY_SDR_RX, 0, &gains_length);
   fprintf(stderr,"Rx gains: \n");
 
+  gboolean has_automatic_gain=SoapySDRDevice_hasGainMode(sdr, SOAPY_SDR_RX, 0);
+  fprintf(stderr,"has_automaic_gain=%d\n",has_automatic_gain);
+
+  gboolean has_automatic_dc_offset_correction=SoapySDRDevice_hasDCOffsetMode(sdr, SOAPY_SDR_RX, 0);
+  fprintf(stderr,"has_automaic_dc_offset_correction=%d\n",has_automatic_dc_offset_correction);
+
   if(devices<MAX_DEVICES) {
     discovered[devices].device=DEVICE_SOAPYSDR_USB;
     discovered[devices].protocol=PROTOCOL_SOAPYSDR;
@@ -72,6 +78,8 @@ static void get_info(char *driver) {
       fprintf(stderr,"%f -> %f step=%f\n",range.minimum,range.maximum,range.step);
       discovered[devices].info.soapy.range[i]=range;
     }
+    discovered[devices].info.soapy.has_automatic_gain=has_automatic_gain;
+    discovered[devices].info.soapy.has_automatic_dc_offset_correction=has_automatic_dc_offset_correction;
     discovered[devices].info.soapy.antennas=antennas_length;
     discovered[devices].info.soapy.antenna=antennas;
     devices++;

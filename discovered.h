@@ -93,6 +93,8 @@ struct _DISCOVERED {
         size_t gains;
         char **gain;
         SoapySDRRange *range;
+        gboolean has_automatic_gain;
+        gboolean has_automatic_dc_offset_correction;
         size_t antennas;
         char **antenna;
       } soapy;

@@ -64,6 +64,7 @@ typedef struct _adc {
   gint attenuation;
 #ifdef SOAPYSDR
   gint *gain;
+  gboolean agc;
 #endif
 } ADC;
 

@@ -33,5 +33,7 @@ void soapy_protocol_set_gain(char *name,int gain);
 int soapy_protocol_get_gain(char *name);
 void soapy_protocol_set_attenuation(int attenuation);
 void soapy_protocol_change_sample_rate(int rate);
+gboolean soapy_protocol_get_automatic_gain();
+void soapy_protocol_set_automatic_gain(gboolean mode);
 
 #endif

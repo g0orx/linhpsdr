@@ -230,7 +230,7 @@ static int which_button(int x,int y) {
     }
   }
   if(y>12 && y<48){
-    if(x>4 && x<364){
+    if(x>4 && x<400){
       button=BUTTON_VFO;
     }
   }
@@ -740,6 +740,8 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
   int x=(int)event->x;
   int y=(int)event->y;
   char text[32];
+
+fprintf(stderr,"vfo_press_event_cb: x=%d y=%d\n",x,y);
 
   switch(which_button(x,y)) {
     case BUTTON_LOCK:
@@ -1299,7 +1301,7 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
       break;
       
     case BUTTON_VFO:
-      if(x>4 && x<212) {
+      if(x>4 && x<230) {
         switch(event->button) {
           case 1: //LEFT
             if(!rx->locked) {
@@ -1403,7 +1405,7 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
       SetRXAAGCTop(rx->channel, rx->agc_gain);
       break;
     case BUTTON_VFO:
-      if(x>4 && x<212) {
+      if(x>4 && x<230) {
         if(!rx->locked) {
           int digit=(x-5)/17;
           long long step=0LL;
@@ -1455,9 +1457,9 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
           }
           frequency_changed(rx);
         }
-      } else if(x>220 && x<364) {
+      } else if(x>240 && x<400) {
         if(!rx->locked) {
-          int digit=(x-220)/12;
+          int digit=(x-240)/12;
           long long step=0LL;
           switch(digit) {
             case 0:
@@ -1521,38 +1523,38 @@ static gboolean vfo_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *ev
   if(!rx->locked) {
     gdk_window_get_device_position(event->window,event->device,&x,&y,&state);
     if(y>12 && y<48) {
-      if(x>4 && x<212) {
+      if(x>4 && x<230) {
         int digit=(x-5)/17;
         switch(digit) {
-          //case 0:
-          //case 1:
+          case 0:
+          case 1:
           case 2:
           case 3:
-          case 5:
           case 6:
           case 7:
-          case 9:
+          case 8:
           case 10:
           case 11:
+          case 12:
             gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_DOUBLE_ARROW));
             break;
           default:
             gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_ARROW));
             break;
         }
-      } else if(x>220 && x<364) {
-        int digit=(x-220)/12;
+      } else if(x>240 && x<400) {
+        int digit=(x-240)/12;
         switch(digit) {
-          //case 0:
-          //case 1:
+          case 0:
+          case 1:
           case 2:
           case 3:
-          case 5:
           case 6:
           case 7:
-          case 9:
+          case 8:
           case 10:
           case 11:
+          case 12:
             gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_DOUBLE_ARROW));
             break;
           default:
@@ -1621,7 +1623,7 @@ void update_vfo(RECEIVER *rx) {
     } else {
       cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
     }
-    cairo_move_to(cr, 220, 12);
+    cairo_move_to(cr, 240, 12);
     cairo_set_font_size(cr, 12);
     cairo_show_text(cr, "VFO B");
 
@@ -1631,7 +1633,7 @@ void update_vfo(RECEIVER *rx) {
       cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
     }
     sprintf(temp,"%5lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
-    cairo_move_to(cr, 220, 38);
+    cairo_move_to(cr, 240, 38);
     cairo_set_font_size(cr, 20);
     cairo_show_text(cr, temp);
 

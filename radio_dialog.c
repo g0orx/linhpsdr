@@ -414,6 +414,12 @@ static void gain_value_changed_cb(GtkWidget *widget, gpointer data) {
     soapy_protocol_set_gain((char *)gtk_widget_get_name(widget),gain);
   }
 }
+
+static void agc_changed_cb(GtkWidget *widget, gpointer data) {
+  ADC *adc=(ADC *)data;
+  gboolean agc=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+  soapy_protocol_set_automatic_gain(agc);
+}
 #endif
 
 static void attenuation_value_changed_cb(GtkWidget *widget, gpointer data) {
@@ -532,6 +538,8 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   gtk_container_add(GTK_CONTAINER(adc0_frame),adc0_grid);
   gtk_grid_attach(GTK_GRID(grid),adc0_frame,col,row++,1,1);
 
+  int r=0;
+
  
   if(radio->discovered->device==DEVICE_HERMES_LITE) {
     GtkWidget *lna_gain_label=gtk_label_new("LNA Gain:");
@@ -557,16 +565,26 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
 
     gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_antenna_combo_box),radio->adc[0].antenna);
     g_signal_connect(adc0_antenna_combo_box,"changed",G_CALLBACK(adc0_antenna_cb),radio);
-    gtk_grid_attach(GTK_GRID(adc0_grid),adc0_antenna_combo_box,1,0,1,1);
+    gtk_grid_attach(GTK_GRID(adc0_grid),adc0_antenna_combo_box,1,r,1,1);
+    r++;
 
     if(radio->discovered->info.soapy.gains>0) {
       GtkWidget *gain=gtk_label_new("Gains:");
-      gtk_grid_attach(GTK_GRID(adc0_grid),gain,0,1,1,1);
+      gtk_grid_attach(GTK_GRID(adc0_grid),gain,0,r,1,1);
+      r++;
+    }
+
+    if(radio->discovered->info.soapy.has_automatic_gain) {
+      GtkWidget *agc=gtk_check_button_new_with_label("Hardware AGC: ");
+      gtk_grid_attach(GTK_GRID(adc0_grid),agc,1,r,1,1);
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(agc),radio->adc[0].agc);
+      g_signal_connect(agc,"toggled",G_CALLBACK(agc_changed_cb),&radio->adc[0]);
+      r++;
     }
 
     for(i=0;i<radio->discovered->info.soapy.gains;i++) {
       GtkWidget *gain_label=gtk_label_new(radio->discovered->info.soapy.gain[i]);
-      gtk_grid_attach(GTK_GRID(adc0_grid),gain_label,0,2+i,1,1);
+      gtk_grid_attach(GTK_GRID(adc0_grid),gain_label,0,r,1,1);
       SoapySDRRange range=radio->discovered->info.soapy.range[i];
       if(range.step==0.0) {
         range.step=1.0;
@@ -574,8 +592,9 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       GtkWidget *gain_b=gtk_spin_button_new_with_range(range.minimum,range.maximum,range.step);
       gtk_widget_set_name (gain_b, radio->discovered->info.soapy.gain[i]);
       gtk_spin_button_set_value(GTK_SPIN_BUTTON(gain_b),(double)radio->adc[0].gain[i]);
-      gtk_grid_attach(GTK_GRID(adc0_grid),gain_b,1,2+i,1,1);
+      gtk_grid_attach(GTK_GRID(adc0_grid),gain_b,1,r,1,1);
       g_signal_connect(gain_b,"value_changed",G_CALLBACK(gain_value_changed_cb),&radio->adc[0]);
+      r++;
     }
 #endif
   } else {
@@ -770,7 +789,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   GtkWidget *smeter_label=gtk_label_new(" S-Meter:");
   gtk_grid_attach(GTK_GRID(calibration_grid),smeter_label,0,1,1,1);
 
-  GtkWidget *smeter_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-50.0, 50.0, 1.00);
+  GtkWidget *smeter_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-100.0, 100.0, 1.00);
   gtk_widget_set_size_request(smeter_scale,200,30);
   gtk_range_set_value (GTK_RANGE(smeter_scale),radio->meter_calibration);
   gtk_widget_show(smeter_scale);
@@ -780,7 +799,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   GtkWidget *panadapter_label=gtk_label_new(" Panadapter:");
   gtk_grid_attach(GTK_GRID(calibration_grid),panadapter_label,0,2,1,1);
 
-  GtkWidget *panadapter_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-50.0, 50.0, 1.00);
+  GtkWidget *panadapter_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-100.0, 100.0, 1.00);
   gtk_widget_set_size_request(panadapter_scale,200,30);
   gtk_range_set_value (GTK_RANGE(panadapter_scale),radio->panadapter_calibration);
   gtk_widget_show(panadapter_scale);

@@ -168,6 +168,9 @@ g_print("radio_save_state: %s\n",filename);
       sprintf(value,"%d", soapy_protocol_get_gain(radio->discovered->info.soapy.gain[i]));
       setProperty(name,value);
     }
+    sprintf(name,"radio.adc[0].agc");
+    sprintf(value,"%d", soapy_protocol_get_automatic_gain());
+    setProperty(name,value);
   }
 #endif
 
@@ -195,8 +198,10 @@ g_print("radio_save_state: %s\n",filename);
       sprintf(value,"%d", soapy_protocol_get_gain(radio->discovered->info.soapy.gain[i]));
       setProperty(name,value);
     }
+    sprintf(name,"radio.adc[1].agc");
+    sprintf(value,"%d", soapy_protocol_get_automatic_gain());
+    setProperty(name,value);
   }
-
 #endif
 
   sprintf(value,"%d",radio->filter_board);
@@ -318,6 +323,9 @@ void radio_restore_state(RADIO *radio) {
       value=getProperty(name);
       if(value!=NULL) radio->adc[0].gain[i]=atoi(value);
     }
+    value=getProperty("radio.adc[0].agc");
+    if(value!=NULL) radio->adc[0].agc=atoi(value);
+
   }
 #endif
 
@@ -939,6 +947,7 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
     for (size_t i = 0; i < r->discovered->info.soapy.gains; i++) {
       r->adc[0].gain[i]=0;
     }
+    r->adc[0].agc=FALSE;
   }
 #endif
   r->adc[1].antenna=ANTENNA_1;
@@ -955,6 +964,7 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
     for (size_t i = 0; i < r->discovered->info.soapy.gains; i++) {
       r->adc[1].gain[i]=0;
     }
+    r->adc[1].agc=FALSE;
   }
 #endif
 
@@ -990,6 +1000,7 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
       for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
         soapy_protocol_set_gain(radio->discovered->info.soapy.gain[i],radio->adc[0].gain[i]);
       } 
+      soapy_protocol_set_automatic_gain(radio->adc[0].agc);
       frequency_changed(r->receiver[0]);
       break;
 #endif
