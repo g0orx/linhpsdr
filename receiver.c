@@ -1177,7 +1177,7 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
   rx->waterfall_pixbuf=NULL;
   rx->iq_sequence=0;
 #ifdef SOAPYSDR
-  if(radio->discovered->device=DEVICE_SOAPYSDR_USB) {
+  if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
     rx->buffer_size=16384;
   } else {
 #endif
@@ -1199,7 +1199,7 @@ fprintf(stderr,"create_receiver: buffer_size=%d\n",rx->buffer_size);
   rx->display_average_time=170.0;
 
 #ifdef SOAPYSDR
-  if(radio->discovered->device=DEVICE_SOAPYSDR_USB) {
+  if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
     rx->fft_size=16384;
   } else {
 #endif
