@@ -1462,8 +1462,8 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
           if(rx->ctun) {
             rx->ctun_offset=rx->ctun_offset+step;
             if(rx->ctun) {
-              if(rx->ctun_offset < rx->ctun_min) rx->ctun_offset=rx->ctun_min;
-              if(rx->ctun_offset > rx->ctun_max) rx->ctun_offset=rx->ctun_max;
+              if(rx->ctun_offset < rx->ctun_min) rx->ctun_offset=rx->ctun_offset-step;
+              if(rx->ctun_offset > rx->ctun_max) rx->ctun_offset=rx->ctun_offset-step;
             }
           } else {
             rx->frequency_a+=step;
