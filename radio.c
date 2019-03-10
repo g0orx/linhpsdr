@@ -426,7 +426,7 @@ void vox_changed(RADIO *r) {
 }
 
 void frequency_changed(RECEIVER *rx) {
-//fprintf(stderr,"frequency_changed: channel=%d frequency=%ld lo=%ld error=%ld ctun=%d ctun_offset=%ld\n",rx->channel,rx->frequency_a,rx->lo_a,rx->error_a,rx->ctun,rx->ctun_offset);
+fprintf(stderr,"frequency_changed: channel=%d frequency=%ld lo=%ld error=%ld ctun=%d ctun_offset=%ld\n",rx->channel,rx->frequency_a,rx->lo_a,rx->error_a,rx->ctun,rx->ctun_offset);
   if(rx->ctun) {
     SetRXAShiftFreq(rx->channel, (double)rx->ctun_offset);
     RXANBPSetShiftFrequency(rx->channel, (double)rx->ctun_offset);
@@ -1000,8 +1000,11 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
       for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
         soapy_protocol_set_gain(radio->discovered->info.soapy.gain[i],radio->adc[0].gain[i]);
       } 
-      soapy_protocol_set_automatic_gain(radio->adc[0].agc);
       frequency_changed(r->receiver[0]);
+      soapy_protocol_set_automatic_gain(radio->adc[0].agc);
+      for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
+        soapy_protocol_set_gain(radio->discovered->info.soapy.gain[i],radio->adc[0].gain[i]);
+      } 
       break;
 #endif
   }
