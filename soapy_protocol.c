@@ -243,13 +243,13 @@ void soapy_protocol_stop() {
   running=0;
 }
 
-void soapy_protocol_set_frequency(gint64 f) {
+void soapy_protocol_set_frequency(double f) {
   int rc;
   char *ant;
 
   if(soapy_device!=NULL) {
-//fprintf(stderr,"soapy_protocol: setFrequency: %ld\n",f);
-    rc=SoapySDRDevice_setFrequency(soapy_device,SOAPY_SDR_RX,soapy_receiver,(double)f,NULL);
+fprintf(stderr,"soapy_protocol: setFrequency: %f\n",f);
+    rc=SoapySDRDevice_setFrequency(soapy_device,SOAPY_SDR_RX,soapy_receiver,f,NULL);
     if(rc!=0) {
       fprintf(stderr,"soapy_protocol: SoapySDRDevice_setFrequency() failed: %s\n",SoapySDR_errToStr(rc));
     }

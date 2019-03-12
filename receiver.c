@@ -698,8 +698,15 @@ static gboolean update_timer_cb(void *data) {
  
 static void set_mode(RECEIVER *rx,int m) {
 //fprintf(stderr,"set_mode: %d\n",m);
+  int previous_mode;
+  previous_mode=rx->mode_a;
   rx->mode_a=m;
   SetRXAMode(rx->channel, m);
+  if(rx->mode_a==FMN && previous_mode!=FMN) {
+    SetDSPSamplerate (rx->channel, 19200);
+  } else if(rx->mode_a!=FMN && previous_mode==FMN) {
+    SetDSPSamplerate (rx->channel, 48000);
+  }
 }
 
 void set_filter(RECEIVER *rx,int low,int high) {
@@ -1129,7 +1136,7 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
   }
    
   rx->sample_rate=sample_rate;
-  rx->dsp_rate=96000;
+  rx->dsp_rate=48000;
   rx->output_rate=48000;
 
   rx->frequency_a=14200000;
@@ -1298,8 +1305,7 @@ g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d 
               rx->buffer_size,
               rx->fft_size,
               rx->sample_rate,
-              //48000, // dsp rate
-              96000, // dsp rate
+              48000, // dsp rate
               48000, // output rate
               0, // receive
               1, // run

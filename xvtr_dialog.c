@@ -92,37 +92,47 @@ void save_xvtr () {
 void update_receiver(int band) {
   int i;
   for(i=0;i<MAX_RECEIVERS;i++) {
-    if(radio->receiver[i]->band_a==band) {
+    if(radio->receiver[i]!=NULL) {
+      if(radio->receiver[i]->band_a==band) {
+        BAND *xvtr=band_get_band(band);
+        radio->receiver[i]->lo_a=xvtr->frequencyLO;
+        radio->receiver[i]->error_a=xvtr->errorLO;
+        frequency_changed(radio->receiver[i]);
+      }
     }
   }
 }
 
 void min_frequency_cb(GtkEditable *editable,gpointer user_data) {
-  int i=GPOINTER_TO_INT(user_data);
-  BAND *xvtr=band_get_band(i);
-  const char* minf=gtk_entry_get_text(GTK_ENTRY(min_frequency[i]));
+  int band=GPOINTER_TO_INT(user_data);
+  BAND *xvtr=band_get_band(band);
+  const char* minf=gtk_entry_get_text(GTK_ENTRY(min_frequency[band]));
   xvtr->frequencyMin=atoll(minf)*1000000;
+  update_receiver(band);
 }
 
 void max_frequency_cb(GtkEditable *editable,gpointer user_data) {
-  int i=GPOINTER_TO_INT(user_data);
-  BAND *xvtr=band_get_band(i);
-  const char* maxf=gtk_entry_get_text(GTK_ENTRY(max_frequency[i]));
+  int band=GPOINTER_TO_INT(user_data);
+  BAND *xvtr=band_get_band(band);
+  const char* maxf=gtk_entry_get_text(GTK_ENTRY(max_frequency[band]));
   xvtr->frequencyMax=atoll(maxf)*1000000;
+  update_receiver(band);
 }
 
 void lo_frequency_cb(GtkEditable *editable,gpointer user_data) {
-  int i=GPOINTER_TO_INT(user_data);
-  BAND *xvtr=band_get_band(i);
-  const char* lof=gtk_entry_get_text(GTK_ENTRY(lo_frequency[i]));
+  int band=GPOINTER_TO_INT(user_data);
+  BAND *xvtr=band_get_band(band);
+  const char* lof=gtk_entry_get_text(GTK_ENTRY(lo_frequency[band]));
   xvtr->frequencyLO=atoll(lof)*1000000;
+  update_receiver(band);
 }
 
 void lo_error_cb(GtkEditable *editable,gpointer user_data) {
-  int i=GPOINTER_TO_INT(user_data);
-  BAND *xvtr=band_get_band(i);
-  const char* errorf=gtk_entry_get_text(GTK_ENTRY(lo_error[i]));
+  int band=GPOINTER_TO_INT(user_data);
+  BAND *xvtr=band_get_band(band);
+  const char* errorf=gtk_entry_get_text(GTK_ENTRY(lo_error[band]));
   xvtr->errorLO=atoll(errorf);
+  update_receiver(band);
 }
 
 GtkWidget *create_xvtr_dialog(RADIO *radio) {

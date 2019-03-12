@@ -432,14 +432,16 @@ fprintf(stderr,"frequency_changed: channel=%d frequency=%ld lo=%ld error=%ld ctu
     RXANBPSetShiftFrequency(rx->channel, (double)rx->ctun_offset);
     SetRXAShiftRun(rx->channel, 1);
   } else {
+    double f=(double)(rx->frequency_a-rx->lo_a+rx->error_a);
+fprintf(stderr,"frequency_changed: f=%f\n",f);
     if(radio->discovered->protocol==PROTOCOL_2) {
       protocol2_high_priority();
 #ifdef SOAPYSDR
     } else if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
-      soapy_protocol_set_frequency(rx->frequency_a-rx->lo_a+rx->error_a);
+      soapy_protocol_set_frequency(f);
 #endif
     }
-    rx->band_a=get_band_from_frequency(rx->frequency_a);
+    rx->band_a=get_band_from_frequency((gint64)f);
   }
 }
 
@@ -1000,7 +1002,15 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
       for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
         soapy_protocol_set_gain(radio->discovered->info.soapy.gain[i],radio->adc[0].gain[i]);
       } 
-      frequency_changed(r->receiver[0]);
+      RECEIVER *rx=r->receiver[0];
+      if(rx->ctun) {
+        rx->ctun=FALSE;
+        frequency_changed(rx);
+        rx->ctun=TRUE;
+        frequency_changed(rx);
+      } else {
+        frequency_changed(rx);
+      }
       soapy_protocol_set_automatic_gain(radio->adc[0].agc);
       for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
         soapy_protocol_set_gain(radio->discovered->info.soapy.gain[i],radio->adc[0].gain[i]);

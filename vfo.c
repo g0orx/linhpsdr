@@ -703,6 +703,7 @@ void band_cb(GtkWidget *menu_item,gpointer data) {
   choice->rx->frequency_a=frequency_a;
   choice->rx->lo_a=lo_a;
   choice->rx->error_a=error_a;
+  choice->rx->ctun=FALSE;
   choice->rx->ctun_offset=0;
   receiver_band_changed(choice->rx,band);
   if(radio->transmitter->rx==choice->rx) {
