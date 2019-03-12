@@ -1002,14 +1002,8 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
         soapy_protocol_set_gain(radio->discovered->info.soapy.gain[i],radio->adc[0].gain[i]);
       } 
       RECEIVER *rx=r->receiver[0];
-      if(rx->ctun) {
-        rx->ctun=FALSE;
-        frequency_changed(rx);
-        rx->ctun=TRUE;
-        frequency_changed(rx);
-      } else {
-        frequency_changed(rx);
-      }
+      double f=(double)(rx->frequency_a-rx->lo_a+rx->error_a);
+      soapy_protocol_set_frequency(f);
       soapy_protocol_set_automatic_gain(radio->adc[0].agc);
       for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
         soapy_protocol_set_gain(radio->discovered->info.soapy.gain[i],radio->adc[0].gain[i]);

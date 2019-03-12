@@ -667,20 +667,36 @@ void band_cb(GtkWidget *menu_item,gpointer data) {
       break;
 #ifdef SOAPYSDR
     case band70:
+      mode_a=USB;
+      frequency_a=70300000LL;
       break;
     case band220:
+      mode_a=USB;
+      frequency_a=430300000LL;
       break;
     case band430:
+      mode_a=USB;
+      frequency_a=430300000LL;
       break;
     case band902:
+      mode_a=USB;
+      frequency_a=430300000LL;
       break;
     case band1240:
+      mode_a=USB;
+      frequency_a=1240300000LL;
       break;
     case band2300:
+      mode_a=USB;
+      frequency_a=2300300000LL;
       break;
     case band3400:
+      mode_a=USB;
+      frequency_a=3400300000LL;
       break;
     case bandAIR:
+      mode_a=AM;
+      frequency_a=126825000LL;
       break;
 #endif
     case bandGen:

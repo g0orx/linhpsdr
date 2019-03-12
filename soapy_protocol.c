@@ -51,9 +51,6 @@ static int outputRate=48000;
 static float *buffer;
 static int max_samples;
 
-//static long long saved_frequency=105400000LL;
-static int saved_antenna=-1;
-
 static double audiooutputbuffer[4096*2];
 static int samples=0;
 
@@ -120,27 +117,11 @@ fprintf(stderr,"soapy_protocol: setting samplerate=%f\n",(double)soapy_sample_ra
   }
 
 /*
-fprintf(stderr,"soapy_protocol: set antenna to NONE\n");
-  soapy_protocol_set_antenna(0);
-*/
-
 fprintf(stderr,"soapy_protocol: setting frequency: %ld\n",r->receiver[rx]->frequency_a);
-    soapy_protocol_set_frequency((double)r->receiver[rx]->frequency_a);
-
-/*
-fprintf(stderr,"soapy_protocol: set baseband frequency\n");
-  rc=SoapySDRDevice_setFrequencyComponent(soapy_device,SOAPY_SDR_RX,soapy_receiver,"BB",0.0,NULL);
-  if(rc!=0) {
-    fprintf(stderr,"soapy_protocol: SoapySDRDevice_setFrequencyComponent(BB) failed: %s\n",SoapySDR_errToStr(rc));
-  }
-*/
-  
+  soapy_protocol_set_frequency((double)r->receiver[rx]->frequency_a);
   soapy_protocol_set_antenna(r->adc[0].antenna);
-/*
-    soapy_protocol_set_gain("LNA",r->adc[0].lna);
-    soapy_protocol_set_gain("PGA",r->adc[0].pga);
-    soapy_protocol_set_gain("TIA",r->adc[0].tia);
 */
+
 fprintf(stderr,"soapy_protocol: receive_thread: SoapySDRDevice_setupStream\n");
   size_t channels=(size_t)soapy_receiver;
   rc=SoapySDRDevice_setupStream(soapy_device,&stream,SOAPY_SDR_RX,SOAPY_SDR_CF32,NULL,0,NULL);
@@ -158,19 +139,6 @@ fprintf(stderr,"soapy_protocol: max_samples=%d\n",max_samples);
     fprintf(stderr,"soapy_protocol: SoapySDRDevice_activateStream failed: %s\n",SoapySDR_errToStr(rc));
     _exit(-1);
   }
-
-
-/*
-  if(saved_antenna!=-1) {
-fprintf(stderr,"soapy_protocol: setting save_antenna: %d\n",saved_antenna);
-    soapy_protocol_set_antenna(saved_antenna);
-  }
-
-  if(saved_frequency!=0LL) {
-fprintf(stderr,"soapy_protocol: setting save_frequency: %lld\n",saved_frequency);
-      soapy_protocol_set_frequency(saved_frequency);
-  }
-*/
 
 fprintf(stderr,"soapy_protocol_init: audio_open_output\n");
   if(audio_open_output(r->receiver[soapy_receiver])!=0) {

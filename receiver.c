@@ -766,8 +766,8 @@ void receiver_filter_changed(RECEIVER *rx,int filter) {
     set_deviation(rx);
   } else {
     FILTER *mode_filters=filters[rx->mode_a];
-    FILTER *filter=&mode_filters[rx->filter_a];
-    set_filter(rx,filter->low,filter->high);
+    FILTER *f=&mode_filters[rx->filter_a];
+    set_filter(rx,f->low,f->high);
   }
   update_vfo(rx);
 }
