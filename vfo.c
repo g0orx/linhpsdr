@@ -699,6 +699,7 @@ void band_cb(GtkWidget *menu_item,gpointer data) {
       error_a=b->errorLO;
       break;
   }
+  choice->rx->band_a=choice->selection;
   choice->rx->mode_a=mode_a;
   choice->rx->frequency_a=frequency_a;
   choice->rx->lo_a=lo_a;

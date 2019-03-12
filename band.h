@@ -104,7 +104,7 @@ extern int band_get_current();
 extern BAND *band_get_current_band();
 extern BAND *band_get_band(int b);
 extern BAND *band_set_current(int b);
-extern int get_band_from_frequency(long long f);
+extern int get_band_from_frequency(gint64 f);
 
 extern BANDSTACK *bandstack_get_bandstack(int band);
 extern BANDSTACK_ENTRY *bandstack_get_bandstack_entry(int band,int entry);

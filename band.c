@@ -601,9 +601,10 @@ void bandRestoreState() {
     if(value) band=atoi(value);
 }
 
-int get_band_from_frequency(long long f) {
+int get_band_from_frequency(gint64 f) {
   int b;
   int found=-1;
+
   for(b=0;b<BANDS+XVTRS;b++) {
     BAND *band=band_get_band(b);
     if(strlen(band->title)>0) {

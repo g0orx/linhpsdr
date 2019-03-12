@@ -426,14 +426,13 @@ void vox_changed(RADIO *r) {
 }
 
 void frequency_changed(RECEIVER *rx) {
-fprintf(stderr,"frequency_changed: channel=%d frequency=%ld lo=%ld error=%ld ctun=%d ctun_offset=%ld\n",rx->channel,rx->frequency_a,rx->lo_a,rx->error_a,rx->ctun,rx->ctun_offset);
+//fprintf(stderr,"frequency_changed: channel=%d frequency=%ld lo=%ld error=%ld ctun=%d ctun_offset=%ld\n",rx->channel,rx->frequency_a,rx->lo_a,rx->error_a,rx->ctun,rx->ctun_offset);
   if(rx->ctun) {
     SetRXAShiftFreq(rx->channel, (double)rx->ctun_offset);
     RXANBPSetShiftFrequency(rx->channel, (double)rx->ctun_offset);
     SetRXAShiftRun(rx->channel, 1);
   } else {
     double f=(double)(rx->frequency_a-rx->lo_a+rx->error_a);
-fprintf(stderr,"frequency_changed: f=%f\n",f);
     if(radio->discovered->protocol==PROTOCOL_2) {
       protocol2_high_priority();
 #ifdef SOAPYSDR
@@ -441,7 +440,7 @@ fprintf(stderr,"frequency_changed: f=%f\n",f);
       soapy_protocol_set_frequency(f);
 #endif
     }
-    rx->band_a=get_band_from_frequency((gint64)f);
+    rx->band_a=get_band_from_frequency(rx->frequency_a);
   }
 }
 

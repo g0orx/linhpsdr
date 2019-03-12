@@ -93,6 +93,7 @@ void update_receiver(int band) {
   int i;
   for(i=0;i<MAX_RECEIVERS;i++) {
     if(radio->receiver[i]!=NULL) {
+fprintf(stderr,"update_receiver: band=%d rx=%d band_a=%d\n",band,i,radio->receiver[i]->band_a);
       if(radio->receiver[i]->band_a==band) {
         BAND *xvtr=band_get_band(band);
         radio->receiver[i]->lo_a=xvtr->frequencyLO;
