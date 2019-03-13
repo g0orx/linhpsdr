@@ -91,6 +91,7 @@ void save_xvtr () {
 
 void update_receiver(int band) {
   int i;
+  gboolean saved_ctun;
   for(i=0;i<MAX_RECEIVERS;i++) {
     if(radio->receiver[i]!=NULL) {
 fprintf(stderr,"update_receiver: band=%d rx=%d band_a=%d\n",band,i,radio->receiver[i]->band_a);
@@ -98,7 +99,14 @@ fprintf(stderr,"update_receiver: band=%d rx=%d band_a=%d\n",band,i,radio->receiv
         BAND *xvtr=band_get_band(band);
         radio->receiver[i]->lo_a=xvtr->frequencyLO;
         radio->receiver[i]->error_a=xvtr->errorLO;
+        saved_ctun=radio->receiver[i]->ctun;
+        if(saved_ctun) {
+          radio->receiver[i]->ctun=FALSE;
+        }
         frequency_changed(radio->receiver[i]);
+        if(saved_ctun) {
+          radio->receiver[i]->ctun=TRUE;
+        }
       }
     }
   }
