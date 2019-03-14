@@ -58,7 +58,6 @@ void receiver_save_state(RECEIVER *rx) {
   gint y;
   gint width;
   gint height;
-  gint paned;
 
   sprintf(name,"receiver[%d].channel",rx->channel);
   sprintf(value,"%d",rx->channel);
@@ -287,12 +286,19 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(value,"%d",height);
   setProperty(name,value);
 
-  paned=gtk_paned_get_position(GTK_PANED(rx->vpaned));
-  sprintf(name,"receiver[%d].paned",rx->channel);
-  sprintf(value,"%d",paned);
+  rx->paned_position=gtk_paned_get_position(GTK_PANED(rx->vpaned));
+  sprintf(name,"receiver[%d].paned_position",rx->channel);
+  sprintf(value,"%d",rx->paned_position);
+  setProperty(name,value);
+
+  gint paned_height=gtk_widget_get_allocated_height(rx->vpaned);
+  double paned_percent=(double)rx->paned_position/(double)paned_height;
+
+  sprintf(name,"receiver[%d].paned_percent",rx->channel);
+  sprintf(value,"%f",paned_percent);
   setProperty(name,value);
   
-//g_print("rx[%d].paned=%d\n",rx->channel,paned);  
+fprintf(stderr,"receiver_save_sate: paned_position=%d paned_height=%d paned_percent=%f\n",rx->paned_position, paned_height, paned_percent);
 }
 
 void receiver_restore_state(RECEIVER *rx) {
@@ -489,6 +495,14 @@ void receiver_restore_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].waterfall_ft8_marker",rx->channel);
   value=getProperty(name);
   if(value) rx->waterfall_ft8_marker=atoi(value);
+
+  sprintf(name,"receiver[%d].paned_position",rx->channel);
+  value=getProperty(name);
+  if(value) rx->paned_position=atoi(value);
+
+  sprintf(name,"receiver[%d].paned_percent",rx->channel);
+  value=getProperty(name);
+  if(value) rx->paned_percent=atof(value);
 }
 
 void receiver_xvtr_changed(RECEIVER *rx) {
@@ -889,19 +903,12 @@ void add_iq_samples(RECEIVER *rx,double i_sample,double q_sample) {
 static gboolean receiver_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
   char name[80];
   char *value;
-  gint paned;
+
   RECEIVER *rx=(RECEIVER *)data;
   gint width=gtk_widget_get_allocated_width(widget);
   gint height=gtk_widget_get_allocated_height(widget);
   rx->window_width=width;
   rx->window_height=height;
-  if(rx->vpaned!=NULL) {
-    sprintf(name,"receiver[%d].paned",rx->channel);
-    value=getProperty(name);
-    if(value) paned=atoi(value);
-      //gtk_paned_set_position(GTK_PANED(rx->vpaned),paned);
-//g_print("gtk_paned_set_position: rx=%d paned=%d\n",rx->channel,paned);
-  }
   return FALSE;
 }
 
@@ -1287,6 +1294,7 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   rx->cat_control=-1;
 
   rx->vpaned=NULL;
+  rx->paned_position=-1;
 
   receiver_restore_state(rx);
 
@@ -1377,11 +1385,12 @@ g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d 
       if(value) height=atoi(value);
       gtk_window_resize(GTK_WINDOW(rx->window),width,height);
 
-      sprintf(name,"receiver[%d].paned",rx->channel);
-      value=getProperty(name);
-      if(value) paned=atoi(value);
-//      gtk_paned_set_position(GTK_PANED(rx->vpaned),paned);
-g_print("gtk_paned_set_position: rx=%d paned=%d\n",rx->channel,paned);
+      if(rx->vpaned!=NULL && rx->paned_position!=-1) {
+        gint paned_height=gtk_widget_get_allocated_height(rx->vpaned);
+        gint position=(gint)((double)paned_height*rx->paned_percent);
+        gtk_paned_set_position(GTK_PANED(rx->vpaned),position);
+g_print("receiver_configure_event: gtk_paned_set_position: rx=%d position=%d height=%d percent=%f\n",rx->channel,position,paned_height,rx->paned_percent);
+      }
     }
 
     update_frequency(rx);
