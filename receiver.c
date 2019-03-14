@@ -1295,6 +1295,7 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
 
   rx->vpaned=NULL;
   rx->paned_position=-1;
+  rx->paned_percent=0.5;
 
   receiver_restore_state(rx);
 
