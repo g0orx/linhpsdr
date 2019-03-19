@@ -158,7 +158,9 @@ static void update_controls() {
       break;
   }
 
-  gtk_combo_box_set_active(GTK_COMBO_BOX(filter_board_combo_box),radio->filter_board);
+  if(radio->discovered->device!=DEVICE_SOAPYSDR_USB) {
+    gtk_combo_box_set_active(GTK_COMBO_BOX(filter_board_combo_box),radio->filter_board);
+  }
 }
 
 static void model_cb(GtkComboBox *widget,gpointer data) {
@@ -213,7 +215,7 @@ static void adc0_antenna_cb(GtkComboBox *widget,gpointer data) {
     protocol2_high_priority();
 #ifdef SOAPYSDR
   } else if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
-    soapy_protocol_set_antenna(radio->adc[0].antenna);
+    soapy_protocol_set_antenna(radio->receiver[0],radio->adc[0].antenna);
 #endif
   }
 }
@@ -411,14 +413,20 @@ static void gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   if(radio->model==SOAPYSDR_USB) {
     //adc->pga=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
     gain=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
-    soapy_protocol_set_gain((char *)gtk_widget_get_name(widget),gain);
+    soapy_protocol_set_gain(radio->receiver[0],(char *)gtk_widget_get_name(widget),gain);
+    for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
+      if(strcmp(radio->discovered->info.soapy.rx_gain[i],(char *)gtk_widget_get_name(widget))==0) {
+        radio->adc[0].rx_gain[i]=gain;
+        break;
+      }
+    }
   }
 }
 
 static void agc_changed_cb(GtkWidget *widget, gpointer data) {
   ADC *adc=(ADC *)data;
   gboolean agc=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
-  soapy_protocol_set_automatic_gain(agc);
+  soapy_protocol_set_automatic_gain(radio->receiver[0],agc);
 }
 #endif
 
@@ -568,13 +576,13 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     gtk_grid_attach(GTK_GRID(adc0_grid),adc0_antenna_combo_box,1,r,1,1);
     r++;
 
-    if(radio->discovered->info.soapy.gains>0) {
+    if(radio->discovered->info.soapy.rx_gains>0) {
       GtkWidget *gain=gtk_label_new("Gains:");
       gtk_grid_attach(GTK_GRID(adc0_grid),gain,0,r,1,1);
       r++;
     }
 
-    if(radio->discovered->info.soapy.has_automatic_gain) {
+    if(radio->discovered->info.soapy.rx_has_automatic_gain) {
       GtkWidget *agc=gtk_check_button_new_with_label("Hardware AGC: ");
       gtk_grid_attach(GTK_GRID(adc0_grid),agc,1,r,1,1);
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(agc),radio->adc[0].agc);
@@ -582,16 +590,16 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       r++;
     }
 
-    for(i=0;i<radio->discovered->info.soapy.gains;i++) {
-      GtkWidget *gain_label=gtk_label_new(radio->discovered->info.soapy.gain[i]);
+    for(i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
+      GtkWidget *gain_label=gtk_label_new(radio->discovered->info.soapy.rx_gain[i]);
       gtk_grid_attach(GTK_GRID(adc0_grid),gain_label,0,r,1,1);
-      SoapySDRRange range=radio->discovered->info.soapy.range[i];
+      SoapySDRRange range=radio->discovered->info.soapy.rx_range[i];
       if(range.step==0.0) {
         range.step=1.0;
       }
       GtkWidget *gain_b=gtk_spin_button_new_with_range(range.minimum,range.maximum,range.step);
-      gtk_widget_set_name (gain_b, radio->discovered->info.soapy.gain[i]);
-      gtk_spin_button_set_value(GTK_SPIN_BUTTON(gain_b),(double)radio->adc[0].gain[i]);
+      gtk_widget_set_name (gain_b, radio->discovered->info.soapy.rx_gain[i]);
+      gtk_spin_button_set_value(GTK_SPIN_BUTTON(gain_b),(double)radio->adc[0].rx_gain[i]);
       gtk_grid_attach(GTK_GRID(adc0_grid),gain_b,1,r,1,1);
       g_signal_connect(gain_b,"value_changed",G_CALLBACK(gain_value_changed_cb),&radio->adc[0]);
       r++;

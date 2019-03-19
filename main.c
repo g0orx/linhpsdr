@@ -42,6 +42,9 @@
 #include "main.h"
 #include "protocol1.h"
 #include "protocol2.h"
+#ifdef SOAPYSDR
+#include "soapy_protocol.h"
+#endif
 #include "property.h"
 #include "rigctl.h"
 #include "version.h"
@@ -86,9 +89,15 @@ static gboolean main_delete (GtkWidget *widget) {
       case PROTOCOL_2:
         protocol2_stop();
         break;
+#ifdef SOAPYSDR
+      case PROTOCOL_SOAPYSDR:
+        soapy_protocol_stop();
+        break;
+#endif
     }
+  } else {
+    _exit(0);
   }
-  _exit(0);
 }
 
 static gpointer wisdom_thread(gpointer arg) {

@@ -68,6 +68,9 @@ typedef struct _receiver {
   gint64 offset;
   gint bandstack;
 
+  gint64 lo_tx;
+  gboolean tx_track_rx;
+
   gint64 frequency_b;
   gint64 lo_b;
   gint64 error_b;

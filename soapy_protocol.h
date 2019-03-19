@@ -26,14 +26,16 @@ SoapySDRDevice *get_soapy_device();
 
 void soapy_protocol_init(RADIO *r,int rx);
 void soapy_protocol_stop();
-void soapy_protocol_set_frequency(double f);
-void soapy_protocol_set_antenna(int ant);
-void soapy_protocol_set_lna_gain(int gain);
-void soapy_protocol_set_gain(char *name,int gain);
-int soapy_protocol_get_gain(char *name);
-void soapy_protocol_set_attenuation(int attenuation);
-void soapy_protocol_change_sample_rate(int rate);
-gboolean soapy_protocol_get_automatic_gain();
-void soapy_protocol_set_automatic_gain(gboolean mode);
+void soapy_protocol_set_frequency(RECEIVER *rx,double f);
+void soapy_protocol_set_antenna(RECEIVER *rx,int ant);
+void soapy_protocol_set_lna_gain(RECEIVER *rx,int gain);
+void soapy_protocol_set_gain(RECEIVER *rx,char *name,int gain);
+int soapy_protocol_get_gain(RECEIVER *rx,char *name);
+void soapy_protocol_set_attenuation(RECEIVER *rx,int attenuation);
+void soapy_protocol_change_sample_rate(RECEIVER *rx,int rate);
+gboolean soapy_protocol_get_automatic_gain(RECEIVER *rx);
+void soapy_protocol_set_automatic_gain(RECEIVER *rx,gboolean mode);
+void soapy_protocol_start_transmitter(TRANSMITTER *tx);
+void soapy_protocol_stop_transmitter(TRANSMITTER *tx);
 
 #endif

@@ -163,13 +163,13 @@ g_print("radio_save_state: %s\n",filename);
 
 #ifdef SOAPYSDR
   if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
-    for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
-      sprintf(name,"radio.adc[0].gain.%s",radio->discovered->info.soapy.gain[i]);
-      sprintf(value,"%d", soapy_protocol_get_gain(radio->discovered->info.soapy.gain[i]));
+    for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
+      sprintf(name,"radio.adc[0].rx_gain.%s",radio->discovered->info.soapy.rx_gain[i]);
+      sprintf(value,"%d", radio->adc[0].rx_gain[i]);
       setProperty(name,value);
     }
     sprintf(name,"radio.adc[0].agc");
-    sprintf(value,"%d", soapy_protocol_get_automatic_gain());
+    sprintf(value,"%d", soapy_protocol_get_automatic_gain(radio->receiver[0]));
     setProperty(name,value);
   }
 #endif
@@ -192,14 +192,14 @@ g_print("radio_save_state: %s\n",filename);
   setProperty("radio.adc[1].attenuation",value);
 
 #ifdef SOAPYSDR
-  if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
-    for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
-      sprintf(name,"radio.adc[1].gain.%s",radio->discovered->info.soapy.gain[i]);
-      sprintf(value,"%d", soapy_protocol_get_gain(radio->discovered->info.soapy.gain[i]));
+  if(radio->discovered->device==DEVICE_SOAPYSDR_USB && radio->discovered->supported_receivers>1) {
+    for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
+      sprintf(name,"radio.adc[1].rx_gain.%s",radio->discovered->info.soapy.rx_gain[i]);
+      sprintf(value,"%d", radio->adc[1].rx_gain[i]);
       setProperty(name,value);
     }
     sprintf(name,"radio.adc[1].agc");
-    sprintf(value,"%d", soapy_protocol_get_automatic_gain());
+    sprintf(value,"%d", soapy_protocol_get_automatic_gain(radio->receiver[1]));
     setProperty(name,value);
   }
 #endif
@@ -318,10 +318,10 @@ void radio_restore_state(RADIO *radio) {
 
 #ifdef SOAPYSDR
   if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
-    for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
-      sprintf(name,"radio.adc[0].gain.%s",radio->discovered->info.soapy.gain[i]) ;
+    for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
+      sprintf(name,"radio.adc[0].rx_gain.%s",radio->discovered->info.soapy.rx_gain[i]) ;
       value=getProperty(name);
-      if(value!=NULL) radio->adc[0].gain[i]=atoi(value);
+      if(value!=NULL) radio->adc[0].rx_gain[i]=atoi(value);
     }
     value=getProperty("radio.adc[0].agc");
     if(value!=NULL) radio->adc[0].agc=atoi(value);
@@ -348,10 +348,10 @@ void radio_restore_state(RADIO *radio) {
 
 #ifdef SOAPYSDR
   if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
-    for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
-      sprintf(name,"radio.adc[1].gain.%s",radio->discovered->info.soapy.gain[i]) ;
+    for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
+      sprintf(name,"radio.adc[1].rx_gain.%s",radio->discovered->info.soapy.rx_gain[i]) ;
       value=getProperty(name);
-      if(value!=NULL) radio->adc[1].gain[i]=atoi(value);
+      if(value!=NULL) radio->adc[1].rx_gain[i]=atoi(value);
     }
   }
 #endif
@@ -437,7 +437,7 @@ void frequency_changed(RECEIVER *rx) {
       protocol2_high_priority();
 #ifdef SOAPYSDR
     } else if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
-      soapy_protocol_set_frequency(f);
+      soapy_protocol_set_frequency(rx,f);
 #endif
     }
     rx->band_a=get_band_from_frequency(rx->frequency_a);
@@ -823,7 +823,8 @@ RADIO *create_radio(DISCOVERED *d) {
   RADIO *r;
   int i;
 
-g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.network.address.sin_addr));
+g_print("create_radio for %s %d\n",d->name,d->device);
+
   radio=g_new0(RADIO,1);
   r=radio;
   r->discovered=d;
@@ -944,9 +945,9 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
   r->adc[0].attenuation=0;
 #ifdef SOAPYSDR
   if(r->discovered->device==DEVICE_SOAPYSDR_USB) {
-    r->adc[0].gain=malloc(r->discovered->info.soapy.gains*sizeof(gint));
-    for (size_t i = 0; i < r->discovered->info.soapy.gains; i++) {
-      r->adc[0].gain[i]=0;
+    r->adc[0].rx_gain=malloc(r->discovered->info.soapy.rx_gains*sizeof(gint));
+    for (size_t i = 0; i < r->discovered->info.soapy.rx_gains; i++) {
+      r->adc[0].rx_gain[i]=0;
     }
     r->adc[0].agc=FALSE;
   }
@@ -961,9 +962,9 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
   r->adc[1].attenuation=0;
 #ifdef SOAPYSDR
   if(r->discovered->device==DEVICE_SOAPYSDR_USB) {
-    r->adc[1].gain=malloc(r->discovered->info.soapy.gains*sizeof(gint));
-    for (size_t i = 0; i < r->discovered->info.soapy.gains; i++) {
-      r->adc[1].gain[i]=0;
+    r->adc[1].rx_gain=malloc(r->discovered->info.soapy.rx_gains*sizeof(gint));
+    for (size_t i = 0; i < r->discovered->info.soapy.rx_gains; i++) {
+      r->adc[1].rx_gain[i]=0;
     }
     r->adc[1].agc=FALSE;
   }
@@ -998,15 +999,16 @@ g_print("create_radio for %s %d %s\n",d->name,d->device,inet_ntoa(d->info.networ
 #ifdef SOAPYSDR
     case PROTOCOL_SOAPYSDR:
       soapy_protocol_init(r,0);
-      for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
-        soapy_protocol_set_gain(radio->discovered->info.soapy.gain[i],radio->adc[0].gain[i]);
+      soapy_protocol_set_antenna(radio->receiver[0],radio->adc[0].antenna);
+      for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
+        soapy_protocol_set_gain(radio->receiver[0],radio->discovered->info.soapy.rx_gain[i],radio->adc[0].rx_gain[i]);
       } 
       RECEIVER *rx=r->receiver[0];
       double f=(double)(rx->frequency_a-rx->lo_a+rx->error_a);
-      soapy_protocol_set_frequency(f);
-      soapy_protocol_set_automatic_gain(radio->adc[0].agc);
-      for(int i=0;i<radio->discovered->info.soapy.gains;i++) {
-        soapy_protocol_set_gain(radio->discovered->info.soapy.gain[i],radio->adc[0].gain[i]);
+      soapy_protocol_set_frequency(radio->receiver[0],f);
+      soapy_protocol_set_automatic_gain(radio->receiver[0],radio->adc[0].agc);
+      for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
+        soapy_protocol_set_gain(radio->receiver[0],radio->discovered->info.soapy.rx_gain[i],radio->adc[0].rx_gain[i]);
       } 
       break;
 #endif

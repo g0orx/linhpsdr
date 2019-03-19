@@ -90,13 +90,20 @@ struct _DISCOVERED {
       } network;
 #ifdef SOAPYSDR
       struct soapy {
-        size_t gains;
-        char **gain;
-        SoapySDRRange *range;
-        gboolean has_automatic_gain;
-        gboolean has_automatic_dc_offset_correction;
-        size_t antennas;
-        char **antenna;
+        size_t rx_channels;
+        size_t rx_gains;
+        char **rx_gain;
+        SoapySDRRange *rx_range;
+        gboolean rx_has_automatic_gain;
+        gboolean rx_has_automatic_dc_offset_correction;
+        size_t rx_antennas;
+        char **rx_antenna;
+        size_t tx_channels;
+        size_t tx_gains;
+        char **tx_gain;
+        SoapySDRRange *tx_range;
+        size_t tx_antennas;
+        char **tx_antenna;
       } soapy;
 #endif
     } info;

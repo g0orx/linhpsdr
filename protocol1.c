@@ -145,7 +145,7 @@ static unsigned char control_in[5]={0x00,0x00,0x00,0x00,0x00};
 static double tuning_phase;
 static double phase=0.0;
 
-static int running;
+static gboolean running;
 static long ep4_sequence;
 
 static int current_rx=0;
@@ -235,6 +235,7 @@ static unsigned char usb_buffer_block = 0;
 
 void protocol1_stop() {
   metis_start_stop(0);
+  running=FALSE;
 }
 
 void protocol1_run() {
@@ -317,7 +318,7 @@ static gpointer ozy_ep6_rx_thread(gpointer arg) {
   unsigned char buffer[2048];
 
   fprintf(stderr, "protocol1: USB EP6 receive_thread\n");
-  running=1;
+  running=TRUE;
  
   while (running)
   {
@@ -344,6 +345,8 @@ static gpointer ozy_ep6_rx_thread(gpointer arg) {
     }
 
   }
+  // terminate
+  _exit(0);
 }
 #endif
 
@@ -414,7 +417,7 @@ static gpointer receive_thread(gpointer arg) {
   long sequence;
 
   fprintf(stderr, "protocol1: receive_thread\n");
-  running=1;
+  running=TRUE;
 
   length=sizeof(addr);
   while(running) {
@@ -434,7 +437,7 @@ static gpointer receive_thread(gpointer arg) {
           } else {
             error_handler("protocol1: receiver_thread: recvfrom socket failed",strerror(errno));
           }
-          running=0;
+          running=FALSE;
           continue;
         }
 

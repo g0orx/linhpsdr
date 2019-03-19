@@ -73,7 +73,7 @@
 
 int data_socket=-1;
 
-static int running;
+static gboolean running;
 
 static struct sockaddr_in base_addr;
 static int base_addr_length;
@@ -1048,6 +1048,7 @@ void protocol2_stop() {
     running=0;
     protocol2_high_priority();
     usleep(100000); // 100 ms
+    _exit(0);
 }
 
 void protocol2_run() {
@@ -1130,7 +1131,7 @@ fprintf(stderr,"protocol2_thread: high_priority_addr setup for port %d\n",HIGH_P
     audioindex=4; // leave space for sequence
     audiosequence=0L;
 
-    running=1;
+    running=TRUE;
     protocol2_general();
     protocol2_start();
     protocol2_high_priority();

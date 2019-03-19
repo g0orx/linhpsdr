@@ -133,6 +133,12 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].error_a",rx->channel);
   sprintf(value,"%ld",rx->error_a);
   setProperty(name,value);
+  sprintf(name,"receiver[%d].lo_tx",rx->channel);
+  sprintf(value,"%ld",rx->lo_tx);
+  setProperty(name,value);
+  sprintf(name,"receiver[%d].tx_track_rx",rx->channel);
+  sprintf(value,"%d",rx->tx_track_rx);
+  setProperty(name,value);
   sprintf(name,"receiver[%d].band_a",rx->channel);
   sprintf(value,"%d",rx->band_a);
   setProperty(name,value);
@@ -326,6 +332,12 @@ void receiver_restore_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].lo_a",rx->channel);
   value=getProperty(name);
   if(value) rx->lo_a=atol(value);
+  sprintf(name,"receiver[%d].lo_tx",rx->channel);
+  value=getProperty(name);
+  if(value) rx->lo_tx=atol(value);
+  sprintf(name,"receiver[%d].tx_track_rx",rx->channel);
+  value=getProperty(name);
+  if(value) rx->tx_track_rx=atoi(value);
   sprintf(name,"receiver[%d].error_a",rx->channel);
   value=getProperty(name);
   if(value) rx->error_a=atol(value);
@@ -1139,6 +1151,13 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
 
         }
         break;
+      case PROTOCOL_SOAPYSDR:
+        if(radio->discovered->supported_receivers>1) {
+          rx->adc=2;
+        } else {
+          rx->adc=1;
+        }
+        break;
     }
   }
    
@@ -1156,6 +1175,8 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
   rx->lo_a=0;
   rx->error_a=0;
   rx->offset=0;
+  rx->lo_tx=0;
+  rx->tx_track_rx=FALSE;
 
   rx->ctun=FALSE;
   rx->ctun_offset=0;
@@ -1192,7 +1213,7 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
   rx->iq_sequence=0;
 #ifdef SOAPYSDR
   if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
-    rx->buffer_size=16384;
+    rx->buffer_size=2048;
   } else {
 #endif
     rx->buffer_size=1024;
@@ -1214,7 +1235,7 @@ fprintf(stderr,"create_receiver: buffer_size=%d\n",rx->buffer_size);
 
 #ifdef SOAPYSDR
   if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
-    rx->fft_size=16384;
+    rx->fft_size=2048;
   } else {
 #endif
     rx->fft_size=2048;
