@@ -158,9 +158,13 @@ static void update_controls() {
       break;
   }
 
+#ifdef SOAPYSDR
   if(radio->discovered->device!=DEVICE_SOAPYSDR_USB) {
+#endif
     gtk_combo_box_set_active(GTK_COMBO_BOX(filter_board_combo_box),radio->filter_board);
+#ifdef SOAPYSDR
   }
+#endif
 }
 
 static void model_cb(GtkComboBox *widget,gpointer data) {

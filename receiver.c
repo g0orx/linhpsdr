@@ -1151,6 +1151,7 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
 
         }
         break;
+#ifdef SOAPYSDR
       case PROTOCOL_SOAPYSDR:
         if(radio->discovered->supported_receivers>1) {
           rx->adc=2;
@@ -1158,6 +1159,7 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
           rx->adc=1;
         }
         break;
+#endif
     }
   }
    
