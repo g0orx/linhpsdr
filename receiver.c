@@ -49,6 +49,9 @@
 #include "configure_dialog.h"
 #include "property.h"
 #include "rigctl.h"
+#ifdef PID
+#include "pid.h"
+#endif
 
 void receiver_save_state(RECEIVER *rx) {
   char name[80];
@@ -847,6 +850,14 @@ static void process_rx_buffer(RECEIVER *rx) {
       //audio_write(rx,left_audio_sample,right_audio_sample);
       audio_write(rx,(float)rx->audio_output_buffer[i*2],(float)rx->audio_output_buffer[(i*2)+1]);
     } 
+
+#ifdef PID
+    if(i==0) {
+      double pid=pid_sample((double)rx->audio_output_buffer[i*2]);
+      fprintf(stderr,"pid=%f\n",pid);
+    }
+#endif
+
     if(radio->active_receiver==rx) {
       switch(radio->discovered->protocol) {
         case PROTOCOL_1:
@@ -1117,6 +1128,10 @@ g_print("create_receiver: channel=%d sample_rate=%d\n", channel, sample_rate);
   rx->channel=channel;
   rx->adc=0;
 
+#ifdef PID
+  pid_init(0.5,0.05,0.0);
+#endif
+
   rx->frequency_min=(gint64)radio->discovered->frequency_min;
   rx->frequency_max=(gint64)radio->discovered->frequency_max;
 g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", channel, rx->frequency_min, rx->frequency_max);
@@ -1151,6 +1166,7 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
 
         }
         break;
+#ifdef SOAPYSDR
       case PROTOCOL_SOAPYSDR:
         if(radio->discovered->supported_receivers>1) {
           rx->adc=2;
@@ -1158,6 +1174,7 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
           rx->adc=1;
         }
         break;
+#endif
     }
   }
    
