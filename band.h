@@ -37,7 +37,7 @@ enum {
    band12,
    band10,
    band6,
-#ifdef SOAPYSDR
+#if defined(SOAPYSDR)
    band70,
    band144,
    band220,
@@ -76,6 +76,8 @@ typedef struct _BAND {
     long long frequencyMax;
     long long frequencyLO;
     long long errorLO;
+    long long txFrequencyLO;
+    long long txErrorLO;
     int disablePA;
 } BAND;
 

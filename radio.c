@@ -70,15 +70,17 @@ void radio_save_state(RADIO *radio) {
   gint x,y;
   gint width,height;
   char filename[128];
+  switch(radio->discovered->protocol) {
+    
 #ifdef SOAPYSDR
-  if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
-    sprintf(filename,"%s/.local/share/linhpsdr/%s.props",
+    case PROTOCOL_SOAPYSDR:
+      sprintf(filename,"%s/.local/share/linhpsdr/%s.props",
                         g_get_home_dir(),
                         radio->discovered->name);
-  } else {
+      break;
 #endif
-
-    sprintf(filename,"%s/.local/share/linhpsdr/%02X-%02X-%02X-%02X-%02X-%02X.props",
+    default:
+      sprintf(filename,"%s/.local/share/linhpsdr/%02X-%02X-%02X-%02X-%02X-%02X.props",
                         g_get_home_dir(),
                         radio->discovered->info.network.mac_address[0],
                         radio->discovered->info.network.mac_address[1],
@@ -86,9 +88,8 @@ void radio_save_state(RADIO *radio) {
                         radio->discovered->info.network.mac_address[3],
                         radio->discovered->info.network.mac_address[4],
                         radio->discovered->info.network.mac_address[5]);
-#ifdef SOAPYSDR
+      break;
   }
-#endif
 
 g_print("radio_save_state: %s\n",filename);
   initProperties();
@@ -198,9 +199,11 @@ g_print("radio_save_state: %s\n",filename);
       sprintf(value,"%d", radio->adc[1].rx_gain[i]);
       setProperty(name,value);
     }
-    sprintf(name,"radio.adc[1].agc");
-    sprintf(value,"%d", soapy_protocol_get_automatic_gain(radio->receiver[1]));
-    setProperty(name,value);
+    if(radio->receiver[1]!=NULL) {
+      sprintf(name,"radio.adc[1].agc");
+      sprintf(value,"%d", soapy_protocol_get_automatic_gain(radio->receiver[1]));
+      setProperty(name,value);
+    }
   }
 #endif
 
@@ -247,14 +250,16 @@ void radio_restore_state(RADIO *radio) {
   char name[80];
   char *value;
   char filename[128];
+  switch(radio->discovered->protocol) {
 #ifdef SOAPYSDR
-  if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
-    sprintf(filename,"%s/.local/share/linhpsdr/%s.props",
+    case PROTOCOL_SOAPYSDR:
+      sprintf(filename,"%s/.local/share/linhpsdr/%s.props",
                         g_get_home_dir(),
                         radio->discovered->name);
-  } else {
+      break;
 #endif
-    sprintf(filename,"%s/.local/share/linhpsdr/%02X-%02X-%02X-%02X-%02X-%02X.props",
+    default:
+      sprintf(filename,"%s/.local/share/linhpsdr/%02X-%02X-%02X-%02X-%02X-%02X.props",
                         g_get_home_dir(),
                         radio->discovered->info.network.mac_address[0],
                         radio->discovered->info.network.mac_address[1],
@@ -262,9 +267,8 @@ void radio_restore_state(RADIO *radio) {
                         radio->discovered->info.network.mac_address[3],
                         radio->discovered->info.network.mac_address[4],
                         radio->discovered->info.network.mac_address[5]);
-#ifdef SOAPYSDR
+      break;
   }
-#endif
 
   loadProperties(filename);
 
@@ -437,7 +441,7 @@ void frequency_changed(RECEIVER *rx) {
       protocol2_high_priority();
 #ifdef SOAPYSDR
     } else if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
-      soapy_protocol_set_frequency(rx,f);
+      soapy_protocol_set_frequency(rx);
 #endif
     }
     rx->band_a=get_band_from_frequency(rx->frequency_a);
@@ -675,8 +679,17 @@ void add_receivers(RADIO *r) {
   if(receivers==0) {
     r->receiver[0]=create_receiver(0,r->sample_rate);
     r->receivers++;
-    if(r->discovered->protocol==PROTOCOL_2) {
-      protocol2_start_receiver(r->receiver[0]);
+    switch(r->discovered->protocol) {
+      case PROTOCOL_2:
+        protocol2_start_receiver(r->receiver[0]);
+        break;
+#ifdef SOAPYSDR
+      case PROTOCOL_SOAPYSDR:
+        soapy_protocol_create_receiver(r->receiver[0]);
+        break;
+#endif
+      default:
+        break;
     }
   } else {
     for(i=0;i<r->discovered->supported_receivers;i++) {
@@ -685,8 +698,17 @@ void add_receivers(RADIO *r) {
       if(value!=NULL) {
         r->receiver[i]=create_receiver(i,r->sample_rate);
         r->receivers++;
-        if(r->discovered->protocol==PROTOCOL_2) {
-          protocol2_start_receiver(r->receiver[i]);
+        switch(r->discovered->protocol) {
+          case PROTOCOL_2:
+            protocol2_start_receiver(r->receiver[i]);
+            break;
+#ifdef SOAPYSDR
+          case PROTOCOL_SOAPYSDR:
+            soapy_protocol_create_receiver(r->receiver[i]);
+            break;
+#endif
+          default:
+            break;
         }
       }
     }
@@ -859,33 +881,36 @@ g_print("create_radio for %s %d\n",d->name,d->device);
       r->model=HERMES;
       break;
   }
+
+  switch(r->model) {
 #ifdef SOAPYSDR
-  if(r->model==SOAPYSDR_USB) {
-    r->sample_rate=1536000;
-    r->buffer_size=32768;
-    r->alex_rx_antenna=3; // LNAW
-    r->alex_tx_antenna=0; // ANT 1
-  } else {
+    case SOAPYSDR_USB:
+      r->sample_rate=1536000;
+      r->buffer_size=2048;
+      r->alex_rx_antenna=3; // LNAW
+      r->alex_tx_antenna=0; // ANT 1
+      break;
 #endif
-    r->sample_rate=192000;
-    r->buffer_size=2048;
-    r->alex_rx_antenna=0; // ANT 1
-    r->alex_tx_antenna=0; // ANT 1
-#ifdef SOAPYSDR
+    default:
+      r->sample_rate=192000;
+      r->buffer_size=2048;
+      r->alex_rx_antenna=0; // ANT 1
+      r->alex_tx_antenna=0; // ANT 1
+      break;
   }
-#endif
   r->receivers=0;
+  switch(d->device) {
 #ifdef SOAPYSDR
-  if(d->device==DEVICE_SOAPYSDR_USB) {
-    r->meter_calibration=-20.0;
-    r->panadapter_calibration=-20.0;
-  } else {
+    case DEVICE_SOAPYSDR_USB:
+      r->meter_calibration=-20.0;
+      r->panadapter_calibration=-20.0;
+      break;
 #endif
-    r->meter_calibration=0.0;
-    r->panadapter_calibration=0.0;
-#ifdef SOAPYSDR
+    default:
+      r->meter_calibration=0.0;
+      r->panadapter_calibration=0.0;
+      break;
   }
-#endif
   
   for(i=0;i<r->receivers;i++) {
     r->receiver[i]=NULL;
@@ -984,6 +1009,12 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   radio_change_region(r);
 
+#ifdef SOAPYSDR
+  if(r->discovered->device==DEVICE_SOAPYSDR_USB) {
+    soapy_protocol_init(r,0);
+  }
+#endif
+
   add_receivers(r);
   add_transmitter(r);
 
@@ -998,18 +1029,19 @@ g_print("create_radio for %s %d\n",d->name,d->device);
       break;
 #ifdef SOAPYSDR
     case PROTOCOL_SOAPYSDR:
-      soapy_protocol_init(r,0);
       soapy_protocol_set_antenna(radio->receiver[0],radio->adc[0].antenna);
       for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
         soapy_protocol_set_gain(radio->receiver[0],radio->discovered->info.soapy.rx_gain[i],radio->adc[0].rx_gain[i]);
       } 
       RECEIVER *rx=r->receiver[0];
       double f=(double)(rx->frequency_a-rx->lo_a+rx->error_a);
-      soapy_protocol_set_frequency(radio->receiver[0],f);
+      soapy_protocol_set_frequency(radio->receiver[0]);
       soapy_protocol_set_automatic_gain(radio->receiver[0],radio->adc[0].agc);
       for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
         soapy_protocol_set_gain(radio->receiver[0],radio->discovered->info.soapy.rx_gain[i],radio->adc[0].rx_gain[i]);
       } 
+
+      soapy_protocol_start_receiver(rx);
       break;
 #endif
   }

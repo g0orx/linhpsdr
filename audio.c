@@ -53,7 +53,7 @@ int n_output_devices;
 AUDIO_DEVICE output_devices[MAX_AUDIO_DEVICES];
 
 int audio = 0;
-int audio_buffer_size = 256; // samples (both left and right)
+int audio_buffer_size = 480; // samples (both left and right)
 int mic_buffer_size = 720; // samples (both left and right)
 
 // each buffer contains 63 samples of left and right audio at 16 bits
@@ -85,7 +85,9 @@ static int triggered=0;
 int audio_open_output(RECEIVER *rx) {
   pa_sample_spec sample_spec;
   int result=0;
+  int err;
 
+fprintf(stderr,"audio_open_output: %s\n",rx->audio_name);
   if(rx->audio_name==NULL) {
     result=-1;
   } else {
@@ -105,14 +107,16 @@ int audio_open_output(RECEIVER *rx) {
                     &sample_spec,                // Our sample format.
                     NULL,               // Use default channel map
                     NULL,               // Use default buffering attributes.
-                    NULL               // Ignore error code.
+                    &err               // error code if returns NULL
                     );
     
     if(rx->playstream!=NULL) {
       rx->local_audio_buffer_offset=0;
       rx->local_audio_buffer=g_new0(float,2*rx->local_audio_buffer_size);
+fprintf(stderr,"audio_open_output: allocated local_audio_buffer %p size %ld bytes\n",rx->local_audio_buffer,2*rx->local_audio_buffer_size*sizeof(float));
     } else {
       result=-1;
+      fprintf(stderr,"pa-simple_new failed: err=%d\n",err);
     }
     g_mutex_unlock(&rx->local_audio_mutex);
   }
@@ -181,7 +185,21 @@ void audio_close_input(RADIO *r) {
   g_mutex_unlock(&r->local_microphone_mutex);
 }
 
-//int audio_write(RECEIVER *rx,short left_sample,short right_sample) {
+int audio_write_buffer(RECEIVER *rx) {
+  int rc;
+  int err;
+  g_mutex_lock(&rx->local_audio_mutex);
+  rc=pa_simple_write(rx->playstream,
+                         rx->local_audio_buffer,
+                         rx->output_samples*sizeof(float)*2,
+                         &err);
+  if(rc!=0) {
+    fprintf(stderr,"audio_write buffer=%p length=%d returned %d err=%d\n",rx->local_audio_buffer,rx->output_samples,rc,err);
+  } 
+  g_mutex_unlock(&rx->local_audio_mutex);
+  return rc;
+}
+
 int audio_write(RECEIVER *rx,float left_sample,float right_sample) {
   int result=0;
   int rc;
@@ -189,19 +207,21 @@ int audio_write(RECEIVER *rx,float left_sample,float right_sample) {
 
   g_mutex_lock(&rx->local_audio_mutex);
   if(rx->local_audio_buffer==NULL) {
-    result=-1;
-  } else {
-    if(rx->local_audio_buffer_offset<rx->local_audio_buffer_size) {
-      rx->local_audio_buffer[rx->local_audio_buffer_offset*2]=left_sample;
-      rx->local_audio_buffer[(rx->local_audio_buffer_offset*2)+1]=right_sample;
-      rx->local_audio_buffer_offset++;
-    } else {
-      rc=pa_simple_write(rx->playstream,
-                         rx->local_audio_buffer,
-                         rx->local_audio_buffer_size*sizeof(float)*2,
-                         &err); 
-      rx->local_audio_buffer_offset=0;
+    rx->local_audio_buffer_offset=0;
+    rx->local_audio_buffer=g_new0(float,2*rx->local_audio_buffer_size);
+  }
+  rx->local_audio_buffer[rx->local_audio_buffer_offset*2]=left_sample;
+  rx->local_audio_buffer[(rx->local_audio_buffer_offset*2)+1]=right_sample;
+  rx->local_audio_buffer_offset++;
+  if(rx->local_audio_buffer_offset>=rx->local_audio_buffer_size) {
+    rc=pa_simple_write(rx->playstream,
+                       rx->local_audio_buffer,
+                       rx->local_audio_buffer_size*sizeof(float)*2,
+                       &err); 
+    if(rc!=0) {
+      fprintf(stderr,"audio_write failed err=%d\n",err);
     }
+    rx->local_audio_buffer_offset=0;
   }
   g_mutex_unlock(&rx->local_audio_mutex);
   return result;
@@ -329,5 +349,4 @@ g_print("audio: create_audio\n");
   pa_ctx=pa_context_new(main_loop_api,"linhpsdr");
   pa_context_connect(pa_ctx,NULL,0,NULL);
   pa_context_set_state_callback(pa_ctx, state_cb, &ready);
-
 }

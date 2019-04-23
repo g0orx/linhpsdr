@@ -36,6 +36,7 @@
 #include "vfo.h"
 #include "bookmark_dialog.h"
 #include "rigctl.h"
+#include "bpsk.h"
 
 enum {
   BUTTON_NONE=-1,
@@ -53,6 +54,7 @@ enum {
   BUTTON_RIT,
   VALUE_RIT,
   BUTTON_CTUN,
+  BUTTON_BPSK,
   BUTTON_ATOB,
   BUTTON_BTOA,
   BUTTON_ASWAPB,
@@ -762,7 +764,7 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
   int y=(int)event->y;
   char text[32];
 
-fprintf(stderr,"vfo_press_event_cb: x=%d y=%d\n",x,y);
+//fprintf(stderr,"vfo_press_event_cb: x=%d y=%d\n",x,y);
 
   switch(which_button(x,y)) {
     case BUTTON_LOCK:
@@ -1048,15 +1050,22 @@ fprintf(stderr,"vfo_press_event_cb: x=%d y=%d\n",x,y);
       }
       break;
     case BUTTON_CTUN:
-          rx->ctun=!rx->ctun;
-          rx->ctun_offset=0;
-          rx->ctun_min=-rx->sample_rate/2;
-          rx->ctun_max=rx->sample_rate/2;
-          if(!rx->ctun) {
-            SetRXAShiftRun(rx->channel, 0);
-          }
-          frequency_changed(rx);
-          update_frequency(rx);
+      rx->ctun=!rx->ctun;
+      rx->ctun_offset=0;
+      rx->ctun_min=-rx->sample_rate/2;
+      rx->ctun_max=rx->sample_rate/2;
+      if(!rx->ctun) {
+        SetRXAShiftRun(rx->channel, 0);
+      }
+      frequency_changed(rx);
+      update_frequency(rx);
+      break;
+    case BUTTON_BPSK:
+      rx->bpsk=!rx->bpsk;
+      if(rx->bpsk) {
+        create_bpsk(rx);
+      } else {
+      }
       break;
     case BUTTON_ATOB:
       switch(event->button) {
@@ -1365,7 +1374,12 @@ fprintf(stderr,"vfo_press_event_cb: x=%d y=%d\n",x,y);
       rx->volume=(double)(x-560)/100.0;
       if(rx->volume>1.0) rx->volume=1.0;
       if(rx->volume<0.0) rx->volume=0.0;
-      SetRXAPanelGain1(rx->channel,rx->volume);
+      if(rx->volume==0.0) {
+        SetRXAPanelRun(rx->channel,0);
+      } else {
+        SetRXAPanelRun(rx->channel,1);
+        SetRXAPanelGain1(rx->channel,rx->volume);
+      }
       update_vfo(rx);
       break;
     case SLIDER_AGC:
@@ -1416,7 +1430,12 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
         rx->volume=rx->volume-0.01;
         if(rx->volume<0.0) rx->volume=0.0;
       }
-      SetRXAPanelGain1(rx->channel,rx->volume);
+      if(rx->volume==0.0) {
+        SetRXAPanelRun(rx->channel,0);
+      } else {
+        SetRXAPanelRun(rx->channel,1);
+        SetRXAPanelGain1(rx->channel,rx->volume);
+      }
       break;
     case SLIDER_AGC:
       if(event->direction==GDK_SCROLL_UP) {
@@ -1809,6 +1828,15 @@ void update_vfo(RECEIVER *rx) {
       cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
     }
     cairo_show_text(cr, "CTUN");
+    x+=35;
+
+    cairo_move_to(cr,x,58);
+    if(rx->bpsk) {
+      cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+    } else {
+      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+    }
+    cairo_show_text(cr, "BPSK");
     x+=35;
 
     x=70;

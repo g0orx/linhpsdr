@@ -538,6 +538,15 @@ void update_rx_panadapter(RECEIVER *rx) {
   }
 #endif
 
+  if(rx->bpsk) {
+    cairo_set_source_rgb (cr, 0.0, 1.0, 0.0);
+    cairo_move_to(cr,(double)(display_width/2.0)+((rx->bpsk_offset-900)/rx->hz_per_pixel),((double)display_height/2.0)-10);
+    cairo_line_to(cr,(double)(display_width/2.0)+((rx->bpsk_offset-900)/rx->hz_per_pixel),((double)display_height/2.0)+10);
+    cairo_stroke(cr);
+    cairo_move_to(cr,(double)(display_width/2.0)+((rx->bpsk_offset+900)/rx->hz_per_pixel),((double)display_height/2.0)-10);
+    cairo_line_to(cr,(double)(display_width/2.0)+((rx->bpsk_offset+900)/rx->hz_per_pixel),((double)display_height/2.0)+10);
+    cairo_stroke(cr);
+  }
 
   cairo_destroy (cr);
   gtk_widget_queue_draw (rx->panadapter);

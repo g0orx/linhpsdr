@@ -59,6 +59,8 @@ typedef struct _receiver {
   gint64 frequency_min;
   gint64 frequency_max;
 
+  gboolean qo100_beacon;
+
   gint64 frequency_a;
   gint64 lo_a;
   gint64 error_a;
@@ -69,6 +71,7 @@ typedef struct _receiver {
   gint bandstack;
 
   gint64 lo_tx;
+  gint64 error_tx;
   gboolean tx_track_rx;
 
   gint64 frequency_b;
@@ -208,6 +211,13 @@ typedef struct _receiver {
   gint rigctl_client_address_length;
   gint cat_control;
   gboolean rigctl_running;
+
+  gboolean bpsk;
+  gint bpsk_channel;
+  gdouble *bpsk_audio_output_buffer;
+  gint64 bpsk_offset;
+  gdouble *bpsk_frequency_output_buffer;
+  void *bpsk_plan;
 
 } RECEIVER;
 

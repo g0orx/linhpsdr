@@ -1010,6 +1010,11 @@ void ozy_send_buffer() {
   output_buffer[SYNC0]=SYNC;
   output_buffer[SYNC1]=SYNC;
   output_buffer[SYNC2]=SYNC;
+  output_buffer[C0]=0x00;
+  output_buffer[C1]=0x00;
+  output_buffer[C2]=0x00;
+  output_buffer[C3]=0x00;
+  output_buffer[C4]=0x00;
 
   if(metis_offset==8) {
     output_buffer[C0]=0x00;
@@ -1570,7 +1575,7 @@ void ozy_send_buffer() {
 #endif
   metis_write(0x02,output_buffer,OZY_BUFFER_SIZE);
 
-  //fprintf(stderr,"C0=%02X C1=%02X C2=%02X C3=%02X C4=%02X\n",
+  //fprintf(stderr,"ozy_send_buffer: C0=%02X C1=%02X C2=%02X C3=%02X C4=%02X\n",
   //                output_buffer[C0],output_buffer[C1],output_buffer[C2],output_buffer[C3],output_buffer[C4]);
 }
 
@@ -1660,7 +1665,7 @@ static void metis_restart() {
   sleep(1);
 
   // start the data flowing
-  metis_start_stop(3);
+  metis_start_stop(3); // IQ data and wideband data
 }
 
 static void metis_start_stop(int command) {

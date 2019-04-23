@@ -49,9 +49,7 @@
 #include "configure_dialog.h"
 #include "property.h"
 #include "rigctl.h"
-#ifdef PID
-#include "pid.h"
-#endif
+#include "bpsk.h"
 
 void receiver_save_state(RECEIVER *rx) {
   char name[80];
@@ -139,6 +137,9 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].lo_tx",rx->channel);
   sprintf(value,"%ld",rx->lo_tx);
   setProperty(name,value);
+  sprintf(name,"receiver[%d].error_tx",rx->channel);
+  sprintf(value,"%ld",rx->error_tx);
+  setProperty(name,value);
   sprintf(name,"receiver[%d].tx_track_rx",rx->channel);
   sprintf(value,"%d",rx->tx_track_rx);
   setProperty(name,value);
@@ -183,6 +184,10 @@ void receiver_save_state(RECEIVER *rx) {
   setProperty(name,value);
   sprintf(name,"receiver[%d].ctun_max",rx->channel);
   sprintf(value,"%ld",rx->ctun_max);
+  setProperty(name,value);
+
+  sprintf(name,"receiver[%d].qo100_beacon",rx->channel);
+  sprintf(value,"%d",rx->qo100_beacon);
   setProperty(name,value);
   
   sprintf(name,"receiver[%d].split",rx->channel);
@@ -338,6 +343,9 @@ void receiver_restore_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].lo_tx",rx->channel);
   value=getProperty(name);
   if(value) rx->lo_tx=atol(value);
+  sprintf(name,"receiver[%d].error_tx",rx->channel);
+  value=getProperty(name);
+  if(value) rx->error_tx=atol(value);
   sprintf(name,"receiver[%d].tx_track_rx",rx->channel);
   value=getProperty(name);
   if(value) rx->tx_track_rx=atoi(value);
@@ -384,6 +392,10 @@ void receiver_restore_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].ctun_max",rx->channel);
   value=getProperty(name);
   if(value) rx->ctun_max=atol(value);
+
+  sprintf(name,"receiver[%d].qo100_beacon",rx->channel);
+  value=getProperty(name);
+  if(value) rx->qo100_beacon=atoi(value);
 
   sprintf(name,"receiver[%d].split",rx->channel);
   value=getProperty(name);
@@ -641,6 +653,7 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
           if(rx->ctun_offset > rx->ctun_max) rx->ctun_offset=rx->ctun_max;
         }
         rx->last_x=x;
+        rx->has_moved=FALSE;
         frequency_changed(rx);
         update_frequency(rx);
       }
@@ -835,44 +848,31 @@ void receiver_band_changed(RECEIVER *rx,int band) {
 }
 
 static void process_rx_buffer(RECEIVER *rx) {
-  short left_audio_sample;
-  short right_audio_sample;
+  gdouble left_sample,right_sample;
+  short left_audio_sample, right_audio_sample;
   int i;
   for(i=0;i<rx->output_samples;i++) {
-    if(isTransmitting(radio)) {
-      left_audio_sample=0;
-      right_audio_sample=0;
-    } else {
-      left_audio_sample=(short)(rx->audio_output_buffer[i*2]*32767.0);
-      right_audio_sample=(short)(rx->audio_output_buffer[(i*2)+1]*32767.0);
-    }
-    if(rx->local_audio) {
-      //audio_write(rx,left_audio_sample,right_audio_sample);
-      audio_write(rx,(float)rx->audio_output_buffer[i*2],(float)rx->audio_output_buffer[(i*2)+1]);
-    } 
+    left_sample=rx->audio_output_buffer[i*2];
+    right_sample=rx->audio_output_buffer[(i*2)+1];
+    left_audio_sample=(short)(left_sample*32767.0);
+    right_audio_sample=(short)(right_sample*32767.0);
 
-#ifdef PID
-    if(i==0) {
-      double pid=pid_sample((double)rx->audio_output_buffer[i*2]);
-      fprintf(stderr,"pid=%f\n",pid);
+    if(rx->local_audio) {
+      audio_write(rx,(float)left_sample,(float)right_sample);
     }
-#endif
 
     if(radio->active_receiver==rx) {
+
+      if(isTransmitting(radio) || rx->remote_audio==FALSE) {
+        left_audio_sample=0;
+        right_audio_sample=0;
+      }
       switch(radio->discovered->protocol) {
         case PROTOCOL_1:
-          if(rx->remote_audio) {
-            protocol1_audio_samples(rx,left_audio_sample,right_audio_sample);
-          } else {
-            protocol1_audio_samples(rx,0,0);
-          }
+          protocol1_audio_samples(rx,left_audio_sample,right_audio_sample);
           break;
         case PROTOCOL_2:
-          if(rx->remote_audio) {
-            protocol2_audio_samples(rx,left_audio_sample,right_audio_sample);
-          } else {
-            protocol2_audio_samples(rx,0,0);
-          }
+          protocol2_audio_samples(rx,left_audio_sample,right_audio_sample);
           break;
       }
     }
@@ -894,8 +894,15 @@ int j;
   }
 
   fexchange0(rx->channel, rx->iq_input_buffer, rx->audio_output_buffer, &error);
-  if(error!=0) {
-  //  fprintf(stderr,"full_rx_buffer: channel=%d fexchange0: error=%d\n",rx->channel,error);
+  if(error!=0/* && error!=-2*/) {
+    fprintf(stderr,"full_rx_buffer: channel=%d fexchange0: error=%d\n",rx->channel,error);
+  }
+
+  if(rx->bpsk) {
+    fexchange0(rx->bpsk_channel, rx->iq_input_buffer, rx->bpsk_audio_output_buffer, &error);
+    if(error!=0/* && error!=-2*/) {
+      fprintf(stderr,"full_rx_buffer: channel=%d fexchange0: error=%d\n",rx->bpsk_channel,error);
+    }
   }
 
   Spectrum0(1, rx->channel, 0, 0, rx->iq_input_buffer);
@@ -907,6 +914,9 @@ int j;
   } else {
 #endif
     process_rx_buffer(rx);
+    if(rx->bpsk) {
+      process_bpsk(rx);
+    }
 #ifdef FREEDV
   }
   g_mutex_unlock(&rx->freedv_mutex);
@@ -1057,7 +1067,7 @@ void receiver_init_analyzer(RECEIVER *rx) {
     int fft_size = 8192;
     int window_type = 4;
     double kaiser_pi = 14.0;
-    int overlap = 4096;
+    int overlap = 2048;
     int clip = 0;
     int span_clip_l = 0;
     int span_clip_h = 0;
@@ -1083,7 +1093,7 @@ g_print("receiver_init_analyzer: g_new0: channel=%d pixel_samples=%p\n",rx->chan
 
     int max_w = fft_size + (int) min(keep_time * (double) rx->fps, keep_time * (double) fft_size * (double) rx->fps);
 
-    overlap = (int)max(0.0, ceil(fft_size - (double)rx->sample_rate / (double)rx->fps));
+    //overlap = (int)max(0.0, ceil(fft_size - (double)rx->sample_rate / (double)rx->fps));
 
 g_print("SetAnalyzer id=%d buffer_size=%d fft_size=%d overlap=%d\n",rx->channel,rx->buffer_size,fft_size,overlap);
 
@@ -1127,10 +1137,6 @@ g_print("create_receiver: channel=%d sample_rate=%d\n", channel, sample_rate);
   g_mutex_init(&rx->mutex);
   rx->channel=channel;
   rx->adc=0;
-
-#ifdef PID
-  pid_init(0.5,0.05,0.0);
-#endif
 
   rx->frequency_min=(gint64)radio->discovered->frequency_min;
   rx->frequency_max=(gint64)radio->discovered->frequency_max;
@@ -1182,10 +1188,22 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
   rx->dsp_rate=48000;
   rx->output_rate=48000;
 
-  rx->frequency_a=14200000;
-  rx->band_a=band20;
-  rx->mode_a=USB;
-  rx->bandstack=1;
+  switch(radio->discovered->protocol) {
+    default:
+      rx->frequency_a=14200000;
+      rx->band_a=band20;
+      rx->mode_a=USB;
+      rx->bandstack=1;
+      break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      rx->frequency_a=145000000;
+      rx->band_a=band144;
+      rx->mode_a=USB;
+      rx->bandstack=1;
+      break;
+#endif
+  }
 
   rx->deviation=2500;
   rx->filter_a=F5;
@@ -1200,6 +1218,7 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
   rx->ctun_min=-rx->sample_rate/2;
   rx->ctun_max=rx->sample_rate/2;
 
+  rx->bpsk=FALSE;
   rx->frequency_b=14300000;
   rx->band_b=band20;
   rx->mode_b=USB;
@@ -1230,7 +1249,7 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
   rx->iq_sequence=0;
 #ifdef SOAPYSDR
   if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
-    rx->buffer_size=2048;
+    rx->buffer_size=1024; //2048;
   } else {
 #endif
     rx->buffer_size=1024;
@@ -1240,7 +1259,6 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
 fprintf(stderr,"create_receiver: buffer_size=%d\n",rx->buffer_size);
   rx->iq_input_buffer=g_new0(gdouble,2*rx->buffer_size);
 
-  //rx->audio_buffer_size=260;
   rx->audio_buffer_size=480;
   rx->audio_buffer=g_new0(gchar,rx->audio_buffer_size);
   rx->audio_sequence=0;
@@ -1304,7 +1322,8 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   }
 #endif
   rx->local_audio=FALSE;
-  rx->local_audio_buffer_size=4096; //112;
+  rx->local_audio_buffer_size=1024;
+  //rx->local_audio_buffer_size=rx->output_samples;
   rx->local_audio_buffer_offset=0;
   rx->local_audio_buffer=NULL;
   rx->local_audio_latency=50;
@@ -1344,9 +1363,10 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   }
 
   rx->output_samples=rx->buffer_size/(rx->sample_rate/48000);
+  //rx->local_audio_buffer_size=rx->output_samples;
   rx->audio_output_buffer=g_new0(gdouble,2*rx->output_samples);
 
-g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d fft_size=%d\n", rx->channel, rx->buffer_size, rx->sample_rate, rx->fft_size);
+g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d fft_size=%d output_samples=%d\n", rx->channel, rx->buffer_size, rx->sample_rate, rx->fft_size,rx->output_samples);
 
   OpenChannel(rx->channel,
               rx->buffer_size,
@@ -1367,6 +1387,10 @@ g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d 
   receiver_mode_changed(rx,rx->mode_a);
 
   SetRXAPanelGain1(rx->channel, rx->volume);
+  SetRXAPanelSelect(rx->channel, 3);
+  SetRXAPanelPan(rx->channel, 0.5);
+  SetRXAPanelCopy(rx->channel, 0);
+  SetRXAPanelBinaural(rx->channel, 0);
   SetRXAPanelRun(rx->channel, 1);
 
   if(rx->enable_equalizer) {

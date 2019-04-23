@@ -39,6 +39,7 @@ extern int audio_open_output(RECEIVER *rx);
 extern void audio_close_output(RECEIVER *rx);
 //extern int audio_write(RECEIVER *rx,short left_sample,short right_sample);
 extern int audio_write(RECEIVER *rx,float left_sample,float right_sample);
+extern int audio_write_buffer(RECEIVER *rx);
 extern void audio_get_cards();
 extern void create_audio(/*GMainContext *context*/);
 #endif

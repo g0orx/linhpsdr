@@ -65,7 +65,7 @@ enum {
 #define PROTOCOL_1 0
 #define PROTOCOL_2 1
 #ifdef SOAPYSDR
-#define PROTOCOL_SOAPYSDR 3
+#define PROTOCOL_SOAPYSDR 2
 #endif
 
 struct _DISCOVERED {
@@ -90,6 +90,7 @@ struct _DISCOVERED {
       } network;
 #ifdef SOAPYSDR
       struct soapy {
+        int rtlsdr_count;
         size_t rx_channels;
         size_t rx_gains;
         char **rx_gain;

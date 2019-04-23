@@ -7,17 +7,35 @@
 #include "discovered.h"
 #include "soapy_discovery.h"
 
+static int rtlsdr_count=0;
+
 static void get_info(char *driver) {
-  size_t rx_rates_length, tx_rates_length, rx_gains_length, tx_gains_length, ranges_length, rx_antennas_length, tx_antennas_length;
+  size_t rx_rates_length, tx_rates_length, rx_gains_length, tx_gains_length, ranges_length, rx_antennas_length, tx_antennas_length, rx_bandwidth_length, tx_bandwidth_length;
   int i;
   SoapySDRKwargs args={};
   int version=0;
+  int rtlsdr_val=0;
 
   fprintf(stderr,"soapy_discovery: get_info: %s\n", driver);
+
   SoapySDRKwargs_set(&args, "driver", driver);
+  if(strcmp(driver,"rtlsdr")==0) {
+    char count[16];
+    sprintf(count,"%d",rtlsdr_count);
+    SoapySDRKwargs_set(&args, "rtl", count);
+    rtlsdr_val=rtlsdr_count;
+    rtlsdr_count++;
+  }
   SoapySDRDevice *sdr = SoapySDRDevice_make(&args);
   SoapySDRKwargs_clear(&args);
   version=0;
+
+  char *driverkey=SoapySDRDevice_getDriverKey(sdr);
+  fprintf(stderr,"DriverKey=%s\n",driverkey);
+
+  char *hardwarekey=SoapySDRDevice_getHardwareKey(sdr);
+  fprintf(stderr,"HardwareKey=%s\n",hardwarekey);
+
   SoapySDRKwargs info=SoapySDRDevice_getHardwareInfo(sdr);
   for(i=0;i<info.size;i++) {
     fprintf(stderr,"soapy_discovery: hardware info key=%s val=%s\n",info.keys[i], info.vals[i]);
@@ -61,6 +79,28 @@ static void get_info(char *driver) {
   fprintf(stderr,"\n");
   free(tx_rates);
 
+  double *bandwidths=SoapySDRDevice_listBandwidths(sdr, SOAPY_SDR_RX, 0, &rx_bandwidth_length);
+  fprintf(stderr,"Rx bandwidths: ");
+  for (size_t i = 0; i < rx_bandwidth_length; i++) {
+    fprintf(stderr,"%f, ", bandwidths[i]);
+  }
+  fprintf(stderr,"\n");
+  free(bandwidths);
+
+  bandwidths=SoapySDRDevice_listBandwidths(sdr, SOAPY_SDR_TX, 0, &tx_bandwidth_length);
+  fprintf(stderr,"Tx bandwidths: ");
+  for (size_t i = 0; i < tx_bandwidth_length; i++) {
+    fprintf(stderr,"%f, ", bandwidths[i]);
+  }
+  fprintf(stderr,"\n");
+  free(bandwidths);
+
+  double bandwidth=SoapySDRDevice_getBandwidth(sdr, SOAPY_SDR_RX, 0);
+  fprintf(stderr,"RX0: bandwidth=%f\n",bandwidth);
+
+  bandwidth=SoapySDRDevice_getBandwidth(sdr, SOAPY_SDR_TX, 0);
+  fprintf(stderr,"TX0: bandwidth=%f\n",bandwidth);
+
   SoapySDRRange *ranges = SoapySDRDevice_getFrequencyRange(sdr, SOAPY_SDR_RX, 0, &ranges_length);
   fprintf(stderr,"Rx freq ranges: ");
   for (size_t i = 0; i < ranges_length; i++) fprintf(stderr,"[%f Hz -> %f Hz step=%f], ", ranges[i].minimum, ranges[i].maximum,ranges[i].step);
@@ -96,6 +136,11 @@ static void get_info(char *driver) {
     discovered[devices].software_version=version;
     discovered[devices].frequency_min=ranges[0].minimum;
     discovered[devices].frequency_max=ranges[0].maximum;
+    if(strcmp(driver,"rtlsdr")==0) {
+      discovered[devices].info.soapy.rtlsdr_count=rtlsdr_val;
+    } else {
+      discovered[devices].info.soapy.rtlsdr_count=0;
+    }
     discovered[devices].info.soapy.rx_channels=rx_channels;
     discovered[devices].info.soapy.rx_gains=rx_gains_length;
     discovered[devices].info.soapy.rx_gain=rx_gains;
@@ -138,6 +183,7 @@ void soapy_discovery() {
   int i,j;
   SoapySDRKwargs args={};
 
+fprintf(stderr,"soapy_discovery\n");
   SoapySDRKwargs *results = SoapySDRDevice_enumerate(NULL, &length);
   for (i = 0; i < length; i++) {
     for (size_t j = 0; j < results[i].size; j++) {
@@ -147,69 +193,4 @@ void soapy_discovery() {
     }
   }
   SoapySDRKwargsList_clear(results, length);
-
-#ifdef INCLUDED
-  SoapySDRKwargs_set(&args, "driver", "lime");
-  SoapySDRDevice *sdr = SoapySDRDevice_make(&args);
-  SoapySDRKwargs_clear(&args);
-
-  if(sdr==NULL) {
-    fprintf(stderr, "lime_discovery: no devices found\n");
-    return;
-  }
-
-  SoapySDRKwargs info=SoapySDRDevice_getHardwareInfo(sdr);
-  int version=0;
-  for(i=0;i<info.size;i++) {
-fprintf(stderr,"lime_discovery: info key=%s val=%s\n",info.keys[i], info.vals[i]);
-    if(strcmp(info.keys[i],"firmwareVersion")==0) {
-      version+=atoi(info.vals[i])*100;
-    }
-    if(strcmp(info.keys[i],"hardwareVersion")==0) {
-      version+=atoi(info.vals[i])*10;
-    }
-    if(strcmp(info.keys[i],"protocolVersion")==0) {
-      version+=atoi(info.vals[i]);
-    }
-  }
-
-  if(devices<MAX_DEVICES) {
-    discovered[devices].device=DEVICE_LIMESDR_USB;
-    discovered[devices].protocol=PROTOCOL_LIMESDR;
-    strcpy(discovered[devices].name,"SoapySDR");
-    discovered[devices].supported_receivers=2;
-    discovered[devices].adcs=2;
-    discovered[devices].status=STATE_AVAILABLE;
-    discovered[devices].software_version=version;
-    devices++;
-  }
-
-  //query device info
-  char** names = SoapySDRDevice_listAntennas(sdr, SOAPY_SDR_RX, 0, &length);
-  fprintf(stderr, "Rx antennas: ");
-  for (size_t i = 0; i < length; i++) fprintf(stderr, "%s, ", names[i]);
-  fprintf(stderr,"\n");
-  SoapySDRStrings_clear(&names, length);
-
-  names = SoapySDRDevice_listGains(sdr, SOAPY_SDR_RX, 0, &length);
-  fprintf(stderr,"Rx gains: ");
-  for (size_t i = 0; i < length; i++) fprintf(stderr,"%s, ", names[i]);
-  fprintf(stderr,"\n");
-  SoapySDRStrings_clear(&names, length);
-
-  SoapySDRRange *ranges = SoapySDRDevice_getFrequencyRange(sdr, SOAPY_SDR_RX, 0, &length);
-  fprintf(stderr,"Rx freq ranges: ");
-  for (size_t i = 0; i < length; i++) fprintf(stderr,"[%f Hz -> %f Hz], ", ranges[i].minimum, ranges[i].maximum);
-  fprintf(stderr,"\n");
-  free(ranges);
-
-
-  SoapySDRRange *rates=SoapySDRDevice_getSampleRateRange(sdr, SOAPY_SDR_RX, 0, &length);
-  fprintf(stderr,"Rx sample rates: ");
-  for (size_t i = 0; i < length; i++) fprintf(stderr,"%f -> %f,", rates[i].minimum, rates[i].maximum);
-  fprintf(stderr,"\n");
-  free(ranges);
-
-  fprintf(stderr,"lime_discovery found %ld devices\n",length);
-#endif
 }

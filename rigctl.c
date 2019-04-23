@@ -1048,11 +1048,7 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                              fprintf(stderr,"RIGCTL: BD - current band=%d\n",cur_band);
                                              #endif
                                              if(cur_band == 0) {
-                                                #ifdef LIMESDR
-                                                    cur_band = band472;
-                                                #else
-                                                    cur_band = band6;
-                                                #endif
+                                                cur_band = band6;
                                              } else {
                                                 --cur_band;
                                              } 

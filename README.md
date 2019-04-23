@@ -35,7 +35,7 @@ Development and testing has been run on Ubuntu 17.10 and Ubuntu 18.04. If run on
   git clone https://github.com/g0orx/linhpsdr.git
   cd linhpsdr
   make
-  make install
+  sudo make install
 ```
 
 

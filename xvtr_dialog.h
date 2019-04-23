@@ -19,3 +19,4 @@
 
 extern GtkWidget *create_xvtr_dialog(RADIO *radio);
 extern void save_xvtr();
+extern void update_error(int band,gint64 error);

@@ -15,6 +15,7 @@ AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
 # uncomment the line below to include SoapySDR support
 #
 # Note: SoapySDR support has only been tested with the RTL-SDR and LimeSDR
+#       No TX support yet.
 #
 #       If you want to build with SoapySDR support you will need to install:
 #
@@ -38,7 +39,8 @@ soapy_discovery.o \
 soapy_protocol.o
 endif
 
-OPTIONS=-g -Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) -O3
+
+OPTIONS=-Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) -O3
 #OPTIONS=-g -Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
 LIBS=-lrt -lm -lpthread -lwdsp
@@ -94,7 +96,8 @@ oc_dialog.c\
 xvtr_dialog.c\
 frequency.c\
 rigctl.c\
-error_handler.c
+error_handler.c\
+bpsk.c
 
 HEADERS=\
 main.h\
@@ -143,7 +146,8 @@ oc_dialog.h\
 xvtr_dialog.h\
 frequency.h\
 rigctl.h\
-error_handler.h
+error_handler.h\
+bpsk.h
 
 OBJS=\
 main.o\
@@ -191,7 +195,8 @@ oc_dialog.o\
 xvtr_dialog.o\
 frequency.o\
 rigctl.o\
-error_handler.o
+error_handler.o\
+bpsk.o
 
 all: prebuild  $(PROGRAM) $(HEADERS) $(SOURCES) $(SOAPYSDR_SOURCES)
 
@@ -210,13 +215,12 @@ clean:
 	-rm -f $(PROGRAM)
 
 install: $(PROGRAM)
-	sudo cp $(PROGRAM) /usr/local/bin
-	if [ ! -d ~/.local/share/linhpsdr ]; then mkdir ~/.local/share/linhpsdr; fi
-	if [ ! -d /usr/share/linhpsdr ]; then sudo mkdir /usr/share/linhpsdr; fi
-	sudo cp hpsdr.png /usr/share/linhpsdr
-	sudo cp hpsdr_icon.png /usr/share/linhpsdr
-	sudo cp hpsdr_small.png /usr/share/linhpsdr
-	sudo cp linhpsdr.desktop /usr/share/applications
+	cp $(PROGRAM) /usr/local/bin
+	if [ ! -d /usr/share/linhpsdr ]; then mkdir /usr/share/linhpsdr; fi
+	cp hpsdr.png /usr/share/linhpsdr
+	cp hpsdr_icon.png /usr/share/linhpsdr
+	cp hpsdr_small.png /usr/share/linhpsdr
+	cp linhpsdr.desktop /usr/share/applications
 
 debian:
 	cp $(PROGRAM) pkg/linhpsdr/usr/local/bin

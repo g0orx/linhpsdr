@@ -60,26 +60,26 @@ GtkWidget *create_about_dialog(RADIO *r) {
 
   int lines=0;
 
-  sprintf(text,"\n\nlinHPSDR by John Melton G0ORX/N6LYT");
+  snprintf(text,sizeof(text),"\n\nlinHPSDR by John Melton G0ORX/N6LYT");
   lines++;
-  sprintf(text,"%s\n\nWith help from:",text);
+  snprintf(text,sizeof(text),"%s\n\nWith help from:",text);
   lines++;
-  sprintf(text,"%s\n    Steve Wilson, KA6S, RIGCTL (CAT over TCP) and Testing",text);
+  snprintf(text,sizeof(text),"%s\n    Steve Wilson, KA6S, RIGCTL (CAT over TCP) and Testing",text);
   lines++;
-  sprintf(text,"%s\n    Ken Hopper, N9VV, Testing and Documentation",text);
+  snprintf(text,sizeof(text),"%s\n    Ken Hopper, N9VV, Testing and Documentation",text);
   lines++;
-  lines++;
-
-  sprintf(text,"%s\n\nBuild date: %s", text, build_date);
   lines++;
 
-  sprintf(text,"%s\nBuild version: %s", text, version);
+  snprintf(text,sizeof(text),"%s\n\nBuild date: %s", text, build_date);
   lines++;
 
-  sprintf(text,"%s\n\nWDSP v%d.%02d", text, GetWDSPVersion()/100, GetWDSPVersion()%100);
+  snprintf(text,sizeof(text),"%s\nBuild version: %s", text, version);
   lines++;
 
-  sprintf(text,"%s\n\nDevice: %s\nProtocol: %s v%d.%d",text,r->discovered->name,r->discovered->protocol==PROTOCOL_1?"1":"2",r->discovered->software_version/10,r->discovered->software_version%10);
+  snprintf(text,sizeof(text),"%s\n\nWDSP v%d.%02d", text, GetWDSPVersion()/100, GetWDSPVersion()%100);
+  lines++;
+
+  snprintf(text,sizeof(text),"%s\n\nDevice: %s\nProtocol: %s v%d.%d",text,r->discovered->name,r->discovered->protocol==PROTOCOL_1?"1":"2",r->discovered->software_version/10,r->discovered->software_version%10);
   lines++;
 
   switch(r->discovered->protocol) {
@@ -87,20 +87,20 @@ GtkWidget *create_about_dialog(RADIO *r) {
     case PROTOCOL_2:
 #ifdef USBOZY
       if(d->device==DEVICE_OZY) {
-        sprintf(text,"%s\nDevice OZY: USB /dev/ozy",text,r->protocol==PROTOCOL_1?"1":"2",r->discovered->software_version/10,r->discovered->software_version%10);
+        snprintf(text,sizeof(text),"%s\nDevice OZY: USB /dev/ozy",text,r->protocol==PROTOCOL_1?"1":"2",r->discovered->software_version/10,r->discovered->software_version%10);
       } else {
 #endif
         
         strcpy(addr,inet_ntoa(r->discovered->info.network.address.sin_addr));
         strcpy(interface_addr,inet_ntoa(r->discovered->info.network.interface_address.sin_addr));
-        sprintf(text,"%s\nDevice Mac Address: %02X:%02X:%02X:%02X:%02X:%02X",text,
+        snprintf(text,sizeof(text),"%s\nDevice Mac Address: %02X:%02X:%02X:%02X:%02X:%02X",text,
                 r->discovered->info.network.mac_address[0],
                 r->discovered->info.network.mac_address[1],
                 r->discovered->info.network.mac_address[2],
                 r->discovered->info.network.mac_address[3],
                 r->discovered->info.network.mac_address[4],
                 r->discovered->info.network.mac_address[5]);
-        sprintf(text,"%s\nDevice IP Address: %s on %s (%s)",text,addr,r->discovered->info.network.interface_name,interface_addr);
+        snprintf(text,sizeof(text),"%s\nDevice IP Address: %s on %s (%s)",text,addr,r->discovered->info.network.interface_name,interface_addr);
 
 #ifdef USBOZY
       }
