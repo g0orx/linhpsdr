@@ -797,18 +797,30 @@ g_print("create_transmitter: channel=%d\n",channel);
   tx->fft_size=2048;
   tx->low_latency=FALSE;
 
-  if(radio->discovered->protocol==PROTOCOL_1) {
-    tx->mic_sample_rate=48000;
-    tx->mic_dsp_rate=48000;
-    tx->iq_output_rate=48000;
-    tx->buffer_size=1024;
-    tx->output_samples=1024;
-  } else {
-    tx->mic_sample_rate=48000;
-    tx->mic_dsp_rate=96000;
-    tx->iq_output_rate=192000;
-    tx->buffer_size=1024;
-    tx->output_samples=4096;
+  switch(radio->discovered->protocol) {
+    case PROTOCOL_1:
+      tx->mic_sample_rate=48000;
+      tx->mic_dsp_rate=48000;
+      tx->iq_output_rate=48000;
+      tx->buffer_size=1024;
+      tx->output_samples=1024;
+      break;
+    case PROTOCOL_2:
+      tx->mic_sample_rate=48000;
+      tx->mic_dsp_rate=96000;
+      tx->iq_output_rate=192000;
+      tx->buffer_size=1024;
+      tx->output_samples=4096;
+      break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      tx->mic_sample_rate=48000;
+      tx->mic_dsp_rate=96000;
+      tx->iq_output_rate=1536000;
+      tx->buffer_size=1024;
+      tx->output_samples=32768;
+      break;
+#endif
   }
 
   tx->mic_samples=0;

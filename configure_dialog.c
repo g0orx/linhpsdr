@@ -48,7 +48,7 @@
 #include "about_dialog.h"
 #include "wideband_dialog.h"
 
-int rx_base=7; // number of tabs before receivers
+int rx_base=3; // number of tabs before receivers
 
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   RADIO *radio=(RADIO *)data;
@@ -103,10 +103,7 @@ GtkWidget *create_configure_dialog(RADIO *radio,int tab) {
   GtkWidget *notebook=gtk_notebook_new();
 
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_radio_dialog(radio),gtk_label_new("Radio"));
-  gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_transmitter_dialog(radio->transmitter),gtk_label_new("TX"));
-  gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_puresignal_dialog(radio->transmitter),gtk_label_new("Pure Signal"));
-  gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_pa_dialog(radio),gtk_label_new("PA"));
-  gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_eer_dialog(radio),gtk_label_new("EER"));
+
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_oc_dialog(radio),gtk_label_new("OC"));
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_xvtr_dialog(radio),gtk_label_new("XVTR"));
 
@@ -115,6 +112,13 @@ GtkWidget *create_configure_dialog(RADIO *radio,int tab) {
       g_snprintf((gchar *)&title,sizeof(title),"RX-%d",radio->receiver[i]->channel);
       gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_receiver_dialog(radio->receiver[i]),gtk_label_new(title));
     }
+  }
+
+  if(radio->can_transmit) {
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_transmitter_dialog(radio->transmitter),gtk_label_new("TX"));
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_puresignal_dialog(radio->transmitter),gtk_label_new("Pure Signal"));
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_pa_dialog(radio),gtk_label_new("PA"));
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_eer_dialog(radio),gtk_label_new("EER"));
   }
 
   if(radio->wideband) {

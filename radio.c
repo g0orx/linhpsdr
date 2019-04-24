@@ -780,43 +780,45 @@ static void create_visual(RADIO *r) {
   gtk_grid_set_row_spacing(GTK_GRID(r->visual),5);
   gtk_grid_set_column_spacing(GTK_GRID(r->visual),5);
 
+
   int row=0;
   int col=0;
 
-  gtk_grid_attach(GTK_GRID(r->visual),r->transmitter->panadapter,col,row,1,5);
+  if(r->can_transmit) {
+    gtk_grid_attach(GTK_GRID(r->visual),r->transmitter->panadapter,col,row,1,5);
+    col++;
+    row=0;
 
-  col++;
-  row=0;
+    r->mox_button=gtk_button_new_with_label("MOX");
+    g_signal_connect(r->mox_button,"clicked",G_CALLBACK(mox_cb),(gpointer)r);
+    gtk_grid_attach(GTK_GRID(r->visual),r->mox_button,col,row,1,1);
+    row++;
 
+    r->vox_button=gtk_button_new_with_label("VOX");
+    g_signal_connect(r->vox_button,"clicked",G_CALLBACK(vox_cb),(gpointer)r);
+    gtk_grid_attach(GTK_GRID(r->visual),r->vox_button,col,row,1,1);
+    row++;
 
-  r->mox_button=gtk_button_new_with_label("MOX");
-  g_signal_connect(r->mox_button,"clicked",G_CALLBACK(mox_cb),(gpointer)r);
-  gtk_grid_attach(GTK_GRID(r->visual),r->mox_button,col,row,1,1);
-  row++;
-
-  r->vox_button=gtk_button_new_with_label("VOX");
-  g_signal_connect(r->vox_button,"clicked",G_CALLBACK(vox_cb),(gpointer)r);
-  gtk_grid_attach(GTK_GRID(r->visual),r->vox_button,col,row,1,1);
-  row++;
-
-  r->mic_level=create_mic_level(radio->transmitter);
-  gtk_grid_attach(GTK_GRID(r->visual),r->mic_level,col,row,3,1);
-  row++;
+    r->mic_level=create_mic_level(radio->transmitter);
+    gtk_grid_attach(GTK_GRID(r->visual),r->mic_level,col,row,3,1);
+    row++;
   
-  r->mic_gain=create_mic_gain(radio->transmitter);
-  gtk_grid_attach(GTK_GRID(r->visual),r->mic_gain,col,row,3,1);
-  row++;
+    r->mic_gain=create_mic_gain(radio->transmitter);
+    gtk_grid_attach(GTK_GRID(r->visual),r->mic_gain,col,row,3,1);
+    row++;
 
-  r->drive_level=create_drive_level(radio->transmitter);
-  gtk_grid_attach(GTK_GRID(r->visual),r->drive_level,col,row,3,1);
+    r->drive_level=create_drive_level(radio->transmitter);
+    gtk_grid_attach(GTK_GRID(r->visual),r->drive_level,col,row,3,1);
 
-  col++;
-  row=0;
+    col++;
+    row=0;
   
-  r->tune_button=gtk_button_new_with_label("Tune");
-  g_signal_connect(r->tune_button,"clicked",G_CALLBACK(tune_cb),(gpointer)r);
-  gtk_grid_attach(GTK_GRID(r->visual),r->tune_button,col,row,1,1);
-  row++;
+    r->tune_button=gtk_button_new_with_label("Tune");
+    g_signal_connect(r->tune_button,"clicked",G_CALLBACK(tune_cb),(gpointer)r);
+    gtk_grid_attach(GTK_GRID(r->visual),r->tune_button,col,row,1,1);
+    row++;
+
+  }
 
   GtkWidget *configure=gtk_button_new_with_label("Configure");
   g_signal_connect(configure,"clicked",G_CALLBACK(configure_cb),(gpointer)r);
@@ -918,6 +920,12 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->active_receiver=NULL;
   r->transmitter=NULL;
 
+  r->can_transmit=TRUE;
+#ifdef SOAPYSDR
+  if(r->discovered->protocol==PROTOCOL_SOAPYSDR) {
+    r->can_transmit=r->discovered->info.soapy.tx_channels>0;
+  }
+#endif
   
   r->mox=FALSE;
   r->tune=FALSE;
@@ -1010,13 +1018,27 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   radio_change_region(r);
 
 #ifdef SOAPYSDR
-  if(r->discovered->device==DEVICE_SOAPYSDR_USB) {
+  if(r->discovered->protocol==PROTOCOL_SOAPYSDR) {
     soapy_protocol_init(r,0);
   }
 #endif
 
   add_receivers(r);
-  add_transmitter(r);
+
+  switch(r->discovered->protocol) {
+    case PROTOCOL_1:
+    case PROTOCOL_2:
+      add_transmitter(r);
+      break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      if(r->discovered->info.soapy.tx_channels>0) {
+        add_transmitter(r);
+      }
+      break;
+#endif
+  }
+
 
   create_visual(r);
 

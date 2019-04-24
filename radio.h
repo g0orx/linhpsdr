@@ -67,6 +67,7 @@ enum {
 
 typedef struct _radio {
   DISCOVERED *discovered;
+  gboolean can_transmit;
   gint model;
   gint sample_rate;
   gint buffer_size;
