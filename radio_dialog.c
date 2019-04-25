@@ -201,7 +201,7 @@ static void sample_rate_cb(GtkComboBox *widget,gpointer data) {
     }
   }
   protocol1_set_mic_sample_rate(rate);
-  protocol1_run();
+  g_idle_add(radio_start,(void *)radio);
 }
 
 static void filter_board_cb(GtkComboBox *widget,gpointer data) {

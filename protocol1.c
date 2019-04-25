@@ -112,7 +112,7 @@ static int last_level=-1;
 #define LT2208_RANDOM_OFF         0x00
 #define LT2208_RANDOM_ON          0x10
 
-// for Hermes-Lite FPGA FW version < 40 only
+// for Hermes-Lite FPGA FW version < 41 only
 static gboolean lna_dither[] = {TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE,
             TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE,
             TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE,
@@ -121,7 +121,7 @@ static gboolean lna_dither[] = {TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE,
             FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,
             FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,
             FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE};
-// for Hermes-Lite FPGA FW version < 40 only
+// for Hermes-Lite FPGA FW version < 41 only
 static guchar lna_att[] = {31, 30, 29, 28, 27, 26, 25, 24,
             23, 22, 21, 20, 19, 18, 17, 16,
             15, 14, 13, 12, 11, 10, 9, 8,
@@ -239,6 +239,12 @@ void protocol1_stop() {
 }
 
 void protocol1_run() {
+  fprintf(stderr,"protocol1_run\n");
+  
+  for(int i=8;i<OZY_BUFFER_SIZE;i++) {
+    output_buffer[i]=0;
+  }
+
   metis_restart();
 }
 
@@ -249,7 +255,7 @@ void protocol1_set_mic_sample_rate(int rate) {
 void protocol1_init(RADIO *r) {
   int i;
 
-  fprintf(stderr,"create_protocol1\n");
+  fprintf(stderr,"protocol1_init\n");
 
   protocol1_set_mic_sample_rate(r->sample_rate);
   if(radio->local_microphone) {
@@ -271,13 +277,6 @@ void protocol1_init(RADIO *r) {
 #endif
 
   start_protocol1_thread();
-
-  fprintf(stderr,"protocol1_init: prime radio\n");
-  for(i=8;i<OZY_BUFFER_SIZE;i++) {
-    output_buffer[i]=0;
-  }
-
-  metis_restart();
 
 }
 
@@ -1084,7 +1083,7 @@ void ozy_send_buffer() {
       output_buffer[C3]|=LT2208_RANDOM_ON;
     }
     if(radio->discovered->device==DEVICE_HERMES_LITE) {
-      if(radio->ozy_software_version<40) {
+      if(radio->ozy_software_version<41) {
         // old LNA gain control method, see HL2 wiki for details
         output_buffer[C3]|=lna_dither[radio->adc[0].attenuation+12];
       }
@@ -1414,7 +1413,7 @@ void ozy_send_buffer() {
         if(radio->discovered->device==DEVICE_HERMES || radio->discovered->device==DEVICE_ANGELIA || radio->discovered->device==DEVICE_ORION || radio->discovered->device==DEVICE_ORION2) {
           output_buffer[C4]=0x20|(int)radio->adc[0].attenuation;
         } else if(radio->discovered->device==DEVICE_HERMES_LITE) {
-          if(radio->ozy_software_version>=40) {
+          if(radio->ozy_software_version>=41) {
             // different LNA gain setting method, see HL2 wiki for details
             output_buffer[C4]=0x40|(radio->adc[0].attenuation+12);
           } else {
@@ -1646,6 +1645,7 @@ static int metis_write(unsigned char ep,char* buffer,int length) {
 }
 
 static void metis_restart() {
+fprintf(stderr,"metis_restart\n");
   // reset metis frame
   metis_offset==8;
 
@@ -1662,7 +1662,7 @@ static void metis_restart() {
     ozy_send_buffer();
   } while (command!=1);
 
-  sleep(1);
+  usleep(20000);
 
   // start the data flowing
   metis_start_stop(3); // IQ data and wideband data

@@ -63,6 +63,17 @@ static GtkWidget *add_wideband_b;
 
 static void rxtx(RADIO *r);
 
+int radio_start(void *data) {
+  RADIO *r=(RADIO *)data;
+fprintf(stderr,"radio_start\n");
+  switch(r->discovered->protocol) {
+    case PROTOCOL_1:
+      protocol1_run(r);
+      break;
+  }
+  return 0;
+}
+
 void radio_save_state(RADIO *radio) {
   char name[80];
   char value[80];
@@ -1071,6 +1082,8 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   create_audio();
 
   create_smartsdr_server();
+
+  g_idle_add(radio_start,(gpointer)r);
 
   return r;
 }
