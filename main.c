@@ -95,9 +95,8 @@ static gboolean main_delete (GtkWidget *widget) {
         break;
 #endif
     }
-  } else {
-    _exit(0);
-  }
+  }    
+  _exit(0);
 }
 
 static gpointer wisdom_thread(gpointer arg) {
