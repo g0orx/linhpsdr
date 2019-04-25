@@ -75,6 +75,7 @@ struct _DISCOVERED {
     int software_version;
     int status;
     int supported_receivers;
+    int supported_transmitters;
     int adcs;
     double frequency_min;
     double frequency_max;

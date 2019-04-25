@@ -894,7 +894,7 @@ int j;
   }
 
   fexchange0(rx->channel, rx->iq_input_buffer, rx->audio_output_buffer, &error);
-  if(error!=0/* && error!=-2*/) {
+  if(error!=0 && error!=-2) {
     fprintf(stderr,"full_rx_buffer: channel=%d fexchange0: error=%d\n",rx->channel,error);
   }
 

@@ -277,6 +277,7 @@ gpointer protocol2_discover_receive_thread(gpointer data) {
                     }
 
                     discovered[devices].supported_receivers=buffer[20]&0xFF;
+                    discovered[devices].supported_transmitters=1;
 
                     discovered[devices].software_version=buffer[13]&0xFF;
                     for(i=0;i<6;i++) {

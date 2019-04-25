@@ -131,6 +131,7 @@ static void get_info(char *driver) {
     discovered[devices].protocol=PROTOCOL_SOAPYSDR;
     strcpy(discovered[devices].name,driver);
     discovered[devices].supported_receivers=rx_channels;
+    discovered[devices].supported_transmitters=tx_channels;
     discovered[devices].adcs=rx_channels;
     discovered[devices].status=STATE_AVAILABLE;
     discovered[devices].software_version=version;

@@ -240,7 +240,10 @@ g_print("radio_save_state: %s\n",filename);
       receiver_save_state(radio->receiver[i]);
     }
   }
-  transmitter_save_state(radio->transmitter);
+
+  if(radio->discovered->supported_transmitters!=0) {
+    transmitter_save_state(radio->transmitter);
+  }
  
   gtk_window_get_position(GTK_WINDOW(main_window),&x,&y);
   sprintf(value,"%d",x);
