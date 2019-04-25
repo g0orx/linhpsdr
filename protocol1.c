@@ -240,6 +240,8 @@ void protocol1_stop() {
 
 void protocol1_run() {
   fprintf(stderr,"protocol1_run\n");
+
+  start_protocol1_thread();
   
   for(int i=8;i<OZY_BUFFER_SIZE;i++) {
     output_buffer[i]=0;
@@ -276,7 +278,7 @@ void protocol1_init(RADIO *r) {
   else
 #endif
 
-  start_protocol1_thread();
+  //start_protocol1_thread();
 
 }
 
@@ -436,7 +438,7 @@ static gpointer receive_thread(gpointer arg) {
           } else {
             error_handler("protocol1: receiver_thread: recvfrom socket failed",strerror(errno));
           }
-          running=FALSE;
+          //running=FALSE;
           continue;
         }
 
@@ -486,6 +488,8 @@ static gpointer receive_thread(gpointer arg) {
         break;
     }
   }
+
+  fprintf(stderr,"EXIT: protocol1: receive_thread\n");
 }
 
 static void process_control_bytes() {
