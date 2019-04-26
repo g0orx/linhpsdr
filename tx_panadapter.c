@@ -227,7 +227,7 @@ void update_tx_panadapter(RADIO *r) {
 
     // frequency
     if(tx->rx!=NULL) {
-      long long f=tx->rx->frequency_a+tx->rx->ctun_offset+tx->rx->lo_tx;
+      long long f=tx->rx->frequency_a+tx->rx->ctun_offset-tx->rx->lo_tx;
       if(tx->rx->split) {
         f=tx->rx->frequency_b;
       }

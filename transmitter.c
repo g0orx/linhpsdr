@@ -43,6 +43,9 @@
 #include "mic_level.h"
 #include "property.h"
 #include "ext.h"
+#ifdef SOAPYSDR
+#include "soapy_protocol.h"
+#endif
 
 void transmitter_save_state(TRANSMITTER *tx) {
   char name[80];
@@ -732,7 +735,7 @@ void transmitter_init_analyzer(TRANSMITTER *tx) {
 
     if(tx->pixels>0) {
       tx->pixel_samples=g_new0(float,tx->pixels);
-      int max_w = fft_size + (int) min(keep_time * (double) tx->fps, keep_time * (double) fft_size * (double) tx->fps);
+      int max_w = fft_size + (int) fmin(keep_time * (double) tx->fps, keep_time * (double) fft_size * (double) tx->fps);
 
       overlap = (int)max(0.0, ceil(fft_size - (double)tx->mic_sample_rate / (double)tx->fps));
 
@@ -958,5 +961,16 @@ g_print("create_transmitter: channel=%d\n",channel);
 g_print("update_timer: fps=%d\n",tx->fps);
     tx->update_timer_id=g_timeout_add(1000/tx->fps,update_timer_cb,(gpointer)tx);
   }
+
+  switch(radio->discovered->protocol) {
+    case PROTOCOL_1:
+      break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      soapy_protocol_create_transmitter(tx);
+      break;
+#endif
+  }
+
   return tx;
 }

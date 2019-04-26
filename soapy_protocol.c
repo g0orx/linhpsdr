@@ -135,17 +135,17 @@ void soapy_protocol_create_transmitter(TRANSMITTER *tx) {
 
   soapy_tx_sample_rate=tx->iq_output_rate;
 
-fprintf(stderr,"soapy_protocol_configure_transmitter: setting samplerate=%f\n",(double)soapy_tx_sample_rate);
+fprintf(stderr,"soapy_protocol_create_transmitter: setting samplerate=%f\n",(double)soapy_tx_sample_rate);
   rc=SoapySDRDevice_setSampleRate(soapy_device,SOAPY_SDR_TX,8,(double)soapy_tx_sample_rate);
   if(rc!=0) {
     fprintf(stderr,"soapy_protocol_configure_transmitter: SoapySDRDevice_setSampleRate(%f) failed: %s\n",(double)soapy_tx_sample_rate,SoapySDR_errToStr(rc));
   }
 
-  size_t channel=8;
-fprintf(stderr,"soapy_protocol_configure_transmitter: SoapySDRDevice_setupStream: channel=%ld\n",channel);
+  size_t channel=0;
+fprintf(stderr,"soapy_protocol_create_transmitter: SoapySDRDevice_setupStream: channel=%ld\n",channel);
   tx_stream=SoapySDRDevice_setupStream(soapy_device,SOAPY_SDR_TX,SOAPY_SDR_CF32,&channel,1,NULL);
   if(tx_stream==NULL) {
-    fprintf(stderr,"soapy_protocol_create_receiver: SoapySDRDevice_setupStream (TX) failed: %s\n",SoapySDR_errToStr(rc));
+    fprintf(stderr,"soapy_protocol_create_transmitter: SoapySDRDevice_setupStream (TX) failed: %s\n",SoapySDR_errToStr(rc));
     _exit(-1);
   }
 

@@ -215,9 +215,12 @@ typedef struct _receiver {
   gboolean bpsk;
   gint bpsk_channel;
   gdouble *bpsk_audio_output_buffer;
+  gint bpsk_buffer_size;
   gint64 bpsk_offset;
-  gdouble *bpsk_frequency_output_buffer;
-  void *bpsk_plan;
+  gfloat *bpsk_pixel_samples;
+  gint bpsk_pixels;
+  gdouble bpsk_hz_per_pixel;
+  gint bpsk_sample_rate;
 
 } RECEIVER;
 

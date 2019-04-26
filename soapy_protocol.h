@@ -38,6 +38,7 @@ void soapy_protocol_set_attenuation(RECEIVER *rx,int attenuation);
 void soapy_protocol_change_sample_rate(RECEIVER *rx,int rate);
 gboolean soapy_protocol_get_automatic_gain(RECEIVER *rx);
 void soapy_protocol_set_automatic_gain(RECEIVER *rx,gboolean mode);
+void soapy_protocol_create_transmitter(TRANSMITTER *tx);
 void soapy_protocol_start_transmitter(TRANSMITTER *tx);
 void soapy_protocol_stop_transmitter(TRANSMITTER *tx);
 

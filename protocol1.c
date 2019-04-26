@@ -1086,16 +1086,20 @@ void ozy_send_buffer() {
     if(radio->adc[0].random) {
       output_buffer[C3]|=LT2208_RANDOM_ON;
     }
+/*
     if(radio->discovered->device==DEVICE_HERMES_LITE) {
       if(radio->ozy_software_version<41) {
         // old LNA gain control method, see HL2 wiki for details
         output_buffer[C3]|=lna_dither[radio->adc[0].attenuation+12];
       }
     } else {
+*/
       if(radio->adc[0].dither) {
         output_buffer[C3]|=LT2208_DITHER_ON;
       }
+/*
     }
+*/
     if(radio->adc[0].preamp) {
       output_buffer[C3]|=LT2208_GAIN_ON;
     }
@@ -1414,8 +1418,13 @@ void ozy_send_buffer() {
 #endif
         output_buffer[C3]=0x00;
   
-        if(radio->discovered->device==DEVICE_HERMES || radio->discovered->device==DEVICE_ANGELIA || radio->discovered->device==DEVICE_ORION || radio->discovered->device==DEVICE_ORION2) {
-          output_buffer[C4]=0x20|(int)radio->adc[0].attenuation;
+        output_buffer[C4]=0x00;
+        if(radio->discovered->device==DEVICE_HERMES_LITE || radio->discovered->device==DEVICE_HERMES || radio->discovered->device==DEVICE_ANGELIA || radio->discovered->device==DEVICE_ORION || radio->discovered->device==DEVICE_ORION2) {
+          if(radio->adc[0].enable_step_attenuation) {
+            output_buffer[C4]=0x20;
+          }
+          output_buffer[C4]|=(int)radio->adc[0].attenuation&0x1F;
+/*
         } else if(radio->discovered->device==DEVICE_HERMES_LITE) {
           if(radio->ozy_software_version>=41) {
             // different LNA gain setting method, see HL2 wiki for details
@@ -1423,6 +1432,7 @@ void ozy_send_buffer() {
           } else {
             output_buffer[C4]=lna_att[radio->adc[0].attenuation+12];
           }
+*/
         } else {
           output_buffer[C4]=0x00;
         }
@@ -1432,7 +1442,7 @@ void ozy_send_buffer() {
         output_buffer[C1]=0x00;
         if(radio->receivers>=2) {
           if(radio->discovered->device==DEVICE_HERMES || radio->discovered->device==DEVICE_ANGELIA || radio->discovered->device==DEVICE_ORION || radio->discovered->device==DEVICE_ORION2) {
-            output_buffer[C1]=0x20/*|(int)radio->receiver[1]->attenuation*/;
+            /*output_buffer[C1]=0x20|(int)radio->receiver[1]->attenuation;*/
           }
         }
         output_buffer[C2]=0x00;

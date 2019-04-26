@@ -539,9 +539,18 @@ static void rxtx(RADIO *r) {
     }
 //g_print("rxtx: switch to tx: enable transmitter\n");
     SetChannelState(r->transmitter->channel,1,0);
-    if(r->discovered->protocol==PROTOCOL_2) {
-      protocol2_high_priority();
-      protocol2_receive_specific();
+    switch(r->discovered->protocol) {
+      case PROTOCOL_1:
+        break;
+      case PROTOCOL_2:
+        protocol2_high_priority();
+        protocol2_receive_specific();
+        break;
+#ifdef SOAPYSDR
+      case PROTOCOL_SOAPYSDR:
+        soapy_protocol_stop_transmitter(r->transmitter);
+        break;
+#endif
     }
   } else {
 //g_print("rxtx: switch to rx: disable transmitter\n");
@@ -552,9 +561,18 @@ static void rxtx(RADIO *r) {
       }
     }
 //g_print("rxtx: switch to rx: receivers enabled\n");
-    if(r->discovered->protocol==PROTOCOL_2) {
-      protocol2_high_priority();
-      protocol2_receive_specific();
+    switch(r->discovered->protocol) {
+      case PROTOCOL_1:
+        break;
+      case PROTOCOL_2:
+        protocol2_high_priority();
+        protocol2_receive_specific();
+        break;
+#ifdef SOAPYSDR
+      case PROTOCOL_SOAPYSDR:
+        soapy_protocol_start_transmitter(r->transmitter);
+        break;
+#endif
     }
     update_tx_panadapter(r);
   }
@@ -659,7 +677,6 @@ int add_receiver(void *data) {
   }
   if(i<r->discovered->supported_receivers) {
 g_print("add_receiver: using receiver %d\n",i);
-//    protocol1_stop();
     r->receiver[i]=create_receiver(i,r->sample_rate);
     r->receivers++;
 g_print("add_receiver: receivers now %d\n",r->receivers);
@@ -901,7 +918,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   switch(r->model) {
 #ifdef SOAPYSDR
     case SOAPYSDR_USB:
-      r->sample_rate=1536000;
+      r->sample_rate=384000;
       r->buffer_size=2048;
       r->alex_rx_antenna=3; // LNAW
       r->alex_tx_antenna=0; // ANT 1

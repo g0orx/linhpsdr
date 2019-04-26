@@ -781,7 +781,7 @@ void calculate_display_average(RECEIVER *rx) {
   double t=0.001 * rx->display_average_time;
   
   display_avb = exp(-1.0 / ((double)rx->fps * t));
-  display_average = max(2, (int)min(60, (double)rx->fps * t));
+  display_average = max(2, (int)fmin(60, (double)rx->fps * t));
   SetDisplayAvBackmult(rx->channel, 0, display_avb);
   SetDisplayNumAverage(rx->channel, 0, display_average);
 }
@@ -898,13 +898,6 @@ int j;
     fprintf(stderr,"full_rx_buffer: channel=%d fexchange0: error=%d\n",rx->channel,error);
   }
 
-  if(rx->bpsk) {
-    fexchange0(rx->bpsk_channel, rx->iq_input_buffer, rx->bpsk_audio_output_buffer, &error);
-    if(error!=0/* && error!=-2*/) {
-      fprintf(stderr,"full_rx_buffer: channel=%d fexchange0: error=%d\n",rx->bpsk_channel,error);
-    }
-  }
-
   Spectrum0(1, rx->channel, 0, 0, rx->iq_input_buffer);
 
 #ifdef FREEDV
@@ -921,6 +914,15 @@ int j;
   }
   g_mutex_unlock(&rx->freedv_mutex);
 #endif
+
+  if(rx->bpsk) {
+    fexchange0(rx->bpsk_channel, rx->iq_input_buffer, rx->bpsk_audio_output_buffer, &error);
+    if(error!=0 && error!=-2) {
+      fprintf(stderr,"full_rx_buffer: channel=%d fexchange0: error=%d\n",rx->bpsk_channel,error);
+    }
+    process_bpsk(rx);
+  }
+
 }
 
 void add_iq_samples(RECEIVER *rx,double i_sample,double q_sample) {
@@ -1091,7 +1093,7 @@ g_print("receiver_init_analyzer: channel=%d zoom=%d pixels=%d pixel_samples=%p\n
 g_print("receiver_init_analyzer: g_new0: channel=%d pixel_samples=%p\n",rx->channel,rx->pixel_samples);
     rx->hz_per_pixel=(gdouble)rx->sample_rate/(gdouble)rx->pixels;
 
-    int max_w = fft_size + (int) min(keep_time * (double) rx->fps, keep_time * (double) fft_size * (double) rx->fps);
+    int max_w = fft_size + (int) fmin(keep_time * (double) rx->fps, keep_time * (double) fft_size * (double) rx->fps);
 
     //overlap = (int)max(0.0, ceil(fft_size - (double)rx->sample_rate / (double)rx->fps));
 

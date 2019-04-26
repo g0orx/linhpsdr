@@ -437,6 +437,18 @@ static void agc_changed_cb(GtkWidget *widget, gpointer data) {
 static void attenuation_value_changed_cb(GtkWidget *widget, gpointer data) {
   ADC *adc=(ADC *)data;
   adc->attenuation=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
+  if(radio->discovered->protocol==PROTOCOL_2) {
+    protocol2_high_priority();
+  }
+}
+
+static void enable_step_attenuation_cb(GtkWidget *widget,gpointer data) {
+  ADC *adc=(ADC *)data;
+  adc->enable_step_attenuation=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+  if(radio->discovered->protocol==PROTOCOL_2) {
+    protocol2_high_priority();
+  }
+fprintf(stderr,"enable_step_attenuation: %d\n",adc->enable_step_attenuation);
 }
 
 static void rigctl_cb(GtkWidget *widget, gpointer data) {
@@ -554,12 +566,25 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
 
  
   if(radio->discovered->device==DEVICE_HERMES_LITE) {
-    GtkWidget *lna_gain_label=gtk_label_new("LNA Gain:");
-    gtk_grid_attach(GTK_GRID(adc0_grid),lna_gain_label,0,0,1,1);
-    GtkWidget *lna_gain_b=gtk_spin_button_new_with_range(-12.0,48.0,1.0);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(lna_gain_b),(double)radio->adc[0].attenuation);
-    gtk_grid_attach(GTK_GRID(adc0_grid),lna_gain_b,1,0,1,1);
-    g_signal_connect(lna_gain_b,"value_changed",G_CALLBACK(lna_gain_value_changed_cb),&radio->adc[0]);
+    GtkWidget *step_attenuator_label=gtk_label_new("Step Attenuator:");
+    gtk_grid_attach(GTK_GRID(adc0_grid),step_attenuator_label,0,0,1,1);
+    GtkWidget *step_attenuator_b;
+    if(radio->ozy_software_version<41) {
+      step_attenuator_b=gtk_spin_button_new_with_range(0.0,31.0,1.0);
+    } else {
+      step_attenuator_b=gtk_spin_button_new_with_range(0.0,60.0,1.0);
+    }
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(step_attenuator_b),(double)radio->adc[0].attenuation);
+    gtk_grid_attach(GTK_GRID(adc0_grid),step_attenuator_b,1,0,1,1);
+    g_signal_connect(step_attenuator_b,"value_changed",G_CALLBACK(attenuation_value_changed_cb),&radio->adc[0]);
+
+/*
+    GtkWidget *enable_step_attenuation=gtk_check_button_new_with_label("Enable");
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (enable_step_attenuation), radio->adc[0].enable_step_attenuation);
+    gtk_grid_attach(GTK_GRID(adc0_grid),enable_step_attenuation,1,2,2,1);
+    g_signal_connect(enable_step_attenuation,"toggled",G_CALLBACK(enable_step_attenuation_cb),&radio->adc[0]);
+*/
+
 #ifdef SOAPYSDR
   } else if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
     GtkWidget *antenna_label=gtk_label_new("Antenna:");
