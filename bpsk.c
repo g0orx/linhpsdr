@@ -25,6 +25,8 @@ static gint64 error=0;
 static gint64 last_error=0;
 static gboolean first=TRUE;
 
+static gboolean ready=FALSE;
+
 void bpsk_init_analyzer(RECEIVER *rx) {
     int flp[] = {0};
     double keep_time = 0.1;
@@ -85,6 +87,8 @@ g_print("SetAnalyzer id=%d buffer_size=%d fft_size=%d overlap=%d\n",rx->bpsk_cha
     );
   }
 
+  ready=TRUE;
+  rx->bpsk=TRUE;
 }
 
 
@@ -94,7 +98,7 @@ void create_bpsk(RECEIVER *rx) {
   rx->bpsk_audio_output_buffer=g_new0(gdouble,2*rx->output_samples);
   rx->bpsk_buffer_size=rx->output_samples;
 
-  g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d fft_size=%d\n", rx->bpsk_channel, rx->buffer_size, rx->sample_rate, rx->fft_size);
+  g_print("create_bpsk: OpenChannel: channel=%d buffer_size=%d sample_rate=%d fft_size=%d\n", rx->bpsk_channel, rx->buffer_size, rx->sample_rate, rx->fft_size);
 
   OpenChannel(rx->bpsk_channel,
               rx->buffer_size,
@@ -122,8 +126,20 @@ void create_bpsk(RECEIVER *rx) {
   RXANBPSetShiftFrequency(rx->bpsk_channel, (double)rx->bpsk_offset);
   SetRXAShiftRun(rx->bpsk_channel, 1);
 
-  bpsk_init_analyzer(rx);
+  int result;
+  XCreateAnalyzer(rx->bpsk_channel, &result, 262144, 1, 1, "");
+  if(result != 0) {
+    g_print("XCreateAnalyzer channel=%d failed: %d\n", rx->bpsk_channel, result);
+  } else {
+    rx->bpsk_sample_rate=48000;
+    rx->bpsk_pixels=1024;
+    bpsk_init_analyzer(rx);
+  }
 
+}
+
+void destroy_bpsk(RECEIVER *rx) {
+  rx->bpsk=FALSE;
 }
 
 void reset_bpsk(RECEIVER *rx) {
@@ -133,5 +149,25 @@ fprintf(stderr,"reset_bpsk\n");
 }
 
 void process_bpsk(RECEIVER *rx) {
-   Spectrum0(1, rx->channel, 0, 0, rx->audio_output_buffer);
+  static int count=0;
+  int rc;
+  int val;
+  int max;
+  if(ready && count>=rx->fps*10) { // every 10 seconds
+    GetPixels(rx->bpsk_channel,0,rx->bpsk_pixel_samples,&rc);
+    if(rc) {
+      val=-400;
+      for(int i=0;i<rx->bpsk_pixels;i++) {
+//g_print("i=%d %d\n",i,(int)rx->bpsk_pixel_samples[i]);
+        if((int)rx->bpsk_pixel_samples[i]>val) {
+          max=i;
+          val=(int)rx->bpsk_pixel_samples[i];
+        }
+      }
+      g_print("max=%d val=%d hz_per_pixel=%f adjust=%d\n",max,val,rx->bpsk_hz_per_pixel,(int)((512.0-(double)max)*rx->bpsk_hz_per_pixel));
+    }
+    count=0;
+  } else if(ready) {
+    count++;
+  }
 }

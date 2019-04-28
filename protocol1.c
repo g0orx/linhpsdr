@@ -1419,7 +1419,12 @@ void ozy_send_buffer() {
         output_buffer[C3]=0x00;
   
         output_buffer[C4]=0x00;
-        if(radio->discovered->device==DEVICE_HERMES_LITE || radio->discovered->device==DEVICE_HERMES || radio->discovered->device==DEVICE_ANGELIA || radio->discovered->device==DEVICE_ORION || radio->discovered->device==DEVICE_ORION2) {
+        if(radio->discovered->device==DEVICE_HERMES_LITE) {
+          if(!radio->adc[0].enable_step_attenuation) {
+            output_buffer[C4]=0x20;
+          }
+          output_buffer[C4]|=(int)radio->adc[0].attenuation&0x1F;
+        } else if(radio->discovered->device==DEVICE_HERMES || radio->discovered->device==DEVICE_ANGELIA || radio->discovered->device==DEVICE_ORION || radio->discovered->device==DEVICE_ORION2) {
           if(radio->adc[0].enable_step_attenuation) {
             output_buffer[C4]=0x20;
           }

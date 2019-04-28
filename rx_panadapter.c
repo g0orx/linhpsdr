@@ -427,6 +427,13 @@ void update_rx_panadapter(RECEIVER *rx) {
       cairo_set_line_width(cr, 1.0);
     }
   }
+
+  double attenuation=radio->adc[rx->adc].attenuation;
+  if(radio->discovered->device==DEVICE_HERMES_LITE) {
+    if(!radio->adc[rx->adc].dither) {
+      attenuation-=20;
+    }
+  }
             
   // agc
   if(rx->agc!=AGC_OFF) {
@@ -438,10 +445,10 @@ void update_rx_panadapter(RECEIVER *rx) {
     GetRXAAGCThresh(rx->channel, &thresh, 4096.0, (double)rx->sample_rate);
     
     if(rx->panadapter_agc_line) {
-      double knee_y=thresh+(double)radio->adc[rx->adc].attenuation+radio->panadapter_calibration;
+      double knee_y=thresh+attenuation+radio->panadapter_calibration;
       knee_y = floor((rx->panadapter_high - knee_y)*dbm_per_line);
 
-      double hang_y=hang+(double)radio->adc[rx->adc].attenuation+radio->panadapter_calibration;
+      double hang_y=hang+attenuation+radio->panadapter_calibration;
       hang_y = floor((rx->panadapter_high - hang_y)*dbm_per_line);
 
       if(rx->agc!=AGC_MEDIUM && rx->agc!=AGC_FAST) {
@@ -482,7 +489,7 @@ void update_rx_panadapter(RECEIVER *rx) {
   cairo_move_to(cr, 0.0, display_height);
 
   for(i=1;i<display_width;i++) {
-    s2=(double)samples[i+offset]+(double)radio->adc[rx->adc].attenuation+radio->panadapter_calibration;
+    s2=(double)samples[i+offset]+attenuation+radio->panadapter_calibration;
     s2 = floor((rx->panadapter_high - s2) *dbm_per_line);
     cairo_line_to(cr, (double)i, s2);
   }

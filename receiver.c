@@ -734,6 +734,9 @@ static gboolean update_timer_cb(void *data) {
     double m=GetRXAMeter(rx->channel,rx->smeter) + radio->meter_calibration;
     update_meter(rx,m);
   }
+  if(rx->bpsk) {
+    process_bpsk(rx);
+  }
   g_mutex_unlock(&rx->mutex);
   return TRUE;
 }
@@ -907,9 +910,6 @@ int j;
   } else {
 #endif
     process_rx_buffer(rx);
-    if(rx->bpsk) {
-      process_bpsk(rx);
-    }
 #ifdef FREEDV
   }
   g_mutex_unlock(&rx->freedv_mutex);
@@ -920,7 +920,7 @@ int j;
     if(error!=0 && error!=-2) {
       fprintf(stderr,"full_rx_buffer: channel=%d fexchange0: error=%d\n",rx->bpsk_channel,error);
     }
-    process_bpsk(rx);
+    Spectrum0(1, rx->bpsk_channel, 0, 0, rx->bpsk_audio_output_buffer);
   }
 
 }

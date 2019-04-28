@@ -53,6 +53,7 @@ static GtkWidget *random_b;
 static GtkWidget *preamp_b;
 static GtkWidget *attenuation_label;
 static GtkWidget *attenuation_b;
+static GtkWidget *enable_attenuation_b;
 
 static GtkWidget *adc1_frame;
 static GtkWidget *adc1_antenna_combo_box;
@@ -448,7 +449,6 @@ static void enable_step_attenuation_cb(GtkWidget *widget,gpointer data) {
   if(radio->discovered->protocol==PROTOCOL_2) {
     protocol2_high_priority();
   }
-fprintf(stderr,"enable_step_attenuation: %d\n",adc->enable_step_attenuation);
 }
 
 static void rigctl_cb(GtkWidget *widget, gpointer data) {
@@ -565,139 +565,141 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   int r=0;
 
  
-  if(radio->discovered->device==DEVICE_HERMES_LITE) {
-    GtkWidget *step_attenuator_label=gtk_label_new("Step Attenuator:");
-    gtk_grid_attach(GTK_GRID(adc0_grid),step_attenuator_label,0,0,1,1);
-    GtkWidget *step_attenuator_b;
-    if(radio->ozy_software_version<41) {
-      step_attenuator_b=gtk_spin_button_new_with_range(0.0,31.0,1.0);
-    } else {
-      step_attenuator_b=gtk_spin_button_new_with_range(0.0,60.0,1.0);
-    }
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(step_attenuator_b),(double)radio->adc[0].attenuation);
-    gtk_grid_attach(GTK_GRID(adc0_grid),step_attenuator_b,1,0,1,1);
-    g_signal_connect(step_attenuator_b,"value_changed",G_CALLBACK(attenuation_value_changed_cb),&radio->adc[0]);
-
-/*
-    GtkWidget *enable_step_attenuation=gtk_check_button_new_with_label("Enable");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (enable_step_attenuation), radio->adc[0].enable_step_attenuation);
-    gtk_grid_attach(GTK_GRID(adc0_grid),enable_step_attenuation,1,2,2,1);
-    g_signal_connect(enable_step_attenuation,"toggled",G_CALLBACK(enable_step_attenuation_cb),&radio->adc[0]);
-*/
+  switch(radio->discovered->device) {
 
 #ifdef SOAPYSDR
-  } else if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
-    GtkWidget *antenna_label=gtk_label_new("Antenna:");
-    gtk_grid_attach(GTK_GRID(adc0_grid),antenna_label,0,0,1,1);
-    adc0_antenna_combo_box=gtk_combo_box_text_new();
+    case DEVICE_SOAPYSDR_USB:
+      {
+      GtkWidget *antenna_label=gtk_label_new("Antenna:");
+      gtk_grid_attach(GTK_GRID(adc0_grid),antenna_label,0,0,1,1);
+      adc0_antenna_combo_box=gtk_combo_box_text_new();
 
-    SoapySDRDevice *sdr=get_soapy_device();
-    size_t length;
+      SoapySDRDevice *sdr=get_soapy_device();
+      size_t length;
 
-    char** names = SoapySDRDevice_listAntennas(sdr, SOAPY_SDR_RX, 0, &length);
+      char** names = SoapySDRDevice_listAntennas(sdr, SOAPY_SDR_RX, 0, &length);
 
-    for(i=0;i<length;i++) {
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,names[i]);
-    }
-
-    gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_antenna_combo_box),radio->adc[0].antenna);
-    g_signal_connect(adc0_antenna_combo_box,"changed",G_CALLBACK(adc0_antenna_cb),radio);
-    gtk_grid_attach(GTK_GRID(adc0_grid),adc0_antenna_combo_box,1,r,1,1);
-    r++;
-
-    if(radio->discovered->info.soapy.rx_gains>0) {
-      GtkWidget *gain=gtk_label_new("Gains:");
-      gtk_grid_attach(GTK_GRID(adc0_grid),gain,0,r,1,1);
-      r++;
-    }
-
-    if(radio->discovered->info.soapy.rx_has_automatic_gain) {
-      GtkWidget *agc=gtk_check_button_new_with_label("Hardware AGC: ");
-      gtk_grid_attach(GTK_GRID(adc0_grid),agc,1,r,1,1);
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(agc),radio->adc[0].agc);
-      g_signal_connect(agc,"toggled",G_CALLBACK(agc_changed_cb),&radio->adc[0]);
-      r++;
-    }
-
-    for(i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
-      GtkWidget *gain_label=gtk_label_new(radio->discovered->info.soapy.rx_gain[i]);
-      gtk_grid_attach(GTK_GRID(adc0_grid),gain_label,0,r,1,1);
-      SoapySDRRange range=radio->discovered->info.soapy.rx_range[i];
-      if(range.step==0.0) {
-        range.step=1.0;
+      for(i=0;i<length;i++) {
+        gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,names[i]);
       }
-      GtkWidget *gain_b=gtk_spin_button_new_with_range(range.minimum,range.maximum,range.step);
-      gtk_widget_set_name (gain_b, radio->discovered->info.soapy.rx_gain[i]);
-      gtk_spin_button_set_value(GTK_SPIN_BUTTON(gain_b),(double)radio->adc[0].rx_gain[i]);
-      gtk_grid_attach(GTK_GRID(adc0_grid),gain_b,1,r,1,1);
-      g_signal_connect(gain_b,"value_changed",G_CALLBACK(gain_value_changed_cb),&radio->adc[0]);
+
+      gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_antenna_combo_box),radio->adc[0].antenna);
+      g_signal_connect(adc0_antenna_combo_box,"changed",G_CALLBACK(adc0_antenna_cb),radio);
+      gtk_grid_attach(GTK_GRID(adc0_grid),adc0_antenna_combo_box,1,r,1,1);
       r++;
-    }
+
+      if(radio->discovered->info.soapy.rx_gains>0) {
+        GtkWidget *gain=gtk_label_new("Gains:");
+        gtk_grid_attach(GTK_GRID(adc0_grid),gain,0,r,1,1);
+        r++;
+      }
+
+      if(radio->discovered->info.soapy.rx_has_automatic_gain) {
+        GtkWidget *agc=gtk_check_button_new_with_label("Hardware AGC: ");
+        gtk_grid_attach(GTK_GRID(adc0_grid),agc,1,r,1,1);
+        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(agc),radio->adc[0].agc);
+        g_signal_connect(agc,"toggled",G_CALLBACK(agc_changed_cb),&radio->adc[0]);
+        r++;
+      }
+
+      for(i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
+        GtkWidget *gain_label=gtk_label_new(radio->discovered->info.soapy.rx_gain[i]);
+        gtk_grid_attach(GTK_GRID(adc0_grid),gain_label,0,r,1,1);
+        SoapySDRRange range=radio->discovered->info.soapy.rx_range[i];
+        if(range.step==0.0) {
+          range.step=1.0;
+        }
+        GtkWidget *gain_b=gtk_spin_button_new_with_range(range.minimum,range.maximum,range.step);
+        gtk_widget_set_name (gain_b, radio->discovered->info.soapy.rx_gain[i]);
+        gtk_spin_button_set_value(GTK_SPIN_BUTTON(gain_b),(double)radio->adc[0].rx_gain[i]);
+        gtk_grid_attach(GTK_GRID(adc0_grid),gain_b,1,r,1,1);
+        g_signal_connect(gain_b,"value_changed",G_CALLBACK(gain_value_changed_cb),&radio->adc[0]);
+        r++;
+      }
+      }
+      break;
 #endif
-  } else {
-    adc0_antenna_combo_box=gtk_combo_box_text_new();
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"ANT_1");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"ANT_2");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"ANT_3");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"XVTR");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"EXT1");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"EXT2");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_antenna_combo_box),radio->adc[0].antenna);
-    g_signal_connect(adc0_antenna_combo_box,"changed",G_CALLBACK(adc0_antenna_cb),radio);
-    gtk_grid_attach(GTK_GRID(adc0_grid),adc0_antenna_combo_box,0,0,1,1);
+    case DEVICE_HERMES_LITE:
+      attenuation_label=gtk_label_new("Step Attenuation (dB):");
+      gtk_grid_attach(GTK_GRID(adc0_grid),attenuation_label,0,0,1,1);
+      attenuation_b=gtk_spin_button_new_with_range(0.0,31.0,1.0);
+      gtk_spin_button_set_value(GTK_SPIN_BUTTON(attenuation_b),(double)radio->adc[0].attenuation);
+      gtk_grid_attach(GTK_GRID(adc0_grid),attenuation_b,1,0,1,1);
+      g_signal_connect(attenuation_b,"value_changed",G_CALLBACK(attenuation_value_changed_cb),&radio->adc[0]);
 
-    adc0_filters_combo_box=gtk_combo_box_text_new();
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_filters_combo_box),NULL,"Automatic");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_filters_combo_box),NULL,"Manual");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_filters_combo_box),radio->adc[0].filters);
-    g_signal_connect(adc0_filters_combo_box,"changed",G_CALLBACK(adc0_filters_cb),radio);
-    gtk_grid_attach(GTK_GRID(adc0_grid),adc0_filters_combo_box,1,0,1,1);
+      enable_attenuation_b=gtk_check_button_new_with_label("Enable 20dB Attenuation");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (enable_attenuation_b), radio->adc[0].dither);
+      gtk_grid_attach(GTK_GRID(adc0_grid),enable_attenuation_b,1,1,1,1);
+      //g_signal_connect(enable_attenuation_b,"toggled",G_CALLBACK(enable_step_attenuation_cb),&radio->adc[0]);
+      g_signal_connect(enable_attenuation_b,"toggled",G_CALLBACK(dither_cb),&radio->adc[0]);
 
-    adc0_hpf_combo_box=gtk_combo_box_text_new();
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_hpf_combo_box),NULL,"BYPASS HPF");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_hpf_combo_box),NULL,"1.5 MHz HPF");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_hpf_combo_box),NULL,"6.5 MHZ HPF");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_hpf_combo_box),NULL,"9.5 MHz HPF");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_hpf_combo_box),NULL,"13 MHz HPF");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_hpf_combo_box),NULL,"20 MHz HPF");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_hpf_combo_box),radio->adc[0].hpf);
-    g_signal_connect(adc0_hpf_combo_box,"changed",G_CALLBACK(adc0_hpf_cb),radio);
-    gtk_grid_attach(GTK_GRID(adc0_grid),adc0_hpf_combo_box,2,0,1,1);
+      break;
+    
+    default:
+      adc0_antenna_combo_box=gtk_combo_box_text_new();
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"ANT_1");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"ANT_2");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"ANT_3");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"XVTR");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"EXT1");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"EXT2");
+      gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_antenna_combo_box),radio->adc[0].antenna);
+      g_signal_connect(adc0_antenna_combo_box,"changed",G_CALLBACK(adc0_antenna_cb),radio);
+      gtk_grid_attach(GTK_GRID(adc0_grid),adc0_antenna_combo_box,0,0,1,1);
 
-    adc0_lpf_combo_box=gtk_combo_box_text_new();
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_lpf_combo_box),NULL,"160m LPF");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_lpf_combo_box),NULL,"80m LPF");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_lpf_combo_box),NULL,"60/40m LPF");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_lpf_combo_box),NULL,"30/20m LPF");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_lpf_combo_box),NULL,"17/15m LPF");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_lpf_combo_box),NULL,"12/10m LPF");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_lpf_combo_box),NULL,"6m LPF");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_lpf_combo_box),radio->adc[0].lpf);
-    g_signal_connect(adc0_lpf_combo_box,"changed",G_CALLBACK(adc0_lpf_cb),radio);
-    gtk_grid_attach(GTK_GRID(adc0_grid),adc0_lpf_combo_box,3,0,1,1);
+      adc0_filters_combo_box=gtk_combo_box_text_new();
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_filters_combo_box),NULL,"Automatic");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_filters_combo_box),NULL,"Manual");
+      gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_filters_combo_box),radio->adc[0].filters);
+      g_signal_connect(adc0_filters_combo_box,"changed",G_CALLBACK(adc0_filters_cb),radio);
+      gtk_grid_attach(GTK_GRID(adc0_grid),adc0_filters_combo_box,1,0,1,1);
 
-    dither_b=gtk_check_button_new_with_label("Dither");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (dither_b), radio->adc[0].dither);
-    gtk_grid_attach(GTK_GRID(adc0_grid),dither_b,0,1,1,1);
-    g_signal_connect(dither_b,"toggled",G_CALLBACK(dither_cb),&radio->adc[0]);
+      adc0_hpf_combo_box=gtk_combo_box_text_new();
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_hpf_combo_box),NULL,"BYPASS HPF");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_hpf_combo_box),NULL,"1.5 MHz HPF");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_hpf_combo_box),NULL,"6.5 MHZ HPF");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_hpf_combo_box),NULL,"9.5 MHz HPF");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_hpf_combo_box),NULL,"13 MHz HPF");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_hpf_combo_box),NULL,"20 MHz HPF");
+      gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_hpf_combo_box),radio->adc[0].hpf);
+      g_signal_connect(adc0_hpf_combo_box,"changed",G_CALLBACK(adc0_hpf_cb),radio);
+      gtk_grid_attach(GTK_GRID(adc0_grid),adc0_hpf_combo_box,2,0,1,1);
   
-    random_b=gtk_check_button_new_with_label("Random");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (random_b), radio->adc[0].random);
-    gtk_grid_attach(GTK_GRID(adc0_grid),random_b,1,1,1,1);
-    g_signal_connect(random_b,"toggled",G_CALLBACK(random_cb),&radio->adc[0]);
+      adc0_lpf_combo_box=gtk_combo_box_text_new();
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_lpf_combo_box),NULL,"160m LPF");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_lpf_combo_box),NULL,"80m LPF");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_lpf_combo_box),NULL,"60/40m LPF");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_lpf_combo_box),NULL,"30/20m LPF");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_lpf_combo_box),NULL,"17/15m LPF");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_lpf_combo_box),NULL,"12/10m LPF");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_lpf_combo_box),NULL,"6m LPF");
+      gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_lpf_combo_box),radio->adc[0].lpf);
+      g_signal_connect(adc0_lpf_combo_box,"changed",G_CALLBACK(adc0_lpf_cb),radio);
+      gtk_grid_attach(GTK_GRID(adc0_grid),adc0_lpf_combo_box,3,0,1,1);
+
+      dither_b=gtk_check_button_new_with_label("Dither");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (dither_b), radio->adc[0].dither);
+      gtk_grid_attach(GTK_GRID(adc0_grid),dither_b,0,1,1,1);
+      g_signal_connect(dither_b,"toggled",G_CALLBACK(dither_cb),&radio->adc[0]);
   
-    preamp_b=gtk_check_button_new_with_label("Preamp");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (preamp_b), radio->adc[0].preamp);
-    gtk_grid_attach(GTK_GRID(adc0_grid),preamp_b,2,1,1,1);
-    g_signal_connect(preamp_b,"toggled",G_CALLBACK(preamp_cb),&radio->adc[0]);
+      random_b=gtk_check_button_new_with_label("Random");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (random_b), radio->adc[0].random);
+      gtk_grid_attach(GTK_GRID(adc0_grid),random_b,1,1,1,1);
+      g_signal_connect(random_b,"toggled",G_CALLBACK(random_cb),&radio->adc[0]);
   
-    attenuation_label=gtk_label_new("Attenuation (dB):");
-    gtk_grid_attach(GTK_GRID(adc0_grid),attenuation_label,3,1,1,1);
+      preamp_b=gtk_check_button_new_with_label("Preamp");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (preamp_b), radio->adc[0].preamp);
+      gtk_grid_attach(GTK_GRID(adc0_grid),preamp_b,2,1,1,1);
+      g_signal_connect(preamp_b,"toggled",G_CALLBACK(preamp_cb),&radio->adc[0]);
   
-    attenuation_b=gtk_spin_button_new_with_range(0.0,31.0,1.0);
-    gtk_spin_button_set_value(GTK_SPIN_BUTTON(attenuation_b),(double)radio->adc[0].attenuation);
-    gtk_grid_attach(GTK_GRID(adc0_grid),attenuation_b,4,1,1,1);
-    g_signal_connect(attenuation_b,"value_changed",G_CALLBACK(attenuation_value_changed_cb),&radio->adc[0]);
+      attenuation_label=gtk_label_new("Attenuation (dB):");
+      gtk_grid_attach(GTK_GRID(adc0_grid),attenuation_label,3,1,1,1);
+  
+      attenuation_b=gtk_spin_button_new_with_range(0.0,31.0,1.0);
+      gtk_spin_button_set_value(GTK_SPIN_BUTTON(attenuation_b),(double)radio->adc[0].attenuation);
+      gtk_grid_attach(GTK_GRID(adc0_grid),attenuation_b,4,1,1,1);
+      g_signal_connect(attenuation_b,"value_changed",G_CALLBACK(attenuation_value_changed_cb),&radio->adc[0]);
+      break;
   }
 
   switch(radio->discovered->device) {

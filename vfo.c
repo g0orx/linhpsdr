@@ -1061,10 +1061,10 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
       update_frequency(rx);
       break;
     case BUTTON_BPSK:
-      rx->bpsk=!rx->bpsk;
       if(rx->bpsk) {
-        create_bpsk(rx);
+        destroy_bpsk(rx);
       } else {
+        create_bpsk(rx);
       }
       break;
     case BUTTON_ATOB:
