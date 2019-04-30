@@ -8,6 +8,10 @@ LINK=gcc
 
 GTKINCLUDES=`pkg-config --cflags gtk+-3.0`
 GTKLIBS=`pkg-config --libs gtk+-3.0`
+PULSEINCLUDES=`pkg-config --cflags libpulse`
+PULSELIBS=`pkg-config --libs libpulse`
+PULSESIMPLELIBS=`pkg-config --libs libpulse-simple`
+PULSEMAINLOOPLIBS=`pkg-config --libs libpulse-mainloop-glib`
 
 
 AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
@@ -45,7 +49,7 @@ OPTIONS=-Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION=
 #OPTIONS=-g -Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
 LIBS=-lm -lpthread -lwdsp
-INCLUDES=$(GTKINCLUDES)
+INCLUDES=$(GTKINCLUDES) $(PULSEINCLUDES)
 
 COMPILE=$(CC) $(OPTIONS) $(INCLUDES)
 
@@ -205,7 +209,7 @@ prebuild:
 	rm -f version.o
 
 $(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS)
-	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(GTKLIBS) $(LIBS) $(AUDIO_LIBS) $(SOAPYSDR_LIBS)
+	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(GTKLIBS) $(LIBS) $(PULSELIBS) $(PULSESIMPLELIBS) $(PULSEMAINLOOPLIBS) $(SOAPYSDR_LIBS)
 
 .c.o:
 	$(COMPILE) -c -o $@ $<
