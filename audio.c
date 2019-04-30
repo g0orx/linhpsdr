@@ -29,9 +29,11 @@
 #include <sched.h>
 #include <semaphore.h>
 
+#ifndef __APPLE__
 #include <pulse/pulseaudio.h>
 #include <pulse/glib-mainloop.h>
 #include <pulse/simple.h>
+#endif
 
 #ifdef SOAPYSDR
 #include <SoapySDR/Device.h>
@@ -46,6 +48,7 @@
 #include "protocol1.h"
 #include "protocol2.h"
 #include "audio.h"
+
 
 int n_input_devices;
 AUDIO_DEVICE input_devices[MAX_AUDIO_DEVICES];
@@ -73,18 +76,22 @@ static int running=FALSE;
 
 static void *mic_read_thread(void *arg);
 
+#ifndef __APPLE__
 static pa_buffer_attr bufattr;
 static pa_glib_mainloop *main_loop;
 static pa_mainloop_api *main_loop_api;
 static pa_operation *op;
 static pa_context *pa_ctx;
+#endif
+
 static int ready=0;
 
 static int triggered=0;
 
 int audio_open_output(RECEIVER *rx) {
-  pa_sample_spec sample_spec;
   int result=0;
+#ifndef __APPLE__
+  pa_sample_spec sample_spec;
   int err;
 
 fprintf(stderr,"audio_open_output: %s\n",rx->audio_name);
@@ -121,11 +128,16 @@ fprintf(stderr,"audio_open_output: allocated local_audio_buffer %p size %ld byte
     g_mutex_unlock(&rx->local_audio_mutex);
   }
 
+
+#else
+  result=-1;
+#endif
   return result;
 }
 	
 int audio_open_input(RADIO *r) {
   int result=0;
+#ifndef __APPLE__
   pa_sample_spec sample_spec;
 
   if(r->microphone_name==NULL) {
@@ -164,29 +176,37 @@ int audio_open_input(RADIO *r) {
     result=-1;
   }
   g_mutex_unlock(&r->local_microphone_mutex);
+#else
+  result=-1;
+#endif
   return result;
 }
 
 void audio_close_output(RECEIVER *rx) {
+#ifndef __APPLE__
   g_mutex_lock(&rx->local_audio_mutex);
   pa_simple_free(rx->playstream);
   rx->playstream=NULL;
   g_free(rx->local_audio_buffer);
   rx->local_audio_buffer=NULL;
   g_mutex_unlock(&rx->local_audio_mutex);
+#endif
 }
 
 void audio_close_input(RADIO *r) {
+#ifndef __APPLE__
   g_mutex_lock(&r->local_microphone_mutex);
   pa_simple_free(r->microphone_stream);
   r->microphone_stream=NULL;
   g_free(r->local_microphone_buffer);
   r->local_microphone_buffer=NULL;
   g_mutex_unlock(&r->local_microphone_mutex);
+#endif
 }
 
 int audio_write_buffer(RECEIVER *rx) {
   int rc;
+#ifndef __APPLE__
   int err;
   g_mutex_lock(&rx->local_audio_mutex);
   rc=pa_simple_write(rx->playstream,
@@ -197,11 +217,15 @@ int audio_write_buffer(RECEIVER *rx) {
     fprintf(stderr,"audio_write buffer=%p length=%d returned %d err=%d\n",rx->local_audio_buffer,rx->output_samples,rc,err);
   } 
   g_mutex_unlock(&rx->local_audio_mutex);
+#else
+  rc=-1;
+#endif
   return rc;
 }
 
 int audio_write(RECEIVER *rx,float left_sample,float right_sample) {
   int result=0;
+#ifndef __APPLE__
   int rc;
   int err;
 
@@ -224,10 +248,14 @@ int audio_write(RECEIVER *rx,float left_sample,float right_sample) {
     rx->local_audio_buffer_offset=0;
   }
   g_mutex_unlock(&rx->local_audio_mutex);
+#else
+  result=-1;
+#endif
   return result;
 }
 
 static void *mic_read_thread(gpointer arg) {
+#ifndef __APPLE__
   RADIO *r=(RADIO *)arg;
   int rc;
   int err;
@@ -258,13 +286,14 @@ g_print("mic_read_thread: ENTRY\n");
     g_mutex_unlock(&r->local_microphone_mutex);
   }
 g_print("mic_read_thread: EXIT\n");
+#endif
   return NULL;
 }
 
 void audio_get_cards() {
 }
 
-
+#ifndef __APPLE__
 static void source_list_cb(pa_context *context,const pa_source_info *s,int eol,void *data) {
   int i;
   if(eol>0) {
@@ -338,15 +367,18 @@ g_print("audio: state_cb: PA_CONTEXT_READY\n");
                         break;
         }
 }
+#endif
 
 
 void create_audio() {
   int i;
 
 g_print("audio: create_audio\n");
+#ifndef __APPLE__
   main_loop=pa_glib_mainloop_new(NULL);
   main_loop_api=pa_glib_mainloop_get_api(main_loop);
   pa_ctx=pa_context_new(main_loop_api,"linhpsdr");
   pa_context_connect(pa_ctx,NULL,0,NULL);
   pa_context_set_state_callback(pa_ctx, state_cb, &ready);
+#endif
 }

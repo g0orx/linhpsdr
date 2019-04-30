@@ -88,11 +88,20 @@ fprintf(stderr,"soapy_protocol_create: setting bandwidth=%f\n",bandwidth);
 
   size_t channel=rx->adc;
 fprintf(stderr,"soapy_protocol_create_receiver: SoapySDRDevice_setupStream: channel=%ld\n",channel);
+#ifdef __APPLE__
+  rc=SoapySDRDevice_setupStream(soapy_device,&rx_stream,SOAPY_SDR_RX,SOAPY_SDR_CF32,&channel,1,NULL);
+  if(rc!=0) {
+    fprintf(stderr,"soapy_protocol_create_receiver: SoapySDRDevice_setupStream (RX) failed: %s\n",SoapySDR_errToStr(rc));
+    _exit(-1);
+  }
+#else
   rx_stream=SoapySDRDevice_setupStream(soapy_device,SOAPY_SDR_RX,SOAPY_SDR_CF32,&channel,1,NULL);
   if(rx_stream==NULL) {
     fprintf(stderr,"soapy_protocol_create_receiver: SoapySDRDevice_setupStream (RX) failed: %s\n",SoapySDR_errToStr(rc));
     _exit(-1);
   }
+#endif
+
 
   max_samples=SoapySDRDevice_getStreamMTU(soapy_device,rx_stream);
   if(max_samples>(2*rx->fft_size)) {
@@ -143,11 +152,19 @@ fprintf(stderr,"soapy_protocol_create_transmitter: setting samplerate=%f\n",(dou
 
   size_t channel=0;
 fprintf(stderr,"soapy_protocol_create_transmitter: SoapySDRDevice_setupStream: channel=%ld\n",channel);
+#ifdef __APPLE__
+  rc=SoapySDRDevice_setupStream(soapy_device,&tx_stream,SOAPY_SDR_TX,SOAPY_SDR_CF32,&channel,1,NULL);
+  if(rc!=0) {
+    fprintf(stderr,"soapy_protocol_create_transmitter: SoapySDRDevice_setupStream (RX) failed: %s\n",SoapySDR_errToStr(rc));
+    _exit(-1);
+  }
+#else
   tx_stream=SoapySDRDevice_setupStream(soapy_device,SOAPY_SDR_TX,SOAPY_SDR_CF32,&channel,1,NULL);
   if(tx_stream==NULL) {
     fprintf(stderr,"soapy_protocol_create_transmitter: SoapySDRDevice_setupStream (TX) failed: %s\n",SoapySDR_errToStr(rc));
     _exit(-1);
   }
+#endif
 
 }
 

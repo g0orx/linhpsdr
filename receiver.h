@@ -20,7 +20,10 @@
 #ifndef RECEIVER_H
 #define RECEIVER_H
 
+
+#ifndef __APPLE__
 #include <pulse/simple.h>
+#endif
 
 typedef struct _receiver {
   gint channel; // WDSP channel
@@ -183,7 +186,9 @@ typedef struct _receiver {
   
   gchar *audio_name;
   gboolean mute_when_not_active;
+#ifndef __APPLE__
   pa_simple* playstream;
+#endif
 
   GtkWidget *toolbar;
   GtkWidget *dialog;

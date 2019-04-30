@@ -8,13 +8,14 @@ LINK=gcc
 
 GTKINCLUDES=`pkg-config --cflags gtk+-3.0`
 GTKLIBS=`pkg-config --libs gtk+-3.0`
-PULSEINCLUDES=`pkg-config --cflags libpulse`
-PULSELIBS=`pkg-config --libs libpulse`
-PULSESIMPLELIBS=`pkg-config --libs libpulse-simple`
-PULSEMAINLOOPLIBS=`pkg-config --libs libpulse-mainloop-glib`
+
+#PULSEINCLUDES=`pkg-config --cflags libpulse`
+#PULSELIBS=`pkg-config --libs libpulse`
+#PULSESIMPLELIBS=`pkg-config --libs libpulse-simple`
+#PULSEMAINLOOPLIBS=`pkg-config --libs libpulse-mainloop-glib`
 
 
-AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
+#AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
 
 # uncomment the line below to include SoapySDR support
 #
@@ -27,7 +28,7 @@ AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
 #	sudo apt-get install soapysdr-module-rtlsdr
 #	sudo apt-get install soapysdr-module-lms7
 #
-#SOAPYSDR_INCLUDE=SOAPYSDR
+SOAPYSDR_INCLUDE=SOAPYSDR
 
 ifeq ($(SOAPYSDR_INCLUDE),SOAPYSDR)
 SOAPYSDR_OPTIONS=-D SOAPYSDR

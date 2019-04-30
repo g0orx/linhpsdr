@@ -94,7 +94,9 @@ typedef struct _radio {
 
   gboolean local_microphone;
   gchar *microphone_name;
+#ifndef __APPLE__
   pa_simple* microphone_stream;
+#endif
   gint local_microphone_buffer_size;
   gint local_microphone_buffer_offset;
   float *local_microphone_buffer;
