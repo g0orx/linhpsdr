@@ -413,13 +413,13 @@ void update_rx_panadapter(RECEIVER *rx) {
       cairo_set_source_rgb (cr, 1.0, 0.0, 0.0);
       cairo_set_line_width(cr, 2.0);
       if((min_display<band->frequencyMin)&&(max_display>band->frequencyMin)) {
-        i=(band->frequencyMin-min_display)/(long long)rx->hz_per_pixel;
+        i=(int)(((double)band->frequencyMin-(double)min_display)/rx->hz_per_pixel);
         cairo_move_to(cr,(double)i,0.0);
         cairo_line_to(cr,(double)i,(double)display_height);
         cairo_stroke(cr);
       }
       if((min_display<band->frequencyMax)&&(max_display>band->frequencyMax)) {
-        i=(band->frequencyMax-min_display)/(long long)rx->hz_per_pixel;
+        i=(int)(((double)band->frequencyMax-(double)min_display)/rx->hz_per_pixel);
         cairo_move_to(cr,(double)i,0.0);
         cairo_line_to(cr,(double)i,(double)display_height);
         cairo_stroke(cr);
