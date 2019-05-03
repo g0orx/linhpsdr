@@ -28,7 +28,7 @@ GTKLIBS=`pkg-config --libs gtk+-3.0`
 #	sudo apt-get install soapysdr-module-rtlsdr
 #	sudo apt-get install soapysdr-module-lms7
 #
-SOAPYSDR_INCLUDE=SOAPYSDR
+#SOAPYSDR_INCLUDE=SOAPYSDR
 
 ifeq ($(SOAPYSDR_INCLUDE),SOAPYSDR)
 SOAPYSDR_OPTIONS=-D SOAPYSDR
