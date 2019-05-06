@@ -16,6 +16,7 @@ GTKLIBS=`pkg-config --libs gtk+-3.0`
 
 
 #AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
+AUDIOLIBS=-lsoundio
 
 # uncomment the line below to include SoapySDR support
 #
@@ -45,7 +46,7 @@ soapy_protocol.o
 endif
 
 
-OPTIONS=-Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) -O3
+OPTIONS=-Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) -O3 -g
 #OPTIONS=-g -Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) -O3
 #OPTIONS=-g -Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
@@ -210,7 +211,7 @@ prebuild:
 	rm -f version.o
 
 $(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS)
-	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(GTKLIBS) $(LIBS) $(PULSELIBS) $(PULSESIMPLELIBS) $(PULSEMAINLOOPLIBS) $(SOAPYSDR_LIBS)
+	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(GTKLIBS) $(LIBS) $(AUDIOLIBS) $(SOAPYSDR_LIBS)
 
 .c.o:
 	$(COMPILE) -c -o $@ $<

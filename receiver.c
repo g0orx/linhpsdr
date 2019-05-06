@@ -212,6 +212,9 @@ void receiver_save_state(RECEIVER *rx) {
     sprintf(name,"receiver[%d].audio_name",rx->channel);
     setProperty(name,rx->audio_name);
   }
+  sprintf(name,"receiver[%d].output_index",rx->channel);
+  sprintf(value,"%d",rx->output_index);
+  setProperty(name,value);
   sprintf(name,"receiver[%d].mute_when_not_active",rx->channel);
   sprintf(value,"%d",rx->mute_when_not_active);
   setProperty(name,value);
@@ -414,6 +417,9 @@ void receiver_restore_state(RECEIVER *rx) {
     rx->audio_name=g_new0(gchar,strlen(value)+1);
     strcpy(rx->audio_name,value);
   }
+  sprintf(name,"receiver[%d].output_index",rx->channel);
+  value=getProperty(name);
+  if(value) rx->output_index=atoi(value);
   sprintf(name,"receiver[%d].mute_when_not_active",rx->channel);
   value=getProperty(name);
   if(value) rx->mute_when_not_active=atoi(value);
@@ -734,9 +740,6 @@ static gboolean update_timer_cb(void *data) {
     double m=GetRXAMeter(rx->channel,rx->smeter) + radio->meter_calibration;
     update_meter(rx,m);
   }
-  if(rx->bpsk) {
-    process_bpsk(rx);
-  }
   g_mutex_unlock(&rx->mutex);
   return TRUE;
 }
@@ -880,6 +883,11 @@ static void process_rx_buffer(RECEIVER *rx) {
       }
     }
   }
+#ifdef __APPLE__
+  if(rx->local_audio && !rx->output_started) {
+    audio_start_output(rx);
+  }
+#endif
 }
 
 static void full_rx_buffer(RECEIVER *rx) {
@@ -916,11 +924,7 @@ int j;
 #endif
 
   if(rx->bpsk) {
-    fexchange0(rx->bpsk_channel, rx->iq_input_buffer, rx->bpsk_audio_output_buffer, &error);
-    if(error!=0 && error!=-2) {
-      fprintf(stderr,"full_rx_buffer: channel=%d fexchange0: error=%d\n",rx->bpsk_channel,error);
-    }
-    Spectrum0(1, rx->bpsk_channel, 0, 0, rx->bpsk_audio_output_buffer);
+    process_bpsk(rx);
   }
 
 }
@@ -1262,7 +1266,7 @@ fprintf(stderr,"create_receiver: buffer_size=%d\n",rx->buffer_size);
   rx->iq_input_buffer=g_new0(gdouble,2*rx->buffer_size);
 
   rx->audio_buffer_size=480;
-  rx->audio_buffer=g_new0(gchar,rx->audio_buffer_size);
+  rx->audio_buffer=g_new0(guchar,rx->audio_buffer_size);
   rx->audio_sequence=0;
 
   rx->mixed_audio=0;

@@ -547,11 +547,11 @@ void update_rx_panadapter(RECEIVER *rx) {
 
   if(rx->bpsk) {
     cairo_set_source_rgb (cr, 0.0, 1.0, 0.0);
-    cairo_move_to(cr,(double)(display_width/2.0)+((rx->bpsk_offset-900)/rx->hz_per_pixel),((double)display_height/2.0)-10);
-    cairo_line_to(cr,(double)(display_width/2.0)+((rx->bpsk_offset-900)/rx->hz_per_pixel),((double)display_height/2.0)+10);
+    cairo_move_to(cr,(double)(display_width/2.0)+(((double)rx->bpsk_offset-1000.0)/rx->hz_per_pixel),((double)display_height/2.0)-10);
+    cairo_line_to(cr,(double)(display_width/2.0)+(((double)rx->bpsk_offset-1000.0)/rx->hz_per_pixel),((double)display_height/2.0)+10);
     cairo_stroke(cr);
-    cairo_move_to(cr,(double)(display_width/2.0)+((rx->bpsk_offset+900)/rx->hz_per_pixel),((double)display_height/2.0)-10);
-    cairo_line_to(cr,(double)(display_width/2.0)+((rx->bpsk_offset+900)/rx->hz_per_pixel),((double)display_height/2.0)+10);
+    cairo_move_to(cr,(double)(display_width/2.0)+(((double)rx->bpsk_offset+1000)/rx->hz_per_pixel),((double)display_height/2.0)-10);
+    cairo_line_to(cr,(double)(display_width/2.0)+(((double)rx->bpsk_offset+1000)/rx->hz_per_pixel),((double)display_height/2.0)+10);
     cairo_stroke(cr);
   }
 

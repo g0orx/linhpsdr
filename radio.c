@@ -1054,6 +1054,8 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   }
 #endif
 
+  create_audio();
+
   add_receivers(r);
 
   switch(r->discovered->protocol) {
@@ -1099,7 +1101,6 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 #endif
   }
 
-  create_audio();
 
   create_smartsdr_server();
 

@@ -857,6 +857,7 @@ static void audio_choice_cb(GtkComboBox *widget,gpointer data) {
       g_free(rx->audio_name);
     }
     rx->audio_name=g_new0(gchar,strlen(output_devices[i].name)+1);
+    rx->output_index=output_devices[i].index;
     strcpy(rx->audio_name,output_devices[i].name);
     if(audio_open_output(rx)<0) {
       rx->local_audio=FALSE;

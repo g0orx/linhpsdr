@@ -27,78 +27,15 @@ static gboolean first=TRUE;
 
 static gboolean ready=FALSE;
 
-void bpsk_init_analyzer(RECEIVER *rx) {
-    int flp[] = {0};
-    double keep_time = 0.1;
-    int n_pixout=1;
-    int spur_elimination_ffts = 1;
-    int data_type = 1;
-    int fft_size = 8192;
-    int window_type = 4;
-    double kaiser_pi = 14.0;
-    int overlap = 2048;
-    int clip = 0;
-    int span_clip_l = 0;
-    int span_clip_h = 0;
-    int pixels=rx->bpsk_pixels;
-    int stitches = 1;
-    int avm = 0;
-    double tau = 0.001 * 120.0;
-    int calibration_data_set = 0;
-    double span_min_freq = 0.0;
-    double span_max_freq = 0.0;
-
-g_print("bpsk_init_analyzer: channel=%d pixels=%d pixel_samples=%p\n",rx->bpsk_channel,rx->bpsk_pixels,rx->bpsk_pixel_samples);
-
-  if(rx->bpsk_pixel_samples!=NULL) {
-    g_free(rx->bpsk_pixel_samples);
-    rx->bpsk_pixel_samples=NULL;
-  }
-  if(rx->bpsk_pixels>0) {
-    rx->bpsk_pixel_samples=g_new0(float,rx->bpsk_pixels);
-g_print("bpsk_init_analyzer: g_new0: channel=%d pixel_samples=%p\n",rx->bpsk_channel,rx->bpsk_pixel_samples);
-    rx->bpsk_hz_per_pixel=(gdouble)rx->bpsk_sample_rate/(gdouble)rx->bpsk_pixels;
-
-    int max_w = fft_size + (int) fmin(keep_time * (double) rx->fps, keep_time * (double) fft_size * (double) rx->fps);
-
-    //overlap = (int)max(0.0, ceil(fft_size - (double)rx->sample_rate / (double)rx->fps));
-
-g_print("SetAnalyzer id=%d buffer_size=%d fft_size=%d overlap=%d\n",rx->bpsk_channel,rx->bpsk_buffer_size,fft_size,overlap);
-
-    SetAnalyzer(rx->bpsk_channel,
-            n_pixout,
-            spur_elimination_ffts, //number of LO frequencies = number of ffts used in elimination
-            data_type, //0 for real input data (I only); 1 for complex input data (I & Q)
-            flp, //vector with one elt for each LO frequency, 1 if high-side LO, 0 otherwise
-            fft_size, //size of the fft, i.e., number of input samples
-            rx->bpsk_buffer_size, //number of samples transferred for each OpenBuffer()/CloseBuffer()
-            window_type, //integer specifying which window function to use
-            kaiser_pi, //PiAlpha parameter for Kaiser window
-            overlap, //number of samples each fft (other than the first) is to re-use from the previous
-            clip, //number of fft output bins to be clipped from EACH side of each sub-span
-            span_clip_l, //number of bins to clip from low end of entire span
-            span_clip_h, //number of bins to clip from high end of entire span
-            pixels, //number of pixel values to return.  may be either <= or > number of bins
-            stitches, //number of sub-spans to concatenate to form a complete span
-            calibration_data_set, //identifier of which set of calibration data to use
-            span_min_freq, //frequency at first pixel value8192
-            span_max_freq, //frequency at last pixel value
-            max_w //max samples to hold in input ring buffers
-    );
-  }
-
-  ready=TRUE;
-  rx->bpsk=TRUE;
-}
-
+#define MULTIPLE 16
 
 void create_bpsk(RECEIVER *rx) {
   // Open a channel for the BPSK receiver
   rx->bpsk_channel=11; // GetMaxChannels()-1;
-  rx->bpsk_audio_output_buffer=g_new0(gdouble,2*rx->output_samples);
+  rx->bpsk_audio_output_buffer=g_new0(gdouble,2*rx->output_samples*MULTIPLE);
   rx->bpsk_buffer_size=rx->output_samples;
 
-  g_print("create_bpsk: OpenChannel: channel=%d buffer_size=%d sample_rate=%d fft_size=%d\n", rx->bpsk_channel, rx->buffer_size, rx->sample_rate, rx->fft_size);
+  g_print("create_bpsk: OpenChannel: channel=%d buffer_size=%d sample_rate=%d fft_size=%d output_samples=%d\n", rx->bpsk_channel, rx->buffer_size, rx->sample_rate, rx->fft_size,rx->output_samples);
 
   OpenChannel(rx->bpsk_channel,
               rx->buffer_size,
@@ -115,26 +52,18 @@ void create_bpsk(RECEIVER *rx) {
   RXASetNC(rx->bpsk_channel, rx->fft_size);
   RXASetMP(rx->bpsk_channel, rx->low_latency);
 
-  SetRXAMode(rx->bpsk_channel, USB);
-  RXASetPassband(rx->bpsk_channel,0.0,2000.0);
+  SetRXAMode(rx->bpsk_channel, DSB);
+  RXASetPassband(rx->bpsk_channel,-1000.0,1000.0);
 
   SetRXAPanelGain1(rx->bpsk_channel, 0.2);
   SetRXAPanelRun(rx->bpsk_channel, 1);
 
-  rx->bpsk_offset=124000; // assume centre at 10489675000 and beacon at 10489800000 (+/- 1000 hz)
+  rx->bpsk_offset=125000; // assume centre at 10489675000 and beacon at 10489800000 (+/- 1000 hz)
   SetRXAShiftFreq(rx->bpsk_channel, (double)rx->bpsk_offset);
   RXANBPSetShiftFrequency(rx->bpsk_channel, (double)rx->bpsk_offset);
   SetRXAShiftRun(rx->bpsk_channel, 1);
 
-  int result;
-  XCreateAnalyzer(rx->bpsk_channel, &result, 262144, 1, 1, "");
-  if(result != 0) {
-    g_print("XCreateAnalyzer channel=%d failed: %d\n", rx->bpsk_channel, result);
-  } else {
-    rx->bpsk_sample_rate=48000;
-    rx->bpsk_pixels=1024;
-    bpsk_init_analyzer(rx);
-  }
+  rx->bpsk=TRUE;
 
 }
 
@@ -149,25 +78,49 @@ fprintf(stderr,"reset_bpsk\n");
 }
 
 void process_bpsk(RECEIVER *rx) {
-  static int count=0;
-  int rc;
-  int val;
-  int max;
-  if(ready && count>=rx->fps*10) { // every 10 seconds
-    GetPixels(rx->bpsk_channel,0,rx->bpsk_pixel_samples,&rc);
-    if(rc) {
-      val=-400;
-      for(int i=0;i<rx->bpsk_pixels;i++) {
-//g_print("i=%d %d\n",i,(int)rx->bpsk_pixel_samples[i]);
-        if((int)rx->bpsk_pixel_samples[i]>val) {
-          max=i;
-          val=(int)rx->bpsk_pixel_samples[i];
-        }
+
+  double bpsk_frequency=48000; // sample frequency in Hz
+
+  double sum=0.0, sum_old;
+  int state=0;
+  int period=0;
+  double thresh=0.0;
+  double f;
+  int error;
+
+  fexchange0(rx->bpsk_channel, rx->iq_input_buffer, &rx->bpsk_audio_output_buffer[count], &error);
+  if(error!=0 && error!=-2) {
+     fprintf(stderr,"full_rx_buffer: channel=%d fexchange0: error=%d\n",rx->bpsk_channel,error);
+  }
+  count+=2*rx->output_samples;
+  if(count==(2*rx->output_samples*MULTIPLE)) {
+    // Autocorrelation
+    for(int i=0;i<rx->output_samples*MULTIPLE;i++) {
+      sum_old=sum;
+      sum=0.0;
+      for(int k=0;k<(rx->output_samples*MULTIPLE)-i;k++) {
+        sum+=rx->bpsk_audio_output_buffer[k*2]*rx->bpsk_audio_output_buffer[(k+i)*2];
       }
-      g_print("max=%d val=%d hz_per_pixel=%f adjust=%d\n",max,val,rx->bpsk_hz_per_pixel,(int)((512.0-(double)max)*rx->bpsk_hz_per_pixel));
+ 
+      // peak detect
+      if(state==2 && (sum-sum_old)<=0) {
+        period=i;
+        state=3;
+      }
+      if(state==1 && (sum>thresh) && (sum-sum_old)>0.0) {
+        state=2;
+      }
+      if(!i) {
+        thresh=sum*0.5;
+        state=1;
+      }
+    }
+
+    f=bpsk_frequency/(double)period;
+
+    if(period!=0) {
+      g_print("process_bpsk: f=%f period=%d thresh=%f sum=%f old_sum=%f\n",f,period,thresh,sum,sum_old);
     }
     count=0;
-  } else if(ready) {
-    count++;
   }
 }
