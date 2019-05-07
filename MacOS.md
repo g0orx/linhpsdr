@@ -8,7 +8,6 @@ Development and testing has been run on MacOS Sierra 10.12.6 and MacOS high Sier
 
 ```
   brew install fftw
-  brew install pulseaudio --with-glib
   brew install gtk+3
   brew install gnome-icon-theme
   brew install libsoundio
