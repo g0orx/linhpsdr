@@ -238,8 +238,13 @@ fprintf(stderr,"soapy_protocol: receive_thread\n");
       fprintf(stderr,"elements=%d max_samples=%d\n",elements,max_samples);
     }
     for(i=0;i<elements;i++) {
-      qsample=buffer[i*2];
-      isample=buffer[(i*2)+1];
+      if(radio->iqswap) {
+        qsample=buffer[i*2];
+        isample=buffer[(i*2)+1];
+      } else {
+        isample=buffer[i*2];
+        qsample=buffer[(i*2)+1];
+      }
       add_iq_samples(rx,(double)isample,(double)qsample);
 #ifdef TIMING
       rate_samples++;

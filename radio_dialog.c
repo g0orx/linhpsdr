@@ -433,6 +433,11 @@ static void agc_changed_cb(GtkWidget *widget, gpointer data) {
   gboolean agc=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
   soapy_protocol_set_automatic_gain(radio->receiver[0],agc);
 }
+
+static void iqswap_changed_cb(GtkWidget *widget, gpointer data) {
+  RADIO *r=(RADIO *)data;
+  r->iqswap=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+}
 #endif
 
 static void attenuation_value_changed_cb(GtkWidget *widget, gpointer data) {
@@ -518,7 +523,12 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   gtk_grid_attach(GTK_GRID(model_grid),model_combo_box,0,0,1,1);
 
 #ifdef SOAPYSDR
-  if(radio->discovered->device!=DEVICE_SOAPYSDR_USB) {
+  if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
+    GtkWidget *iqswap=gtk_check_button_new_with_label("Swap I & Q");
+    gtk_grid_attach(GTK_GRID(model_grid),iqswap,1,0,1,1);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(iqswap),radio->iqswap);
+    g_signal_connect(iqswap,"toggled",G_CALLBACK(iqswap_changed_cb),radio);
+  } else {
 #endif
     filter_board_combo_box=gtk_combo_box_text_new();
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"ALEX FILTERS");

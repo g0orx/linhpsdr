@@ -232,6 +232,11 @@ g_print("radio_save_state: %s\n",filename);
   sprintf(value,"%d",rigctl_port_base);
   setProperty("rigctl_port_base",value);
 
+#ifdef SOAPYSDR
+  sprintf(value,"%d",radio->iqswap);
+  setProperty("radio.iqswap",value);
+#endif
+
   filterSaveState();
   bandSaveState();
 
@@ -397,6 +402,11 @@ void radio_restore_state(RADIO *radio) {
   if(value!=NULL) radio->region=atoi(value);
   value=getProperty("radio.classE");
   if(value!=NULL) radio->classE=atoi(value);
+
+#ifdef SOAPYSDR
+  value=getProperty("radio.iqswap");
+  if(value) radio->iqswap=atoi(value);
+#endif
 
   value=getProperty("rigctl_enable");
   if(value!=NULL) rigctl_enable=atoi(value);
@@ -1045,7 +1055,12 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   r->region=REGION_OTHER;
 
+#ifdef SOAPYSDR
+  r->iqswap=FALSE;
+#endif
+
   r->dialog=NULL;
+
 
   radio_restore_state(r);
 

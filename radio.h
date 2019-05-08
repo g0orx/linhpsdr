@@ -172,6 +172,10 @@ typedef struct _radio {
 
   int region;
 
+#ifdef SOAPYSDR
+  gboolean iqswap;
+#endif
+
 } RADIO;
 
 extern int radio_start(void *data);
