@@ -96,9 +96,11 @@ static int triggered=0;
 static int sample_rate=48000;
 
 #ifdef __APPLE__
+
+static int underflow_count=0;
+
 static void underflow_callback(struct SoundIoOutStream *outstream) {
-  static int count = 0;
-  g_print("audio_write: underflow %d\n", ++count);
+  g_print("audio_write: underflow %d\n", ++underflow_count);
 }
 
 static void write_callback(struct SoundIoOutStream *outstream, int frame_count_min, int frame_count_max) {
@@ -181,6 +183,21 @@ g_print("audio_open_output: %s\n",rx->audio_name);
   int err;
 
   g_mutex_lock(&rx->local_audio_mutex);
+
+  // find the device
+  rx->output_index=-1;
+  for(int i=0;i<n_output_devices;i++) {
+    if(strcmp(rx->audio_name,output_devices[i].name)==0) {
+      rx->output_index=output_devices[i].index;
+      break;
+    }
+  }
+
+  if(rx->output_index==-1) {
+    g_mutex_unlock(&rx->local_audio_mutex);
+    return -1;
+  }
+  
   rx->output_device = soundio_get_output_device(soundio, rx->output_index);
   if(!rx->output_device) {
     g_print("audio_open_output: could not get output device: out of memory");
@@ -373,6 +390,7 @@ void audio_start_output(RECEIVER *rx) {
   int err;
   g_print("audio_start_output\n");
   if(!rx->output_started) {
+    underflow_count=0;
     if((err = soundio_outstream_start(rx->output_stream))) {
         g_print("audio_start_output: unable to start output device: %s", soundio_strerror(err));
     } else {
@@ -566,6 +584,15 @@ g_print("audio: create_audio\n");
   for(int i=0;i<output_count;i++) {
     if(n_output_devices<MAX_AUDIO_DEVICES) {
       struct SoundIoDevice *device=soundio_get_output_device(soundio,i);
+
+      // ignore devices that do not support the sample rate or format
+      if(!soundio_device_supports_sample_rate(device, sample_rate) ) {
+        continue;
+      }
+      if(!soundio_device_supports_format(device, SoundIoFormatFloat32NE) ) {
+        continue;
+      }
+
       output_devices[n_output_devices].name=g_new0(char,strlen(device->name)+1);
       strncpy(output_devices[n_output_devices].name,device->name,strlen(device->name));
       output_devices[n_output_devices].description=g_new0(char,strlen(device->name)+1);
