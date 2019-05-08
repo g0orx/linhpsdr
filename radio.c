@@ -918,7 +918,10 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   switch(r->model) {
 #ifdef SOAPYSDR
     case SOAPYSDR_USB:
-      r->sample_rate=384000;
+      r->sample_rate=r->discovered->info.soapy.sample_rate;
+      if(r->sample_rate==0) {
+        r->sample_rate=384000;
+      }
       r->buffer_size=2048;
       r->alex_rx_antenna=3; // LNAW
       r->alex_tx_antenna=0; // ANT 1

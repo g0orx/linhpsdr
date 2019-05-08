@@ -63,13 +63,26 @@ static void get_info(char *driver) {
   }
 
 
+  int sample_rate=0;
   SoapySDRRange *rx_rates=SoapySDRDevice_getSampleRateRange(sdr, SOAPY_SDR_RX, 0, &rx_rates_length);
   fprintf(stderr,"Rx sample rates: ");
   for (size_t i = 0; i < rx_rates_length; i++) {
     fprintf(stderr,"%f -> %f (%f),", rx_rates[i].minimum, rx_rates[i].maximum, rx_rates[i].minimum/48000.0);
+    if(sample_rate==0) {
+      if(rx_rates[i].minimum==rx_rates[i].maximum) {
+        if(((int)rx_rates[i].minimum%48000)==0) {
+          sample_rate=(int)rx_rates[i].minimum;
+        }
+      } else {
+        if((384000.0>=rx_rates[i].minimum) && (384000<=(int)rx_rates[i].maximum)) {
+          sample_rate=384000;
+        }
+      }
+    }
   }
   fprintf(stderr,"\n");
   free(rx_rates);
+  fprintf(stderr,"sample_rate selected %d\n",sample_rate);
 
   SoapySDRRange *tx_rates=SoapySDRDevice_getSampleRateRange(sdr, SOAPY_SDR_TX, 1, &tx_rates_length);
   fprintf(stderr,"Tx sample rates: ");
@@ -137,6 +150,7 @@ static void get_info(char *driver) {
     discovered[devices].software_version=version;
     discovered[devices].frequency_min=ranges[0].minimum;
     discovered[devices].frequency_max=ranges[0].maximum;
+    discovered[devices].info.soapy.sample_rate=sample_rate;
     if(strcmp(driver,"rtlsdr")==0) {
       discovered[devices].info.soapy.rtlsdr_count=rtlsdr_val;
     } else {

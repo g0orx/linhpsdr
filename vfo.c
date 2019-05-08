@@ -725,11 +725,13 @@ void band_cb(GtkWidget *menu_item,gpointer data) {
   choice->rx->ctun=FALSE;
   choice->rx->ctun_offset=0;
   receiver_band_changed(choice->rx,band);
-  if(radio->transmitter->rx==choice->rx) {
-    if(choice->rx->split) {
-      transmitter_set_mode(radio->transmitter,choice->rx->mode_b);
-    } else {
-      transmitter_set_mode(radio->transmitter,choice->rx->mode_a);
+  if(radio->transmitter) {
+    if(radio->transmitter->rx==choice->rx) {
+      if(choice->rx->split) {
+        transmitter_set_mode(radio->transmitter,choice->rx->mode_b);
+      } else {
+        transmitter_set_mode(radio->transmitter,choice->rx->mode_a);
+      }
     }
   }
 
