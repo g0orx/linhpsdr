@@ -30,5 +30,12 @@ Development and testing has been run on MacOS Sierra 10.12.6 and MacOS high Sier
   make -f Makefile.mac install
 ```
 
+###On OS X Mojave it is sometimes necessary to tell the compiler how to find the libffi package like this:
+
+```
+  PKG_CONFIG_PATH="/usr/local/Cellar/libffi/3.2.1/lib/pkgconfig/" make -f Makefile.mac install
+```
+
+
 The build installs linHPSDR into `/usr/local/bin`. To run it, type `linhpsdr` on the command line. 
 
