@@ -234,11 +234,6 @@ typedef struct _receiver {
   gint bpsk_buffer_size;
   gint bpsk_offset;
 
-/*
-  void *resampler;
-  int resampled_elements;
-  double *resampled_buffer;
-*/
   int resample_step;
 
 } RECEIVER;

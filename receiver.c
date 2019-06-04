@@ -569,31 +569,10 @@ g_print("receiver_change_sample_rate: from %d to %d radio=%d\n",rx->sample_rate,
 fprintf(stderr,"receiver_change_sample_rate: channel=%d rate=%d buffer_size=%d output_samples=%d\n",rx->channel, rx->sample_rate, rx->buffer_size, rx->output_samples);
 
 #ifdef SOAPYSDR
-/*
-  if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
-    if(rx->resampler!=NULL) {
-g_print("destroy_resample: %p\n",rx->resampler);
-      destroy_resample(rx->resampler);
-      rx->resampler=NULL;
-g_print("g_free resampled_buffer: %p\n",rx->resampled_buffer);
-      g_free(rx->resampled_buffer);
-      rx->resampled_buffer=NULL;
-    }
-    if(radio->sample_rate!=rx->sample_rate) {
-      rx->resampled_elements=rx->buffer_size/(radio->sample_rate/rx->sample_rate);
-      rx->resampled_buffer=g_new(gdouble,rx->resampled_elements*2);
-      rx->resampler=create_resample(1,rx->buffer_size,rx->buffer,rx->resampled_buffer,radio->sample_rate,rx->sample_rate,0.0,0,1.0);
-g_print("resampled_elements=%d resampled_buffer=%p resampler=%p\n",rx->resampled_elements,rx->resampled_buffer,rx->resampler);
-    }
-    // nothing to do if receiver rate is same as radio
-  }
-*/
-
   if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
     rx->resample_step=radio->sample_rate/rx->sample_rate;
 g_print("receiver_change_sample_rate: resample_step=%d\n",rx->resample_step);
   }
-  
 #endif
 
   SetChannelState(rx->channel,1,0);
@@ -1428,25 +1407,6 @@ g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d 
   RXASetNC(rx->channel, rx->fft_size);
   RXASetMP(rx->channel, rx->low_latency);
 #ifdef SOAPYSDR
-/*
-  if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
-    if(rx->resampler!=NULL) {
-g_print("destroy_resample: %p\n",rx->resampler);
-      destroy_resample(rx->resampler);
-      rx->resampler=NULL;
-g_print("g_free resampled_buffer: %p\n",rx->resampled_buffer);
-      g_free(rx->resampled_buffer);
-      rx->resampled_buffer=NULL;
-    }
-    if(radio->sample_rate!=rx->sample_rate) {
-      rx->resampled_elements=rx->buffer_size/(radio->sample_rate/rx->sample_rate);
-      rx->resampled_buffer=g_new(gdouble,rx->resampled_elements*2);
-      rx->resampler=create_resample(1,rx->buffer_size,rx->buffer,rx->resampled_buffer,radio->sample_rate,rx->sample_rate,0.0,0,1.0);
-g_print("resampled_elements=%d resampled_buffer=%p resampler=%p\n",rx->resampled_elements,rx->resampled_buffer,rx->resampler);
-    }
-    // nothing to do if receiver rate is same as radio
-  }
-*/
   if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
     rx->resample_step=radio->sample_rate/rx->sample_rate;
 g_print("receiver_change_sample_rate: resample_step=%d\n",rx->resample_step);
