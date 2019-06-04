@@ -23,6 +23,8 @@
 typedef struct _transmitter {
   gint channel; // WDSP channel
 
+  gint dac;
+
   gint alex_antenna;
   gdouble mic_gain;
   gint linein_gain;

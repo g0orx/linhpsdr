@@ -36,7 +36,7 @@ extern AUDIO_DEVICE output_devices[MAX_AUDIO_DEVICES];
 extern int audio_open_input(RADIO *r);
 extern void audio_close_input(RADIO *r);
 extern int audio_open_output(RECEIVER *rx);
-#ifdef __APPLE__
+#ifdef SOUNDIO
 void audio_start_output(RECEIVER *rx);
 #endif
 extern void audio_close_output(RECEIVER *rx);

@@ -34,6 +34,7 @@
 #include "wideband_panadapter.h"
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "main.h"
 #include "vfo.h"
@@ -189,7 +190,7 @@ void update_wideband_panadapter(WIDEBAND *w) {
   char v[32];
 
   for(i=w->panadapter_high;i>=w->panadapter_low;i--) {
-    int mod=abs(i)%20;
+    int mod=labs(i)%20;
     if(mod==0) {
       double y = (double)(w->panadapter_high-i)*dbm_per_line;
       cairo_move_to(cr,0.0,y);

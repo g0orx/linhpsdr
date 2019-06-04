@@ -38,6 +38,7 @@
 #include "transmitter.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "main.h"
 #include "protocol1.h"
@@ -334,7 +335,7 @@ static int check_wisdom(void *data) {
       wisdom_sem=malloc(sizeof(sem_t));
       int rc=sem_init(wisdom_sem, 0, 0);
 #endif
-      wisdom_thread_id = g_thread_new( "Wisdoom", wisdom_thread, (gpointer)wisdom_directory);
+      wisdom_thread_id = g_thread_new( "Wisdom", wisdom_thread, (gpointer)wisdom_directory);
       if( ! wisdom_thread_id ) {
         g_print("g_thread_new failed for wisdom_thread\n");
         exit( -1 );

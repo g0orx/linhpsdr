@@ -94,7 +94,14 @@ typedef struct _radio {
 
   gboolean local_microphone;
   gchar *microphone_name;
-#ifndef __APPLE__
+#ifdef SOUNDIO
+  struct SoundIoDevice *input_device;
+  struct SoundIoInStream *input_stream;
+  struct SoundIoRingBuffer *ring_buffer;
+  gboolean input_started;
+  GMutex ring_buffer_mutex;
+  GCond ring_buffer_cond;
+#else
   pa_simple* microphone_stream;
 #endif
   gint local_microphone_buffer_size;
@@ -161,6 +168,7 @@ typedef struct _radio {
   GtkWidget *dialog;
 
   ADC adc[2];
+  DAC dac[2];
 
   WIDEBAND *wideband;
 
@@ -171,6 +179,8 @@ typedef struct _radio {
   guint vox_timeout;
 
   int region;
+
+  gboolean duplex;
 
 #ifdef SOAPYSDR
   gboolean iqswap;

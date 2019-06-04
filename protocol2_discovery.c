@@ -186,7 +186,7 @@ void protocol2_discover(struct ifaddrs* iface) {
 //void* protocol2_discover_receive_thread(void* arg) {
 gpointer protocol2_discover_receive_thread(gpointer data) {
     struct sockaddr_in addr;
-    int len;
+    socklen_t len;
     unsigned char buffer[2048];
     int bytes_read;
     struct timeval tv;
@@ -312,5 +312,5 @@ gpointer protocol2_discover_receive_thread(gpointer data) {
         }
     }
     g_print("protocol2_discover: exiting protocol2_discover_receive_thread\n");
-    g_thread_exit(NULL);
+    return NULL;
 }

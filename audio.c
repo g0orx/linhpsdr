@@ -30,7 +30,7 @@
 #include <sched.h>
 #include <semaphore.h>
 
-#ifdef __APPLE__
+#ifdef SOUNDIO
 #include <soundio/soundio.h>
 #else
 #include <pulse/pulseaudio.h>
@@ -43,6 +43,7 @@
 #endif
 
 #include "adc.h"
+#include "dac.h"
 #include "discovered.h"
 #include "wideband.h"
 #include "receiver.h"
@@ -50,6 +51,7 @@
 #include "radio.h"
 #include "protocol1.h"
 #include "protocol2.h"
+#include "soapy_protocol.h"
 #include "audio.h"
 
 
@@ -79,7 +81,7 @@ static int running=FALSE;
 
 static void *mic_read_thread(void *arg);
 
-#ifdef __APPLE__
+#ifdef SOUNDIO
 struct SoundIo *soundio;
 #else
 static pa_buffer_attr bufattr;
@@ -95,12 +97,13 @@ static int triggered=0;
 
 static int sample_rate=48000;
 
-#ifdef __APPLE__
+#ifdef SOUNDIO
 
 static int underflow_count=0;
 
 static void underflow_callback(struct SoundIoOutStream *outstream) {
-  g_print("audio_write: underflow %d\n", ++underflow_count);
+  underflow_count++;
+  //g_print("audio_write: underflow %d\n", underflow_count);
 }
 
 static void write_callback(struct SoundIoOutStream *outstream, int frame_count_min, int frame_count_max) {
@@ -135,7 +138,7 @@ static void write_callback(struct SoundIoOutStream *outstream, int frame_count_m
         }
       }
       if ((err = soundio_outstream_end_write(outstream)))
-        g_print("write_callback: end write error: %s", soundio_strerror(err));
+        //g_print("write_callback: end write error: %s\n", soundio_strerror(err));
         frames_left -= frame_count;
       }
     }
@@ -149,7 +152,7 @@ static void write_callback(struct SoundIoOutStream *outstream, int frame_count_m
 
       if ((err = soundio_outstream_begin_write(outstream, &areas, &frame_count))) {
         g_print("begin write error: %s", soundio_strerror(err));
-        abort();
+        return;
       }
 
       if (frame_count <= 0)
@@ -164,8 +167,8 @@ static void write_callback(struct SoundIoOutStream *outstream, int frame_count_m
       }
 
       if ((err = soundio_outstream_end_write(outstream))) {
-        g_print("end write error: %s", soundio_strerror(err));
-        abort();
+        //g_print("end write error: %s\n", soundio_strerror(err));
+        return;
       }
 
       frames_left -= frame_count;
@@ -174,12 +177,67 @@ static void write_callback(struct SoundIoOutStream *outstream, int frame_count_m
   soundio_ring_buffer_advance_read_ptr(rx->ring_buffer, read_count * outstream->bytes_per_frame);
 }
 
+static void read_callback(struct SoundIoInStream *instream, int frame_count_min, int frame_count_max) {
+    RADIO *r=(RADIO *)instream->userdata;
+    struct SoundIoChannelArea *areas;
+    int err;
+
+    if(frame_count_min!=frame_count_max) {
+      g_print("read_callback: frame_counts differ min=%d max=%d\n",frame_count_min,frame_count_max);
+      return;
+    }
+
+    if(r->local_microphone_buffer!=NULL) {
+      if(r->local_microphone_buffer_size!=frame_count_min) {
+        free(r->local_microphone_buffer);
+        r->local_microphone_buffer=NULL;
+      }
+    }
+
+    if(r->local_microphone_buffer==NULL) {
+      r->local_microphone_buffer_size=frame_count_min;
+      r->local_microphone_buffer=g_new0(float,r->local_microphone_buffer_size);
+g_print("read_callback: create microphone buffer: %p length=%d (%d bytes)\n",r->local_microphone_buffer,r->local_microphone_buffer_size,instream->bytes_per_sample*r->local_microphone_buffer_size);
+    }
+
+    int frame_count=frame_count_min;
+
+    if((err = soundio_instream_begin_read(instream, &areas, &frame_count))) {
+      g_print("read_callback: begin read error: %s\n", soundio_strerror(err));
+      return;
+    }
+
+    g_mutex_lock(&r->ring_buffer_mutex);
+
+    char *write_ptr = soundio_ring_buffer_write_ptr(r->ring_buffer);
+    int free_bytes = soundio_ring_buffer_free_count(r->ring_buffer);
+    int free_count = free_bytes / instream->bytes_per_frame;
+    if(frame_count!=0 && free_count>=frame_count) {
+      if(areas==NULL) {
+        g_print("read_callback: areas is NULL\n");
+        memset(write_ptr,0,frame_count*instream->bytes_per_sample);
+      } else {
+        memcpy(write_ptr,areas[0].ptr,frame_count*instream->bytes_per_sample);
+      }
+
+      if((err = soundio_instream_end_read(instream))) {
+        g_print("read_callback: end read error: %s", soundio_strerror(err));
+      }
+
+      soundio_ring_buffer_advance_write_ptr(r->ring_buffer, frame_count*instream->bytes_per_frame);
+      g_cond_signal (&r->ring_buffer_cond);
+    } else {
+      g_print("read_callback: frame_count is 0 or free_count too small\n");
+    }
+    g_mutex_unlock (&r->ring_buffer_mutex);
+
+}
 #endif
 
 int audio_open_output(RECEIVER *rx) {
   int result=0;
 g_print("audio_open_output: %s\n",rx->audio_name);
-#ifdef __APPLE__
+#ifdef SOUNDIO
   int err;
 
   g_mutex_lock(&rx->local_audio_mutex);
@@ -217,8 +275,9 @@ g_print("audio_open_output: %s\n",rx->audio_name);
     return -1;
   }
 
-  // guess that 16 output buffers should be enough
-  int size=16*rx->output_samples*sizeof(float)*2;
+  // guess that 8 output buffers should be enough
+  int size=8*rx->output_samples*sizeof(float)*2;
+  if(size<32768) size=32768;
   rx->ring_buffer = soundio_ring_buffer_create(soundio, size);
   if(!rx->ring_buffer) {
     g_print("audio_open_output: soundio_ring_buffer_create failed");
@@ -236,6 +295,7 @@ g_print("audio_open_output: %s\n",rx->audio_name);
   rx->output_stream->sample_rate = sample_rate;
   rx->output_stream->write_callback = write_callback;
   rx->output_stream->underflow_callback = underflow_callback;
+  rx->output_stream->software_latency = 0.01;
   rx->output_stream->userdata=(void *)rx;
 
   if((err = soundio_outstream_open(rx->output_stream))) {
@@ -244,7 +304,6 @@ g_print("audio_open_output: %s\n",rx->audio_name);
     return -1;
   }
 
-  rx->output_started=FALSE;
   g_mutex_unlock(&rx->local_audio_mutex);
 #else
   pa_sample_spec sample_spec;
@@ -289,7 +348,90 @@ fprintf(stderr,"audio_open_output: allocated local_audio_buffer %p size %ld byte
 	
 int audio_open_input(RADIO *r) {
   int result=0;
-#ifndef __APPLE__
+#ifdef SOUNDIO
+  int err;
+
+  
+  if(r->microphone_name==NULL) {
+g_print("audio_open_input: microphone name is NULL\n");
+    return -1;
+  }
+
+g_print("audio_open_input: %s\n",r->microphone_name);
+// find the device
+  int input_index=-1;
+  for(int i=0;i<n_input_devices;i++) {
+    if(strcmp(r->microphone_name,input_devices[i].name)==0) {
+      input_index=input_devices[i].index;
+      break;
+    }
+  }
+
+  if(input_index==-1) {
+    g_print("audio_open_input: did not find %s\n",r->microphone_name);
+    return -1;
+  }
+
+
+  r->input_device = soundio_get_input_device(soundio, input_index);
+  if(!r->input_device) {
+    g_print("audio_open_input: could not get input device: out of memory");
+    return -1;
+  }
+
+  if(!soundio_device_supports_sample_rate(r->input_device, sample_rate)) {
+    g_print("audio_open_input: device does not support sample rate of %d",sample_rate);
+    return -1;
+  }
+
+  if(!soundio_device_supports_format(r->input_device, SoundIoFormatFloat32NE)) {
+    g_print("audio_open_input: device does not support SoundIoFormatFloat32NE");
+    return -1;
+  }
+
+  r->input_stream = soundio_instream_create(r->input_device);
+  if(!r->input_stream) {
+    g_print("audio_open_input: could not open input device: out of memory");
+    return -1;
+  }
+  r->input_stream->format = SoundIoFormatFloat32NE;
+  r->input_stream->sample_rate = sample_rate;
+  r->input_stream->read_callback = read_callback;
+  r->input_stream->userdata=(void *)r;
+
+  if((err = soundio_instream_open(r->input_stream))) {
+    g_print("audio_open_input: unable to open input stream: %s", soundio_strerror(err));
+    return -1;
+  }
+
+  // guess that 8 input buffers should be enough
+  int size=8*512*sizeof(float);
+  r->ring_buffer = soundio_ring_buffer_create(soundio, size);
+  if(!r->ring_buffer) {
+    g_print("audio_open_input: soundio_ring_buffer_create failed");
+    return -1;
+  }
+
+  if((err = soundio_instream_start(r->input_stream))) {
+    g_print("unable to start input device: %s", soundio_strerror(err));
+    return -1;
+  }
+  r->input_started=TRUE;
+  running=TRUE;
+  mic_read_thread_id = g_thread_new( "mic_thread", mic_read_thread, r);
+  if(!mic_read_thread_id ) {
+    fprintf(stderr,"g_thread_new failed on mic_read_thread\n");
+    soundio_instream_destroy(r->input_stream);
+    soundio_device_unref(r->input_device);
+    soundio_ring_buffer_destroy(r->ring_buffer);
+    if(r->local_microphone_buffer!=NULL) {
+      g_free(r->local_microphone_buffer);
+      r->local_microphone_buffer=NULL;
+    }
+    running=FALSE;
+    result=-1;
+  }
+#else
   pa_sample_spec sample_spec;
 
   if(r->microphone_name==NULL) {
@@ -316,7 +458,7 @@ int audio_open_input(RADIO *r) {
     r->local_microphone_buffer_offset=0;
     r->local_microphone_buffer=g_new0(float,r->local_microphone_buffer_size);
     running=TRUE;
-    mic_read_thread_id = g_thread_new( "microphone", mic_read_thread, r);
+    mic_read_thread_id = g_thread_new( "mic_thread", mic_read_thread, r);
     if(!mic_read_thread_id ) {
       fprintf(stderr,"g_thread_new failed on mic_read_thread\n");
       g_free(r->local_microphone_buffer);
@@ -328,17 +470,18 @@ int audio_open_input(RADIO *r) {
     result=-1;
   }
   g_mutex_unlock(&r->local_microphone_mutex);
-#else
-  result=-1;
 #endif
   return result;
 }
 
 void audio_close_output(RECEIVER *rx) {
-#ifdef __APPLE__
+ g_print("audio_close_output\n");
+#ifdef SOUNDIO
   g_mutex_lock(&rx->local_audio_mutex);
   soundio_outstream_destroy(rx->output_stream);
   soundio_device_unref(rx->output_device);
+  soundio_ring_buffer_destroy(rx->ring_buffer);
+  rx->output_started=FALSE;
   g_mutex_unlock(&rx->local_audio_mutex);
 #else
   g_mutex_lock(&rx->local_audio_mutex);
@@ -351,7 +494,13 @@ void audio_close_output(RECEIVER *rx) {
 }
 
 void audio_close_input(RADIO *r) {
-#ifndef __APPLE__
+#ifdef SOUNDIO
+  g_mutex_lock(&r->local_microphone_mutex);
+  soundio_instream_destroy(r->input_stream);
+  soundio_device_unref(r->input_device);
+  soundio_ring_buffer_destroy(r->ring_buffer);
+  g_mutex_unlock(&r->local_microphone_mutex);
+#else
   g_mutex_lock(&r->local_microphone_mutex);
   pa_simple_free(r->microphone_stream);
   r->microphone_stream=NULL;
@@ -363,7 +512,7 @@ void audio_close_input(RADIO *r) {
 
 int audio_write_buffer(RECEIVER *rx) {
   int rc;
-#ifdef __APPLE__
+#ifdef SOUNDIO
   g_mutex_lock(&rx->local_audio_mutex);
   char *buf = soundio_ring_buffer_write_ptr(rx->ring_buffer);
   int fill_count = rx->output_samples*sizeof(float)*2;
@@ -385,7 +534,7 @@ int audio_write_buffer(RECEIVER *rx) {
   return rc;
 }
 
-#ifdef __APPLE__
+#ifdef SOUNDIO
 void audio_start_output(RECEIVER *rx) {
   int err;
   g_print("audio_start_output\n");
@@ -402,7 +551,7 @@ void audio_start_output(RECEIVER *rx) {
 
 int audio_write(RECEIVER *rx,float left_sample,float right_sample) {
   int result=0;
-#ifdef __APPLE__
+#ifdef SOUNDIO
   g_mutex_lock(&rx->local_audio_mutex);
   float samples[2];
   samples[0]=left_sample;
@@ -445,11 +594,38 @@ int audio_write(RECEIVER *rx,float left_sample,float right_sample) {
 }
 
 static void *mic_read_thread(gpointer arg) {
-#ifndef __APPLE__
   RADIO *r=(RADIO *)arg;
+  g_print("mic_read_thread: ENTRY\n");
+#ifdef SOUNDIO
+  while(running) {
+    g_mutex_lock (&r->ring_buffer_mutex);
+    while(soundio_ring_buffer_fill_count(r->ring_buffer)==0)
+      g_cond_wait (&r->ring_buffer_cond, &r->ring_buffer_mutex);
+    char *read_ptr = soundio_ring_buffer_read_ptr(r->ring_buffer);
+    int fill_bytes = soundio_ring_buffer_fill_count(r->ring_buffer);
+    if(fill_bytes>(r->local_microphone_buffer_size*sizeof(float))) {
+      fill_bytes=r->local_microphone_buffer_size*sizeof(float);
+    }
+    memcpy(r->local_microphone_buffer,read_ptr,fill_bytes);
+    soundio_ring_buffer_advance_read_ptr(r->ring_buffer, fill_bytes);
+    g_mutex_unlock (&r->ring_buffer_mutex);
+    switch(r->discovered->protocol) {
+      case PROTOCOL_1:
+        protocol1_process_local_mic(r);
+        break;
+      case PROTOCOL_2:
+        protocol2_process_local_mic(r);
+        break;
+#ifdef SOAPYSDR
+      case PROTOCOL_SOAPYSDR:
+        soapy_protocol_process_local_mic(r);
+        break;
+#endif
+    }
+  }
+#else
   int rc;
   int err;
-g_print("mic_read_thread: ENTRY\n");
   while(running) {
     g_mutex_lock(&r->local_microphone_mutex);
     if(r->local_microphone_buffer==NULL) {
@@ -470,6 +646,11 @@ g_print("mic_read_thread: ENTRY\n");
           case PROTOCOL_2:
             protocol2_process_local_mic(r);
             break;
+#ifdef SOAPYSDR
+      case PROTOCOL_SOAPYSDR:
+        soapy_protocol_process_local_mic(r);
+        break;
+#endif
         }
       }
     }
@@ -483,7 +664,7 @@ g_print("mic_read_thread: EXIT\n");
 void audio_get_cards() {
 }
 
-#ifndef __APPLE__
+#ifndef SOUNDIO
 static void source_list_cb(pa_context *context,const pa_source_info *s,int eol,void *data) {
   int i;
   if(eol>0) {
@@ -566,7 +747,7 @@ void create_audio() {
   char text[1024];
 
 g_print("audio: create_audio\n");
-#ifdef __APPLE__
+#ifdef SOUNDIO
   soundio=soundio_create();
   if(!soundio) {
     g_print("create_audio: soundio_create failed\n");
@@ -574,8 +755,16 @@ g_print("audio: create_audio\n");
   }
   rc=soundio_connect_backend(soundio,SoundIoBackendCoreAudio);
   if(rc) {
-    g_print("create_audio: soundio_connect_backend failed: %s\n",soundio_strerror(rc));
-    return;
+    g_print("create_audio: soundio_connect_backend (CoreAudio) failed: %s\n",soundio_strerror(rc));
+    rc=soundio_connect_backend(soundio,SoundIoBackendPulseAudio);
+    if(rc) {
+      g_print("create_audio: soundio_connect_backend failed (PulseAudio): %s\n",soundio_strerror(rc));
+      rc=soundio_connect_backend(soundio,SoundIoBackendAlsa);
+      if(rc) {
+        g_print("create_audio: soundio_connect_backend failed (ALSA): %s\n",soundio_strerror(rc));
+        return;
+      }
+    }
   }
 
   soundio_flush_events(soundio);

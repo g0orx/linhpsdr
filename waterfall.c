@@ -22,6 +22,7 @@
 
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "wideband.h"
 #include "receiver.h"
 #include "transmitter.h"
@@ -51,7 +52,7 @@ static gboolean resize_timeout(void *data) {
   }
   if(rx->waterfall!=NULL) {
     rx->waterfall_pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, rx->waterfall_width, rx->waterfall_height);
-    gchar *pixels = gdk_pixbuf_get_pixels (rx->waterfall_pixbuf);
+    guchar *pixels = gdk_pixbuf_get_pixels (rx->waterfall_pixbuf);
     memset(pixels, 0, rx->waterfall_width*rx->waterfall_height*3);
   }
   rx->waterfall_frequency=0;
@@ -130,7 +131,7 @@ void update_waterfall(RECEIVER *rx) {
   float *samples;
 
   if(rx->waterfall_pixbuf && rx->waterfall_height>1) {
-    char *pixels = gdk_pixbuf_get_pixels (rx->waterfall_pixbuf);
+    guchar *pixels = gdk_pixbuf_get_pixels (rx->waterfall_pixbuf);
 
     int width=gdk_pixbuf_get_width(rx->waterfall_pixbuf);
     int height=gdk_pixbuf_get_height(rx->waterfall_pixbuf);
@@ -174,7 +175,7 @@ void update_waterfall(RECEIVER *rx) {
 
     float sample;
     int average=0;
-    char *p;
+    guchar *p;
     p=pixels;
     samples=rx->pixel_samples;
     int offset=((rx->zoom-1)/2)*rx->panadapter_width;
@@ -204,32 +205,32 @@ void update_waterfall(RECEIVER *rx) {
                     float local_percent = (percent - 2.0f/9.0f) / (1.0f/9.0f);
                     *p++ = 0;
                     *p++ = (int)(local_percent*255);
-                    *p++ = 255;
+                    *p++ = (char)255;
                 } else if(percent<(4.0f/9.0f)) {
                      float local_percent = (percent - 3.0f/9.0f) / (1.0f/9.0f);
                      *p++ = 0;
-                     *p++ = 255;
+                     *p++ = (char)255;
                      *p++ = (int)((1.0f-local_percent)*255);
                 } else if(percent<(5.0f/9.0f)) {
                      float local_percent = (percent - 4.0f/9.0f) / (1.0f/9.0f);
                      *p++ = (int)(local_percent*255);
-                     *p++ = 255;
+                     *p++ = (char)255;
                      *p++ = 0;
                 } else if(percent<(7.0f/9.0f)) {
                      float local_percent = (percent - 5.0f/9.0f) / (2.0f/9.0f);
-                     *p++ = 255;
+                     *p++ = (char)255;
                      *p++ = (int)((1.0f-local_percent)*255);
                      *p++ = 0;
                 } else if(percent<(8.0f/9.0f)) {
                      float local_percent = (percent - 7.0f/9.0f) / (1.0f/9.0f);
-                     *p++ = 255;
+                     *p++ = (char)255;
                      *p++ = 0;
                      *p++ = (int)(local_percent*255);
                 } else {
                      float local_percent = (percent - 8.0f/9.0f) / (1.0f/9.0f);
                      *p++ = (int)((0.75f + 0.25f*(1.0f-local_percent))*255.0f);
                      *p++ = (int)(local_percent*255.0f*0.5f);
-                     *p++ = 255;
+                     *p++ = (char)255;
                 }
             }
     }
@@ -241,7 +242,7 @@ void update_waterfall(RECEIVER *rx) {
           if(tim0==0) {
             p=pixels;
             for(i=0;i<width;i++) {
-              *p++=255;
+              *p++=(char)255;
               *p++=0;
               *p++=0;
             }

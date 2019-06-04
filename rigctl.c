@@ -73,6 +73,7 @@
 #include "receiver.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "protocol1.h"
 #include "protocol2.h"
@@ -538,7 +539,7 @@ static gpointer rigctl_server(gpointer data) {
       continue;
     }
 
-    client_thread_id = g_thread_new("rigctl client", rigctl_client, (gpointer)rx);
+    client_thread_id = g_thread_new("rigctl_client", rigctl_client, (gpointer)rx);
     if(client_thread_id==NULL) {
       fprintf(stderr,"g_thread_new failed for rigctl_client\n");
       fprintf(stderr,"setting SO_LINGER to 0 for client_socket: %d\n",rx->rigctl_client_socket);
@@ -726,7 +727,7 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
  
         // Start a new timer...
 	
-        rigctl_set_timer_thread_id = g_thread_new( "Rigctl Timer", set_rigctl_timer, NULL);
+        rigctl_set_timer_thread_id = g_thread_new( "rigctl_timer", set_rigctl_timer, NULL);
 
         while(rigctl_timer != 1) {  // Wait here till the timer sets!
             usleep(1000);
@@ -3943,7 +3944,7 @@ int launch_serial () {
      set_blocking (fd, 1);                   // set no blocking
 
      
-     serial_server_thread_id = g_thread_new( "Serial server", serial_server, NULL);
+     serial_server_thread_id = g_thread_new( "rigctl_serial", serial_server, NULL);
      if( ! serial_server_thread_id )
      {
        fprintf(stderr,"g_thread_new failed on serial_server\n");
@@ -3968,7 +3969,7 @@ void launch_rigctl (RECEIVER *rx) {
    g_print("launch_rigctl for receiver: %d\n",rx->channel);
 
    // This routine encapsulates the thread call
-   rx->rigctl_server_thread_id = g_thread_new( "rigctl server", rigctl_server, (gpointer)rx);
+   rx->rigctl_server_thread_id = g_thread_new( "rigctl_server", rigctl_server, (gpointer)rx);
    if( ! rx->rigctl_server_thread_id )
    {
      fprintf(stderr,"g_thread_new failed on rigctl_server\n");

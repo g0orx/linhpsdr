@@ -13,6 +13,7 @@
 
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"
@@ -173,7 +174,7 @@ g_print("Server listening on port %d\n",LISTEN_PORT);
       break;
     }
 
-    client->thread_id=g_thread_new("Remote Client",client_thread,client);
+    client->thread_id=g_thread_new("SSDR_client",client_thread,client);
   }
   return NULL;
 }
@@ -224,7 +225,7 @@ static void *broadcast_thread(void *arg) {
 
 int create_smartsdr_server() {
   running=TRUE;
-  broadcast_thread_id = g_thread_new( "SmartSDR Broadcast", broadcast_thread, NULL);
-  listen_thread_id = g_thread_new( "Remote Listener", listen_thread, NULL);
+  broadcast_thread_id = g_thread_new( "SSDR_bcast", broadcast_thread, NULL);
+  listen_thread_id = g_thread_new( "SSDR_listen", listen_thread, NULL);
   return 0;
 }

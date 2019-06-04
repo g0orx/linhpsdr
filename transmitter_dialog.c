@@ -33,6 +33,7 @@
 #include "wideband.h"
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "main.h"
 #include "protocol1.h"

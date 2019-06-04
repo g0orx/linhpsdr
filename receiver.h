@@ -21,7 +21,7 @@
 #define RECEIVER_H
 
 
-#ifdef __APPLE__
+#ifdef SOUNDIO
 #include <soundio/soundio.h>
 #else
 #include <pulse/simple.h>
@@ -39,6 +39,8 @@ typedef struct _receiver {
 
   gint fft_size;
   gboolean low_latency;
+
+  gdouble *buffer;
 
   guint32 iq_sequence;
   gdouble *iq_input_buffer;
@@ -189,7 +191,7 @@ typedef struct _receiver {
   gchar *audio_name;
   int output_index;
   gboolean mute_when_not_active;
-#ifdef __APPLE__
+#ifdef SOUNDIO
   struct SoundIoDevice *output_device;
   struct SoundIoOutStream *output_stream;
   struct SoundIoRingBuffer *ring_buffer;
@@ -226,14 +228,18 @@ typedef struct _receiver {
   gboolean rigctl_running;
 
   gboolean bpsk;
+  gint bpsk_counter;
   gint bpsk_channel;
-  gdouble *bpsk_audio_output_buffer;
+  double *bpsk_audio_output_buffer;
   gint bpsk_buffer_size;
-  gint64 bpsk_offset;
-  gfloat *bpsk_pixel_samples;
-  gint bpsk_pixels;
-  gdouble bpsk_hz_per_pixel;
-  gint bpsk_sample_rate;
+  gint bpsk_offset;
+
+/*
+  void *resampler;
+  int resampled_elements;
+  double *resampled_buffer;
+*/
+  int resample_step;
 
 } RECEIVER;
 

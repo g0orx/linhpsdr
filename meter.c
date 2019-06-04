@@ -24,6 +24,7 @@
 
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"

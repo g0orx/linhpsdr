@@ -48,7 +48,7 @@ static gboolean resize_timeout(void *data) {
 
   if(w->waterfall!=NULL) {
     w->waterfall_pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, w->waterfall_width, w->waterfall_height);
-    gchar *pixels = gdk_pixbuf_get_pixels (w->waterfall_pixbuf);
+    guchar *pixels = gdk_pixbuf_get_pixels (w->waterfall_pixbuf);
     memset(pixels, 0, w->waterfall_width*w->waterfall_height*3);
   }
   w->waterfall_frequency=0;
@@ -127,7 +127,7 @@ void update_wideband_waterfall(WIDEBAND *w) {
 
   float *samples;
   if(w->waterfall_pixbuf && w->waterfall_height>1) {
-    char *pixels = gdk_pixbuf_get_pixels (w->waterfall_pixbuf);
+    guchar *pixels = gdk_pixbuf_get_pixels (w->waterfall_pixbuf);
 
     int width=gdk_pixbuf_get_width(w->waterfall_pixbuf);
     int height=gdk_pixbuf_get_height(w->waterfall_pixbuf);
@@ -140,7 +140,7 @@ void update_wideband_waterfall(WIDEBAND *w) {
 
     float sample;
     int average=0;
-    char *p;
+    guchar *p;
     p=pixels;
     samples=w->pixel_samples;
     for(i=0;i<w->pixels;i++) {
@@ -169,32 +169,32 @@ void update_wideband_waterfall(WIDEBAND *w) {
                     float local_percent = (percent - 2.0f/9.0f) / (1.0f/9.0f);
                     *p++ = 0;
                     *p++ = (int)(local_percent*255);
-                    *p++ = 255;
+                    *p++ = (char)255;
                 } else if(percent<(4.0f/9.0f)) {
                      float local_percent = (percent - 3.0f/9.0f) / (1.0f/9.0f);
                      *p++ = 0;
-                     *p++ = 255;
+                     *p++ = (char)255;
                      *p++ = (int)((1.0f-local_percent)*255);
                 } else if(percent<(5.0f/9.0f)) {
                      float local_percent = (percent - 4.0f/9.0f) / (1.0f/9.0f);
                      *p++ = (int)(local_percent*255);
-                     *p++ = 255;
+                     *p++ = (char)255;
                      *p++ = 0;
                 } else if(percent<(7.0f/9.0f)) {
                      float local_percent = (percent - 5.0f/9.0f) / (2.0f/9.0f);
-                     *p++ = 255;
+                     *p++ = (char)255;
                      *p++ = (int)((1.0f-local_percent)*255);
                      *p++ = 0;
                 } else if(percent<(8.0f/9.0f)) {
                      float local_percent = (percent - 7.0f/9.0f) / (1.0f/9.0f);
-                     *p++ = 255;
+                     *p++ = (char)255;
                      *p++ = 0;
                      *p++ = (int)(local_percent*255);
                 } else {
                      float local_percent = (percent - 8.0f/9.0f) / (1.0f/9.0f);
                      *p++ = (int)((0.75f + 0.25f*(1.0f-local_percent))*255.0f);
                      *p++ = (int)(local_percent*255.0f*0.5f);
-                     *p++ = 255;
+                     *p++ = (char)255;
                 }
             }
     }

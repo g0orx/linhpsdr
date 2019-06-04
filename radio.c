@@ -39,6 +39,7 @@
 #include "receiver.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "tx_panadapter.h"
 #include "protocol1.h"
@@ -183,6 +184,14 @@ g_print("radio_save_state: %s\n",filename);
     sprintf(name,"radio.adc[0].agc");
     sprintf(value,"%d", soapy_protocol_get_automatic_gain(radio->receiver[0]));
     setProperty(name,value);
+
+    if(radio->can_transmit) {
+      for(int i=0;i<radio->discovered->info.soapy.tx_gains;i++) {
+        sprintf(name,"radio.dac[0].tx_gain.%s",radio->discovered->info.soapy.tx_gain[i]);
+        sprintf(value,"%d", radio->dac[0].tx_gain[i]);
+        setProperty(name,value);
+      }
+    }
   }
 #endif
 
@@ -214,6 +223,13 @@ g_print("radio_save_state: %s\n",filename);
       sprintf(name,"radio.adc[1].agc");
       sprintf(value,"%d", soapy_protocol_get_automatic_gain(radio->receiver[1]));
       setProperty(name,value);
+    }
+    if(radio->can_transmit) {
+      for(int i=0;i<radio->discovered->info.soapy.tx_gains;i++) {
+        sprintf(name,"radio.dac[1].tx_gain.%s",radio->discovered->info.soapy.tx_gain[i]);
+        sprintf(value,"%d", radio->dac[1].tx_gain[i]);
+        setProperty(name,value);
+      }
     }
   }
 #endif
@@ -349,6 +365,14 @@ void radio_restore_state(RADIO *radio) {
     value=getProperty("radio.adc[0].agc");
     if(value!=NULL) radio->adc[0].agc=atoi(value);
 
+    if(radio->can_transmit) {
+      for(int i=0;i<radio->discovered->info.soapy.tx_gains;i++) {
+        sprintf(name,"radio.dac[0].tx_gain.%s",radio->discovered->info.soapy.tx_gain[i]);
+        value=getProperty(name);
+        if(value!=NULL) radio->dac[0].tx_gain[i]=atoi(value);
+      }
+    }
+
   }
 #endif
 
@@ -375,6 +399,13 @@ void radio_restore_state(RADIO *radio) {
       sprintf(name,"radio.adc[1].rx_gain.%s",radio->discovered->info.soapy.rx_gain[i]) ;
       value=getProperty(name);
       if(value!=NULL) radio->adc[1].rx_gain[i]=atoi(value);
+    }
+    if(radio->can_transmit) {
+      for(int i=0;i<radio->discovered->info.soapy.tx_gains;i++) {
+        sprintf(name,"radio.dac[1].tx_gain.%s",radio->discovered->info.soapy.tx_gain[i]);
+        value=getProperty(name);
+        if(value!=NULL) radio->dac[1].tx_gain[i]=atoi(value);
+      }
     }
   }
 #endif
@@ -458,14 +489,27 @@ void frequency_changed(RECEIVER *rx) {
   if(rx->ctun) {
     SetRXAShiftFreq(rx->channel, (double)rx->ctun_offset);
     RXANBPSetShiftFrequency(rx->channel, (double)rx->ctun_offset);
-    SetRXAShiftRun(rx->channel, 1);
+#ifdef SOAPYSDR
+    if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
+      if(radio->can_transmit) {
+        if(radio->transmitter!=NULL && radio->transmitter->rx==rx) {
+          soapy_protocol_set_tx_frequency(radio->transmitter);
+        }
+      }
+    }
+#endif
   } else {
     double f=(double)(rx->frequency_a-rx->lo_a+rx->error_a);
     if(radio->discovered->protocol==PROTOCOL_2) {
       protocol2_high_priority();
 #ifdef SOAPYSDR
     } else if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
-      soapy_protocol_set_frequency(rx);
+      soapy_protocol_set_rx_frequency(rx);
+      if(radio->can_transmit) {
+        if(radio->transmitter!=NULL && radio->transmitter->rx==rx) {
+          soapy_protocol_set_tx_frequency(radio->transmitter);
+        }
+      }
 #endif
     }
     rx->band_a=get_band_from_frequency(rx->frequency_a);
@@ -558,7 +602,7 @@ static void rxtx(RADIO *r) {
         break;
 #ifdef SOAPYSDR
       case PROTOCOL_SOAPYSDR:
-        soapy_protocol_stop_transmitter(r->transmitter);
+        soapy_protocol_start_transmitter(r->transmitter);
         break;
 #endif
     }
@@ -580,7 +624,7 @@ static void rxtx(RADIO *r) {
         break;
 #ifdef SOAPYSDR
       case PROTOCOL_SOAPYSDR:
-        soapy_protocol_start_transmitter(r->transmitter);
+        soapy_protocol_stop_transmitter(r->transmitter);
         break;
 #endif
     }
@@ -615,6 +659,7 @@ g_print("ptt_changed\n");
 
 static gboolean mox_cb(GtkWidget *widget,gpointer data) {
   RADIO *r=(RADIO *)data;
+g_print("mox_cb: mox=%d\n",r->mox);
   if(r->mox) {
     set_mox(r,FALSE);
   } else {
@@ -812,6 +857,7 @@ static gboolean configure_cb(GtkWidget *widget,gpointer data) {
   if(radio->dialog==NULL) {
     radio->dialog=create_configure_dialog(radio,0);
   }
+  return TRUE;
 }
 
 static void create_visual(RADIO *r) {
@@ -1007,8 +1053,12 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->local_microphone_buffer_size=720;
   r->local_microphone_buffer_offset=0;
   r->local_microphone_buffer=NULL;
-  g_mutex_init(&r->local_microphone_mutex);
 
+  g_mutex_init(&r->local_microphone_mutex);
+#ifdef SOUNDIO
+  g_mutex_init(&r->ring_buffer_mutex);
+  g_cond_init(&r->ring_buffer_cond);
+#endif
 
   r->filter_board=ALEX;
 
@@ -1027,6 +1077,13 @@ g_print("create_radio for %s %d\n",d->name,d->device);
       r->adc[0].rx_gain[i]=0;
     }
     r->adc[0].agc=FALSE;
+    if(r->can_transmit) {
+      r->dac[0].antenna=1;
+      r->dac[0].tx_gain=malloc(r->discovered->info.soapy.tx_gains*sizeof(gint));
+      for (size_t i = 0; i < r->discovered->info.soapy.tx_gains; i++) {
+        r->dac[0].tx_gain[i]=0;
+      }
+    }
   }
 #endif
   r->adc[1].antenna=ANTENNA_1;
@@ -1044,6 +1101,13 @@ g_print("create_radio for %s %d\n",d->name,d->device);
       r->adc[1].rx_gain[i]=0;
     }
     r->adc[1].agc=FALSE;
+
+    if(r->can_transmit) {
+      r->dac[1].tx_gain=malloc(r->discovered->info.soapy.tx_gains*sizeof(gint));
+      for (size_t i = 0; i < r->discovered->info.soapy.tx_gains; i++) {
+        r->dac[1].tx_gain[i]=0;
+      }
+    }
   }
 #endif
 
@@ -1102,19 +1166,29 @@ g_print("create_radio for %s %d\n",d->name,d->device);
       break;
 #ifdef SOAPYSDR
     case PROTOCOL_SOAPYSDR:
-      soapy_protocol_set_antenna(radio->receiver[0],radio->adc[0].antenna);
+      soapy_protocol_set_rx_antenna(radio->receiver[0],radio->adc[0].antenna);
       for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
         soapy_protocol_set_gain(radio->receiver[0],radio->discovered->info.soapy.rx_gain[i],radio->adc[0].rx_gain[i]);
       } 
       RECEIVER *rx=r->receiver[0];
       double f=(double)(rx->frequency_a-rx->lo_a+rx->error_a);
-      soapy_protocol_set_frequency(radio->receiver[0]);
+      soapy_protocol_set_rx_frequency(radio->receiver[0]);
       soapy_protocol_set_automatic_gain(radio->receiver[0],radio->adc[0].agc);
       for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
         soapy_protocol_set_gain(radio->receiver[0],radio->discovered->info.soapy.rx_gain[i],radio->adc[0].rx_gain[i]);
       } 
-
       soapy_protocol_start_receiver(rx);
+      if(r->can_transmit) {
+        if(r->transmitter!=NULL && r->transmitter->rx==rx) {
+          soapy_protocol_set_tx_antenna(r->transmitter,1);
+          soapy_protocol_set_tx_frequency(r->transmitter);
+        }
+      }
+      if(radio->can_transmit) {
+        for(int i=0;i<radio->discovered->info.soapy.tx_gains;i++) {
+          soapy_protocol_set_tx_gain(radio->transmitter,radio->discovered->info.soapy.tx_gain[i],radio->dac[0].tx_gain[i]);
+        }
+      }
       break;
 #endif
   }
@@ -1122,6 +1196,13 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   create_smartsdr_server();
 
+  soapy_protocol_set_mic_sample_rate(r->sample_rate);
+  if(radio->local_microphone) {
+    if(audio_open_input(r)!=0) {
+      radio->local_microphone=FALSE;
+    }
+  }
+ 
   g_idle_add(radio_start,(gpointer)r);
 
   return r;

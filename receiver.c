@@ -1,4 +1,5 @@
 /* Copyright (C)
+*
 * 2018 - John Melton, G0ORX/N6LYT
 *
 * This program is free software; you can redistribute it and/or
@@ -35,6 +36,7 @@
 #include "transmitter.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "main.h"
 #include "vfo.h"
@@ -287,6 +289,10 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(value,"%ld",rx->rit_step);
   setProperty(name,value);
 
+  sprintf(name,"receiver[%d].bpsk",rx->channel);
+  sprintf(value,"%d",rx->bpsk);
+  setProperty(name,value);
+
   gtk_window_get_position(GTK_WINDOW(rx->window),&x,&y);
   sprintf(name,"receiver[%d].x",rx->channel);
   sprintf(value,"%d",x);
@@ -492,6 +498,10 @@ void receiver_restore_state(RECEIVER *rx) {
   value=getProperty(name);
   if(value) rx->rit_step=atol(value);
  
+  sprintf(name,"receiver[%d].bpsk",rx->channel);
+  value=getProperty(name);
+  if(value) rx->bpsk=atoi(value);
+
   sprintf(name,"receiver[%d].fps",rx->channel);
   value=getProperty(name);
   if(value) rx->fps=atoi(value);
@@ -542,6 +552,7 @@ void receiver_xvtr_changed(RECEIVER *rx) {
 }
 
 void receiver_change_sample_rate(RECEIVER *rx,int sample_rate) {
+g_print("receiver_change_sample_rate: from %d to %d radio=%d\n",rx->sample_rate,sample_rate,radio->sample_rate);
   SetChannelState(rx->channel,0,1);
   g_free(rx->audio_output_buffer);
   rx->audio_output_buffer=NULL;
@@ -556,6 +567,35 @@ void receiver_change_sample_rate(RECEIVER *rx,int sample_rate) {
   SetEXTANBSamplerate (rx->channel, sample_rate);
   SetEXTNOBSamplerate (rx->channel, sample_rate);
 fprintf(stderr,"receiver_change_sample_rate: channel=%d rate=%d buffer_size=%d output_samples=%d\n",rx->channel, rx->sample_rate, rx->buffer_size, rx->output_samples);
+
+#ifdef SOAPYSDR
+/*
+  if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
+    if(rx->resampler!=NULL) {
+g_print("destroy_resample: %p\n",rx->resampler);
+      destroy_resample(rx->resampler);
+      rx->resampler=NULL;
+g_print("g_free resampled_buffer: %p\n",rx->resampled_buffer);
+      g_free(rx->resampled_buffer);
+      rx->resampled_buffer=NULL;
+    }
+    if(radio->sample_rate!=rx->sample_rate) {
+      rx->resampled_elements=rx->buffer_size/(radio->sample_rate/rx->sample_rate);
+      rx->resampled_buffer=g_new(gdouble,rx->resampled_elements*2);
+      rx->resampler=create_resample(1,rx->buffer_size,rx->buffer,rx->resampled_buffer,radio->sample_rate,rx->sample_rate,0.0,0,1.0);
+g_print("resampled_elements=%d resampled_buffer=%p resampler=%p\n",rx->resampled_elements,rx->resampled_buffer,rx->resampler);
+    }
+    // nothing to do if receiver rate is same as radio
+  }
+*/
+
+  if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
+    rx->resample_step=radio->sample_rate/rx->sample_rate;
+g_print("receiver_change_sample_rate: resample_step=%d\n",rx->resample_step);
+  }
+  
+#endif
+
   SetChannelState(rx->channel,1,0);
   receiver_update_title(rx);
 }
@@ -740,6 +780,9 @@ static gboolean update_timer_cb(void *data) {
     double m=GetRXAMeter(rx->channel,rx->smeter) + radio->meter_calibration;
     update_meter(rx,m);
   }
+  if(rx->bpsk) {
+    process_bpsk(rx);
+  }
   g_mutex_unlock(&rx->mutex);
   return TRUE;
 }
@@ -883,7 +926,7 @@ static void process_rx_buffer(RECEIVER *rx) {
       }
     }
   }
-#ifdef __APPLE__
+#ifdef SOUNDIO
   if(rx->local_audio && !rx->output_started) {
     audio_start_output(rx);
   }
@@ -923,9 +966,6 @@ int j;
   g_mutex_unlock(&rx->freedv_mutex);
 #endif
 
-  if(rx->bpsk) {
-    process_bpsk(rx);
-  }
 
 }
 
@@ -1369,7 +1409,6 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   }
 
   rx->output_samples=rx->buffer_size/(rx->sample_rate/48000);
-  //rx->local_audio_buffer_size=rx->output_samples;
   rx->audio_output_buffer=g_new0(gdouble,2*rx->output_samples);
 
 g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d fft_size=%d output_samples=%d\n", rx->channel, rx->buffer_size, rx->sample_rate, rx->fft_size,rx->output_samples);
@@ -1388,6 +1427,32 @@ g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d 
   create_nobEXT(rx->channel,1,0,rx->buffer_size,rx->sample_rate,0.0001,0.0001,0.0001,0.05,20);
   RXASetNC(rx->channel, rx->fft_size);
   RXASetMP(rx->channel, rx->low_latency);
+#ifdef SOAPYSDR
+/*
+  if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
+    if(rx->resampler!=NULL) {
+g_print("destroy_resample: %p\n",rx->resampler);
+      destroy_resample(rx->resampler);
+      rx->resampler=NULL;
+g_print("g_free resampled_buffer: %p\n",rx->resampled_buffer);
+      g_free(rx->resampled_buffer);
+      rx->resampled_buffer=NULL;
+    }
+    if(radio->sample_rate!=rx->sample_rate) {
+      rx->resampled_elements=rx->buffer_size/(radio->sample_rate/rx->sample_rate);
+      rx->resampled_buffer=g_new(gdouble,rx->resampled_elements*2);
+      rx->resampler=create_resample(1,rx->buffer_size,rx->buffer,rx->resampled_buffer,radio->sample_rate,rx->sample_rate,0.0,0,1.0);
+g_print("resampled_elements=%d resampled_buffer=%p resampler=%p\n",rx->resampled_elements,rx->resampled_buffer,rx->resampler);
+    }
+    // nothing to do if receiver rate is same as radio
+  }
+*/
+  if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
+    rx->resample_step=radio->sample_rate/rx->sample_rate;
+g_print("receiver_change_sample_rate: resample_step=%d\n",rx->resample_step);
+  }
+#endif
+
 
   frequency_changed(rx);
   receiver_mode_changed(rx,rx->mode_a);
@@ -1471,6 +1536,10 @@ g_print("receiver_configure_event: gtk_paned_set_position: rx=%d position=%d hei
     if(audio_open_output(rx)<0) {
       rx->local_audio=FALSE;
     }
+  }
+
+  if(rx->bpsk) {
+    create_bpsk(rx);
   }
 
   if(rigctl_enable) {

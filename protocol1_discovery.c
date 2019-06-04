@@ -136,7 +136,7 @@ static void discover(struct ifaddrs* iface) {
 //static void *discover_receive_thread(void* arg) {
 static gpointer discover_receive_thread(gpointer data) {
     struct sockaddr_in addr;
-    int len;
+    socklen_t len;
     unsigned char buffer[2048];
     int bytes_read;
     struct timeval tv;
@@ -258,7 +258,8 @@ g_print("discover_receive_thread\n");
 
     }
     g_print("discovery: exiting discover_receive_thread\n");
-    g_thread_exit(NULL);
+    //g_thread_exit(NULL);
+    return NULL;
 }
 
 void protocol1_discovery() {

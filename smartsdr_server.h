@@ -47,7 +47,7 @@ typedef struct _vita_ext_data_discovery {
 
 typedef struct _client {
     int socket;
-    int address_length;
+    socklen_t address_length;
     struct sockaddr_in address;
     GThread *thread_id;
     CLIENT_STATE state;

@@ -1,5 +1,5 @@
 /* Copyright (C)
-* 201h - John Melton, G0ORX/N6LYT
+* 2018 - John Melton, G0ORX/N6LYT
 *
 * This program is free software; you can redistribute it and/or
 * modify it under the terms of the GNU General Public License
@@ -17,6 +17,14 @@
 *
 */
 
-extern GtkWidget *create_xvtr_dialog(RADIO *radio);
-extern void save_xvtr();
-extern void lo_error_update(RECEIVER *rx,long long offset);
+#ifndef DAC_H
+#define DAC_H
+
+typedef struct _dac {
+#ifdef SOAPYSDR
+  gint antenna;
+  gint *tx_gain;
+#endif
+} DAC;
+
+#endif

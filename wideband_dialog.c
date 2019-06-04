@@ -33,6 +33,7 @@
 #include "transmitter.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "receiver_dialog.h"
 #include "vfo.h"

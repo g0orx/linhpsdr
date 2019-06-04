@@ -45,6 +45,7 @@
 #include "transmitter.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "main.h"
 #include "protocol1.h"
@@ -197,17 +198,17 @@ static int state=SYNC_0;
 static GThread *receive_thread_id;
 static void start_protocol1_thread();
 static gpointer receive_thread(gpointer arg);
-static void process_ozy_input_buffer(char  *buffer);
-static void process_wideband_buffer(char  *buffer);
+static void process_ozy_input_buffer(unsigned char  *buffer);
+static void process_wideband_buffer(unsigned char  *buffer);
 void ozy_send_buffer();
 
 static unsigned char metis_buffer[1032];
 static long send_sequence=-1;
 static int metis_offset=8;
 
-static int metis_write(unsigned char ep,char* buffer,int length);
+static int metis_write(unsigned char ep,unsigned char* buffer,int length);
 static void metis_start_stop(int command);
-static void metis_send_buffer(char* buffer,int length);
+static void metis_send_buffer(unsigned char* buffer,int length);
 static void metis_restart();
 
 #define COMMON_MERCURY_FREQUENCY 0x80
@@ -411,7 +412,7 @@ static void start_protocol1_thread() {
 
 static gpointer receive_thread(gpointer arg) {
   struct sockaddr_in addr;
-  int length;
+  socklen_t length;
   unsigned char buffer[2048];
   int bytes_read;
   int ep;
@@ -490,6 +491,7 @@ static gpointer receive_thread(gpointer arg) {
   }
 
   fprintf(stderr,"EXIT: protocol1: receive_thread\n");
+  return NULL;
 }
 
 static void process_control_bytes() {
@@ -526,10 +528,10 @@ g_print("process_control_bytes: ppt=%d dot=%d dash=%d\n",radio->ptt,radio->dot,r
 
   switch((control_in[0]>>3)&0x1F) {
     case 0:
-      radio->adc_overload=control_in[1]&0x01==0x01;
-      radio->IO1=control_in[1]&0x02==0x02;
-      radio->IO2=control_in[1]&0x04==0x04;
-      radio->IO3=control_in[1]&0x08==0x08;
+      radio->adc_overload=(control_in[1]&0x01)==0x01;
+      radio->IO1=(control_in[1]&0x02)==0x02;
+      radio->IO2=(control_in[1]&0x04)==0x04;
+      radio->IO3=(control_in[1]&0x08)==0x08;
       if(radio->mercury_software_version!=control_in[2]) {
         radio->mercury_software_version=control_in[2];
         fprintf(stderr,"  Mercury Software version: %d (0x%0X)\n",radio->mercury_software_version,radio->mercury_software_version);
@@ -685,7 +687,7 @@ static void process_ozy_byte(int b) {
   }
 }
 
-static void process_ozy_input_buffer(char  *buffer) {
+static void process_ozy_input_buffer(unsigned char  *buffer) {
   int i;
   if(radio->receivers>0) {
     for(i=0;i<512;i++) {
@@ -948,7 +950,19 @@ void protocol1_audio_samples(RECEIVER *rx,short left_audio_sample,short right_au
   }
 }
 
-void protocol1_iq_samples(int isample,int qsample,int lasample,int rasample) {
+void protocol1_iq_samples(int isample,int qsample) {
+  if(isTransmitting(radio)) {
+    output_buffer[output_buffer_index++]=isample>>8;
+    output_buffer[output_buffer_index++]=isample;
+    output_buffer[output_buffer_index++]=qsample>>8;
+    output_buffer[output_buffer_index++]=qsample;
+    if(output_buffer_index>=OZY_BUFFER_SIZE) {
+      ozy_send_buffer();
+      output_buffer_index=8;
+    }
+  }
+}
+void protocol1_eer_iq_samples(int isample,int qsample,int lasample,int rasample) {
   if(isTransmitting(radio)) {
     output_buffer[output_buffer_index++]=lasample>>8;
     output_buffer[output_buffer_index++]=lasample;
@@ -973,6 +987,7 @@ void protocol1_process_local_mic(RADIO *r) {
   short sample;
 
 // always 48000 samples per second
+g_print("process_local_mic size=%d buffer=%p\n",r->local_microphone_buffer_size,r->local_microphone_buffer);
   b=0;
   for(i=0;i<r->local_microphone_buffer_size;i++) {
     sample=(short)(r->local_microphone_buffer[i]*32767.0);
@@ -988,7 +1003,7 @@ void protocol1_process_local_mic(RADIO *r) {
   }
 }
 
-static void process_wideband_buffer(char  *buffer) {
+static void process_wideband_buffer(unsigned char  *buffer) {
   int i;
   short sample;
   double sampledouble;
@@ -1632,7 +1647,7 @@ static int ozyusb_write(char* buffer,int length)
 }
 #endif
 
-static int metis_write(unsigned char ep,char* buffer,int length) {
+static int metis_write(unsigned char ep,unsigned char* buffer,int length) {
   int i;
 
   // copy the buffer over
@@ -1666,7 +1681,7 @@ static int metis_write(unsigned char ep,char* buffer,int length) {
 static void metis_restart() {
 fprintf(stderr,"metis_restart\n");
   // reset metis frame
-  metis_offset==8;
+  metis_offset=8;
 
   // reset current rx
   current_rx=0;
@@ -1712,7 +1727,7 @@ static void metis_start_stop(int command) {
 #endif
 }
 
-static void metis_send_buffer(char* buffer,int length) {
+static void metis_send_buffer(unsigned char* buffer,int length) {
   if(sendto(data_socket,buffer,length,0,(struct sockaddr*)&data_addr,data_addr_length)!=length) {
     perror("sendto socket failed for metis_send_data\n");
   }

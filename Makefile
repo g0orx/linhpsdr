@@ -10,7 +10,9 @@ GTKINCLUDES=`pkg-config --cflags gtk+-3.0`
 GTKLIBS=`pkg-config --libs gtk+-3.0`
 
 
-AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
+#AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
+
+AUDIO_LIBS=-lsoundio
 
 # uncomment the line below to include SoapySDR support
 #
@@ -23,7 +25,7 @@ AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
 #	sudo apt-get install soapysdr-module-rtlsdr
 #	sudo apt-get install soapysdr-module-lms7
 #
-#SOAPYSDR_INCLUDE=SOAPYSDR
+SOAPYSDR_INCLUDE=SOAPYSDR
 
 ifeq ($(SOAPYSDR_INCLUDE),SOAPYSDR)
 SOAPYSDR_OPTIONS=-D SOAPYSDR
@@ -40,8 +42,8 @@ soapy_protocol.o
 endif
 
 
-OPTIONS=-Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) -O3 -g
-#OPTIONS=-g -Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
+OPTIONS=-Wno-deprecated-declarations -D SOUNDIO -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) -O3 -g
+#OPTIONS=-g -Wno-deprecated-declarations -D SOUNDIO -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
 LIBS=-lrt -lm -lpthread -lwdsp
 INCLUDES=$(GTKINCLUDES)

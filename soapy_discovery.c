@@ -139,6 +139,14 @@ static void get_info(char *driver) {
 
   char **tx_gains = SoapySDRDevice_listGains(sdr, SOAPY_SDR_TX, 1, &tx_gains_length);
 
+  size_t formats_length;
+  char **formats = SoapySDRDevice_getStreamFormats(sdr,SOAPY_SDR_RX,0,&formats_length);
+  fprintf(stderr, "Rx formats: ");
+  for (size_t i = 0; i < formats_length; i++) fprintf(stderr, "%s, ", formats[i]);
+  fprintf(stderr,"\n");
+
+  fprintf(stderr,"float=%lu double=%lu\n",sizeof(float),sizeof(double));
+
   if(devices<MAX_DEVICES) {
     discovered[devices].device=DEVICE_SOAPYSDR_USB;
     discovered[devices].protocol=PROTOCOL_SOAPYSDR;

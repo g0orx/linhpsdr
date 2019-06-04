@@ -33,6 +33,7 @@
 #include "transmitter.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "receiver_dialog.h"
 #include "vfo.h"
@@ -959,67 +960,78 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     gtk_grid_attach(GTK_GRID(adc_grid),adc1_b,1,0,1,1);
   }
 
-  if(radio->discovered->protocol==PROTOCOL_2) {
-    int x=0;
-    int y=0;
+  switch(radio->discovered->protocol) {
+    case PROTOCOL_2:
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+#endif
+      {
+      int x=0;
+      int y=0;
 
-    GtkWidget *sample_rate_frame=gtk_frame_new("Sample Rate");
-    GtkWidget *sample_rate_grid=gtk_grid_new();
-    gtk_grid_set_row_homogeneous(GTK_GRID(sample_rate_grid),TRUE);
-    gtk_grid_set_column_homogeneous(GTK_GRID(sample_rate_grid),TRUE);
-    gtk_container_add(GTK_CONTAINER(sample_rate_frame),sample_rate_grid);
-    gtk_grid_attach(GTK_GRID(grid),sample_rate_frame,col,row++,1,1);
+      GtkWidget *sample_rate_frame=gtk_frame_new("Sample Rate");
+      GtkWidget *sample_rate_grid=gtk_grid_new();
+      gtk_grid_set_row_homogeneous(GTK_GRID(sample_rate_grid),TRUE);
+      gtk_grid_set_column_homogeneous(GTK_GRID(sample_rate_grid),TRUE);
+      gtk_container_add(GTK_CONTAINER(sample_rate_frame),sample_rate_grid);
+      gtk_grid_attach(GTK_GRID(grid),sample_rate_frame,col,row++,1,1);
 
-    GtkWidget *sample_rate_48=gtk_radio_button_new_with_label(NULL,"48000");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_48), rx->sample_rate==48000);
-    gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_48,x,y++,1,1);
-    select=g_new0(SELECT,1);
-    select->rx=rx;
-    select->choice=48000;
-    g_signal_connect(sample_rate_48,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
+      GtkWidget *sample_rate_48=gtk_radio_button_new_with_label(NULL,"48000");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_48), rx->sample_rate==48000);
+      gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_48,x,y++,1,1);
+      select=g_new0(SELECT,1);
+      select->rx=rx;
+      select->choice=48000;
+      g_signal_connect(sample_rate_48,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
 
-    GtkWidget *sample_rate_96=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_48),"96000");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_96), rx->sample_rate==96000);
-    gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_96,x,y++,1,1);
-    select=g_new0(SELECT,1);
-    select->rx=rx;
-    select->choice=96000;
-    g_signal_connect(sample_rate_96,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
+      GtkWidget *sample_rate_96=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_48),"96000");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_96), rx->sample_rate==96000);
+      gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_96,x,y++,1,1);
+      select=g_new0(SELECT,1);
+      select->rx=rx;
+      select->choice=96000;
+      g_signal_connect(sample_rate_96,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
 
-    GtkWidget *sample_rate_192=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_96),"192000");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_192), rx->sample_rate==192000);
-    gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_192,x,y++,1,1);
-    select=g_new0(SELECT,1);
-    select->rx=rx;
-    select->choice=192000;
-    g_signal_connect(sample_rate_192,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
+      GtkWidget *sample_rate_192=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_96),"192000");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_192), rx->sample_rate==192000);
+      gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_192,x,y++,1,1);
+      select=g_new0(SELECT,1);
+      select->rx=rx;
+      select->choice=192000;
+      g_signal_connect(sample_rate_192,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
 
+      x++;
+      y=0;
+      GtkWidget *sample_rate_384=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_192),"384000");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_384), rx->sample_rate==384000);
+      gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_384,x,y++,1,1);
+      select=g_new0(SELECT,1);
+      select->rx=rx;
+      select->choice=384000;
+      g_signal_connect(sample_rate_384,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
 
-    x++;
-    y=0;
-    GtkWidget *sample_rate_384=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_192),"384000");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_384), rx->sample_rate==384000);
-    gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_384,x,y++,1,1);
-    select=g_new0(SELECT,1);
-    select->rx=rx;
-    select->choice=384000;
-    g_signal_connect(sample_rate_384,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
+#ifdef SOAPYSDR
+      if((radio->discovered->protocol==PROTOCOL_2) ||
+         ((radio->discovered->protocol==PROTOCOL_SOAPYSDR) && (radio->discovered->info.soapy.sample_rate>384000))) {
+#endif
+        GtkWidget *sample_rate_768=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_384),"768000");
+        gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_768), rx->sample_rate==768000);
+        gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_768,x,y++,1,1);
+        select=g_new0(SELECT,1);
+        select->rx=rx;
+        select->choice=768000;
+        g_signal_connect(sample_rate_768,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
 
-    GtkWidget *sample_rate_768=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_384),"768000");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_768), rx->sample_rate==768000);
-    gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_768,x,y++,1,1);
-    select=g_new0(SELECT,1);
-    select->rx=rx;
-    select->choice=768000;
-    g_signal_connect(sample_rate_768,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
-
-    GtkWidget *sample_rate_1536=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_768),"1536000");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_1536), rx->sample_rate==1536000);
-    gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_1536,x,y++,1,1);
-    select=g_new0(SELECT,1);
-    select->rx=rx;
-    select->choice=1536000;
-    g_signal_connect(sample_rate_1536,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
+        GtkWidget *sample_rate_1536=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_768),"1536000");
+        gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_1536), rx->sample_rate==1536000);
+        gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_1536,x,y++,1,1);
+        select=g_new0(SELECT,1);
+        select->rx=rx;
+        select->choice=1536000;
+        g_signal_connect(sample_rate_1536,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
+      }
+      }
+    break;
   }
 
 /*

@@ -35,6 +35,7 @@
 #include "wideband.h"
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "vfo.h"
 #include "main.h"
@@ -104,12 +105,13 @@ void update_receiver(int band,gboolean error) {
   int i;
   RECEIVER *rx;
   gboolean saved_ctun;
+g_print("update_receiver: band=%d error=%d\n",band,error);
   for(i=0;i<MAX_RECEIVERS;i++) {
     rx=radio->receiver[i];
     if(rx!=NULL) {
-fprintf(stderr,"update_receiver: band=%d rx=%d band_a=%d\n",band,i,rx->band_a);
       if(rx->band_a==band) {
         BAND *xvtr=band_get_band(band);
+g_print("update_receiver: found band: %s\n",xvtr->title);
         rx->lo_a=xvtr->frequencyLO;
         rx->error_a=xvtr->errorLO;
         rx->lo_tx=xvtr->txFrequencyLO;
@@ -159,11 +161,24 @@ void lo_frequency_cb(GtkEditable *editable,gpointer user_data) {
 }
 
 void lo_error_cb(GtkEditable *editable,gpointer user_data) {
+g_print("lo_error_cb\n");
   int band=GPOINTER_TO_INT(user_data);
   BAND *xvtr=band_get_band(band);
   const char* errorf=gtk_entry_get_text(GTK_ENTRY(lo_error[band]));
   xvtr->errorLO=atoll(errorf);
   update_receiver(band,TRUE);
+}
+
+void lo_error_update(RECEIVER *rx,long long offset) {
+g_print("lo_error_update: band=%d\n",rx->band_a);
+  BAND *xvtr=band_get_band(rx->band_a);
+  if(radio->dialog!=NULL) {
+    char temp[32];
+    sprintf(temp,"%lld",xvtr->errorLO);
+    gtk_entry_set_text(GTK_ENTRY(lo_error[rx->band_a]),temp);
+  }
+  xvtr->errorLO=xvtr->errorLO+offset;
+  update_receiver(rx->band_a,TRUE);
 }
 
 void tx_lo_frequency_cb(GtkEditable *editable,gpointer user_data) {
@@ -179,12 +194,6 @@ void tx_lo_error_cb(GtkEditable *editable,gpointer user_data) {
   BAND *xvtr=band_get_band(band);
   const char* errorf=gtk_entry_get_text(GTK_ENTRY(tx_lo_error[band]));
   xvtr->txErrorLO=atoll(errorf);
-  update_receiver(band,TRUE);
-}
-
-void update_error(int band,gint64 error) {
-  BAND *xvtr=band_get_band(band);
-  xvtr->errorLO+=error;
   update_receiver(band,TRUE);
 }
 

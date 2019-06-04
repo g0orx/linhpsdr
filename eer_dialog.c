@@ -32,6 +32,7 @@
 #include "wideband.h"
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 
 static void enable_cb(GtkWidget *widget, gpointer data) {

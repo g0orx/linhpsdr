@@ -33,6 +33,7 @@
 #include "transmitter.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "protocol1.h"
 #include "protocol2.h"
@@ -229,12 +230,14 @@ void transmitter_restore_state(TRANSMITTER *tx) {
   sprintf(name,"transmitter[%d].mic_dsp_rate",tx->channel);
   value=getProperty(name);
   if(value) tx->mic_dsp_rate=atoi(value);
+/*
   sprintf(name,"transmitter[%d].iq_output_rate",tx->channel);
   value=getProperty(name);
   if(value) tx->iq_output_rate=atoi(value);
   sprintf(name,"transmitter[%d].output_samples",tx->channel);
   value=getProperty(name);
   if(value) tx->output_samples=atoi(value);
+*/
   sprintf(name,"transmitter[%d].pre_emphasize",tx->channel);
   value=getProperty(name);
   if(value) tx->pre_emphasize=atoi(value);
@@ -459,6 +462,11 @@ static void full_tx_buffer(TRANSMITTER *tx) {
     case PROTOCOL_2:
       gain=8388607.0; // 24 bit
       break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      gain=32767.0;  // 16 bit
+      break;
+#endif
   }
 
   update_vox(radio);
@@ -471,38 +479,47 @@ static void full_tx_buffer(TRANSMITTER *tx) {
   Spectrum0(1, tx->channel, 0, 0, tx->iq_output_buffer);
 
   if(isTransmitting(radio)) {
-/*
-    if(radio->discovered->device==NEW_DEVICE_ATLAS && atlas_penelope) {
-      if(radio->tune && !transmitter->tune_use_drive) {
-        gain=gain*(transmitter->drive*100.0/(double)transmitter->tune_percent);
-      } else {
-        gain=gain*transmitter->drive;
+
+    if(radio->classE) {
+      for(j=0;j<tx->output_samples;j++) {
+        tx->inI[j]=tx->iq_output_buffer[j*2];
+        tx->inQ[j]=tx->iq_output_buffer[(j*2)+1];
       }
+      // EER processing
+      // input is TX IQ samples in inI,inQ
+      // output phase/IQ/magnitude is written back to inI,inQ and
+      //   outMI,outMQ contain the scaled and delayed input samples
+      
+      xeerEXTF(0, tx->inI, tx->inQ, tx->inI, tx->inQ, tx->outMI, tx->outMQ, isTransmitting(radio), tx->output_samples);
+
     }
-*/
 
     for(j=0;j<tx->output_samples;j++) {
-      tx->inI[j]=tx->iq_output_buffer[j*2];
-      tx->inQ[j]=tx->iq_output_buffer[(j*2)+1];
-    }
-    // EER processing
-    // input is TX IQ samples in inI,inQ
-    // output phase/IQ/magnitude is written back to inI,inQ and
-    //   outMI,outMQ contain the scaled and delayed input samples
-    xeerEXTF(0, tx->inI, tx->inQ, tx->inI, tx->inQ, tx->outMI, tx->outMQ, isTransmitting(radio), tx->output_samples);
-
-    for(j=0;j<tx->output_samples;j++) {
-      isample=ROUNDHTZ(tx->inI[j]);
-      qsample=ROUNDHTZ(tx->inQ[j]);
-      lsample=ROUNDHTZ(tx->outMI[j]);
-      rsample=ROUNDHTZ(tx->outMQ[j]);
+      if(radio->classE) {
+        isample=ROUNDHTZ(tx->inI[j]);
+        qsample=ROUNDHTZ(tx->inQ[j]);
+        lsample=ROUNDHTZ(tx->outMI[j]);
+        rsample=ROUNDHTZ(tx->outMQ[j]);
+      } else {
+        isample=ROUNDHTZ(tx->iq_output_buffer[j*2]);
+        qsample=ROUNDHTZ(tx->iq_output_buffer[(j*2)+1]);
+      }
       switch(radio->discovered->protocol) {
         case PROTOCOL_1:
-          protocol1_iq_samples(isample,qsample,lsample,rsample);
+          if(radio->classE) {
+            protocol1_eer_iq_samples(isample,qsample,lsample,rsample);
+          } else {
+            protocol1_iq_samples(isample,qsample);
+          }
           break;
         case PROTOCOL_2:
           protocol2_iq_samples(isample,qsample);
           break;
+#ifdef SOAPYSDR
+        case PROTOCOL_SOAPYSDR:
+          soapy_protocol_iq_samples((float)tx->iq_output_buffer[j*2],(float)tx->iq_output_buffer[(j*2)+1]);
+          break;
+#endif
 /*
 #ifdef RADIOBERRY
         case RADIOBERRY_PROTOCOL:
@@ -772,6 +789,7 @@ TRANSMITTER *create_transmitter(int channel) {
 g_print("create_transmitter: channel=%d\n",channel);
   TRANSMITTER *tx=g_new0(TRANSMITTER,1);
   tx->channel=channel;
+  tx->dac=0;
   tx->alex_antenna=ALEX_TX_ANTENNA_1;
   tx->mic_gain=0.0;
   tx->rx=NULL;
@@ -813,15 +831,15 @@ g_print("create_transmitter: channel=%d\n",channel);
       tx->mic_dsp_rate=96000;
       tx->iq_output_rate=192000;
       tx->buffer_size=1024;
-      tx->output_samples=4096;
+      tx->output_samples=1024*(tx->iq_output_rate/tx->mic_sample_rate);
       break;
 #ifdef SOAPYSDR
     case PROTOCOL_SOAPYSDR:
       tx->mic_sample_rate=48000;
       tx->mic_dsp_rate=96000;
-      tx->iq_output_rate=1536000;
+      tx->iq_output_rate=radio->receiver[0]->sample_rate; // default to first receiver
       tx->buffer_size=1024;
-      tx->output_samples=32768;
+      tx->output_samples=1024*(tx->iq_output_rate/tx->mic_sample_rate);
       break;
 #endif
   }

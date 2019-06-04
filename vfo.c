@@ -30,6 +30,7 @@
 #include "transmitter.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "band.h"
 #include "main.h"
@@ -211,7 +212,7 @@ static int previous_step(int current_step) {
 }
 
 static int which_button(int x,int y) {
-  int button=-1;
+  int button=BUTTON_NONE;
   if(y<=12) {
     if(x>=355 && x<430) {
       button=BUTTON_STEP;
@@ -1058,6 +1059,8 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
       rx->ctun_max=rx->sample_rate/2;
       if(!rx->ctun) {
         SetRXAShiftRun(rx->channel, 0);
+      } else {
+        SetRXAShiftRun(rx->channel, 1);
       }
       frequency_changed(rx);
       update_frequency(rx);

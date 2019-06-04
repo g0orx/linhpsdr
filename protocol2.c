@@ -52,6 +52,7 @@
 #include "receiver.h"
 #include "transmitter.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "signal.h"
 #include "vfo.h"

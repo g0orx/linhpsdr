@@ -31,6 +31,7 @@
 #include "wideband.h"
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "main.h"
 #include "protocol1.h"
@@ -61,6 +62,9 @@ static GtkWidget *adc1_filters_combo_box;
 static GtkWidget *adc1_hpf_combo_box;
 static GtkWidget *adc1_lpf_combo_box;
 static GtkWidget *rigctl_base;
+
+static GtkWidget *dac0_frame;
+static GtkWidget *dac0_antenna_combo_box;
 
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   RADIO *radio=(RADIO *)data;
@@ -220,7 +224,7 @@ static void adc0_antenna_cb(GtkComboBox *widget,gpointer data) {
     protocol2_high_priority();
 #ifdef SOAPYSDR
   } else if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
-    soapy_protocol_set_antenna(radio->receiver[0],radio->adc[0].antenna);
+    soapy_protocol_set_rx_antenna(radio->receiver[0],radio->adc[0].antenna);
 #endif
   }
 }
@@ -232,6 +236,19 @@ static void adc1_antenna_cb(GtkComboBox *widget,gpointer data) {
     protocol2_high_priority();
   }
 }
+
+static void dac0_antenna_cb(GtkComboBox *widget,gpointer data) {
+  RADIO *radio=(RADIO *)data;
+  radio->dac[0].antenna=gtk_combo_box_get_active(widget);
+  if(radio->discovered->protocol==PROTOCOL_2) {
+    protocol2_high_priority();
+#ifdef SOAPYSDR
+  } else if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
+    soapy_protocol_set_tx_antenna(radio->transmitter,radio->dac[0].antenna);
+#endif
+  }
+}
+
 
 static void adc0_filters_cb(GtkComboBox *widget,gpointer data) {
   RADIO *radio=(RADIO *)data;
@@ -438,6 +455,22 @@ static void iqswap_changed_cb(GtkWidget *widget, gpointer data) {
   RADIO *r=(RADIO *)data;
   r->iqswap=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 }
+
+static void dac0_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
+  DAC *dac=(DAC *)data;
+  int gain;
+  if(radio->model==SOAPYSDR_USB) {
+    gain=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
+    soapy_protocol_set_tx_gain(radio->transmitter,(char *)gtk_widget_get_name(widget),gain);
+    for(int i=0;i<radio->discovered->info.soapy.tx_gains;i++) {
+      if(strcmp(radio->discovered->info.soapy.tx_gain[i],(char *)gtk_widget_get_name(widget))==0) {
+        radio->dac[0].tx_gain[i]=gain;
+        break;
+      }
+    }
+  }
+}
+
 #endif
 
 static void attenuation_value_changed_cb(GtkWidget *widget, gpointer data) {
@@ -500,6 +533,9 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   gtk_container_add(GTK_CONTAINER(model_frame),model_grid);
   gtk_grid_attach(GTK_GRID(grid),model_frame,col,row++,1,1);
 
+  int x=0;
+  int y=0;
+
   GtkWidget *model_combo_box=gtk_combo_box_text_new();
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"ANAN_10");
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"ANAN_10E");
@@ -520,15 +556,17 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
 #endif
   gtk_combo_box_set_active(GTK_COMBO_BOX(model_combo_box),radio->model);
   g_signal_connect(model_combo_box,"changed",G_CALLBACK(model_cb),radio);
-  gtk_grid_attach(GTK_GRID(model_grid),model_combo_box,0,0,1,1);
+  gtk_grid_attach(GTK_GRID(model_grid),model_combo_box,x,0,1,1);
+  x++;
+
+  GtkWidget *iqswap=gtk_check_button_new_with_label("Swap I & Q");
+  gtk_grid_attach(GTK_GRID(model_grid),iqswap,x,0,1,1);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(iqswap),radio->iqswap);
+  g_signal_connect(iqswap,"toggled",G_CALLBACK(iqswap_changed_cb),radio);
+  x++;
 
 #ifdef SOAPYSDR
-  if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
-    GtkWidget *iqswap=gtk_check_button_new_with_label("Swap I & Q");
-    gtk_grid_attach(GTK_GRID(model_grid),iqswap,1,0,1,1);
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(iqswap),radio->iqswap);
-    g_signal_connect(iqswap,"toggled",G_CALLBACK(iqswap_changed_cb),radio);
-  } else {
+  if(radio->discovered->device!=DEVICE_SOAPYSDR_USB) {
 #endif
     filter_board_combo_box=gtk_combo_box_text_new();
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"ALEX FILTERS");
@@ -536,7 +574,8 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"NONE");
     gtk_combo_box_set_active(GTK_COMBO_BOX(filter_board_combo_box),radio->filter_board);
     g_signal_connect(filter_board_combo_box,"changed",G_CALLBACK(filter_board_cb),radio);
-    gtk_grid_attach(GTK_GRID(model_grid),filter_board_combo_box,1,0,1,1);
+    gtk_grid_attach(GTK_GRID(model_grid),filter_board_combo_box,x,0,1,1);
+    x++;
 #ifdef SOAPYSDR
   }
 #endif
@@ -562,7 +601,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
         break;
     }
     g_signal_connect(sample_rate_combo_box,"changed",G_CALLBACK(sample_rate_cb),radio);
-    gtk_grid_attach(GTK_GRID(model_grid),sample_rate_combo_box,2,0,1,1);
+    gtk_grid_attach(GTK_GRID(model_grid),sample_rate_combo_box,x,0,1,1);
   }
 
   adc0_frame=gtk_frame_new("ADC-0");
@@ -584,13 +623,8 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       gtk_grid_attach(GTK_GRID(adc0_grid),antenna_label,0,0,1,1);
       adc0_antenna_combo_box=gtk_combo_box_text_new();
 
-      SoapySDRDevice *sdr=get_soapy_device();
-      size_t length;
-
-      char** names = SoapySDRDevice_listAntennas(sdr, SOAPY_SDR_RX, 0, &length);
-
-      for(i=0;i<length;i++) {
-        gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,names[i]);
+      for(i=0;i<radio->discovered->info.soapy.rx_antennas;i++) {
+        gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,radio->discovered->info.soapy.rx_antenna[i]);
       }
 
       gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_antenna_combo_box),radio->adc[0].antenna);
@@ -789,6 +823,61 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
 
   update_controls();
 
+  switch(radio->discovered->device) {
+#ifdef SOAPYSDR
+    case DEVICE_SOAPYSDR_USB:
+      if(radio->can_transmit) {
+        int r=0;
+        dac0_frame=gtk_frame_new("DAC-0");
+        GtkWidget *dac0_grid=gtk_grid_new();
+        gtk_grid_set_row_homogeneous(GTK_GRID(dac0_grid),TRUE);
+        gtk_grid_set_column_homogeneous(GTK_GRID(dac0_grid),TRUE);
+        gtk_container_add(GTK_CONTAINER(dac0_frame),dac0_grid);
+        gtk_grid_attach(GTK_GRID(grid),dac0_frame,col,row++,1,1);
+
+        GtkWidget *antenna_label=gtk_label_new("Antenna:");
+        gtk_grid_attach(GTK_GRID(dac0_grid),antenna_label,0,r,1,1);
+
+        dac0_antenna_combo_box=gtk_combo_box_text_new();
+        for(i=0;i<radio->discovered->info.soapy.tx_antennas;i++) {
+          gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(dac0_antenna_combo_box),NULL,radio->discovered->info.soapy.tx_antenna[i]);
+        }
+        gtk_combo_box_set_active(GTK_COMBO_BOX(dac0_antenna_combo_box),radio->dac[0].antenna);
+        g_signal_connect(dac0_antenna_combo_box,"changed",G_CALLBACK(dac0_antenna_cb),radio);
+        gtk_grid_attach(GTK_GRID(dac0_grid),dac0_antenna_combo_box,1,r,1,1);
+        r++;
+
+      if(radio->discovered->info.soapy.tx_gains>0) {
+        GtkWidget *gain=gtk_label_new("Gains:");
+        gtk_grid_attach(GTK_GRID(dac0_grid),gain,0,r,1,1);
+        r++;
+      }
+
+      for(i=0;i<radio->discovered->info.soapy.tx_gains;i++) {
+        GtkWidget *gain_label=gtk_label_new(radio->discovered->info.soapy.tx_gain[i]);
+        gtk_grid_attach(GTK_GRID(dac0_grid),gain_label,0,r,1,1);
+        SoapySDRRange range=radio->discovered->info.soapy.tx_range[i];
+        if(range.step==0.0) {
+          range.step=1.0;
+        }
+        GtkWidget *gain_b=gtk_spin_button_new_with_range(range.minimum,range.maximum,range.step);
+        gtk_widget_set_name (gain_b, radio->discovered->info.soapy.tx_gain[i]);
+        gtk_spin_button_set_value(GTK_SPIN_BUTTON(gain_b),(double)radio->dac[0].tx_gain[i]);
+        gtk_grid_attach(GTK_GRID(dac0_grid),gain_b,1,r,1,1);
+        g_signal_connect(gain_b,"value_changed",G_CALLBACK(dac0_gain_value_changed_cb),&radio->dac[0]);
+        r++;
+      }
+
+
+
+      }
+      break;
+#endif
+    default:
+      break;
+  }
+
+
   if(radio->discovered->device==DEVICE_ANGELIA ||
      radio->discovered->device==DEVICE_ORION ||
      radio->discovered->device==DEVICE_ORION2) {
@@ -799,8 +888,8 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     gtk_container_add(GTK_CONTAINER(mic_frame),mic_grid);
     gtk_grid_attach(GTK_GRID(grid),mic_frame,col,row++,1,1);
    
-    int x=0;
-    int y=0;
+    x=0;
+    y=0;
 
     GtkWidget *ptt_ring_b=gtk_radio_button_new_with_label(NULL,"PTT On Ring, Mic and Bias on Tip");
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ptt_ring_b), radio->mic_ptt_tip_bias_ring==0);
@@ -862,8 +951,8 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   gtk_container_add(GTK_CONTAINER(cw_frame),cw_grid);
   gtk_grid_attach(GTK_GRID(grid),cw_frame,col,row++,1,1);
 
-  int x=0;
-  int y=0;
+  x=0;
+  y=0;
 
   GtkWidget *cw_keyer_mode_label=gtk_label_new("Keyer Mode:");
   gtk_widget_show(cw_keyer_mode_label);
