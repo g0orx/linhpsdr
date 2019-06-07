@@ -10,6 +10,7 @@ Development and testing has been run on Ubuntu 17.10 and Ubuntu 18.04. If run on
   sudo apt-get install libfftw3-dev
   sudo apt-get install libsoundio-dev
   sudo apt-get install libgtk-3-dev
+  sudo apt-get install libsoapysdr-dev
 ```
 
 ### Prerequisites for installing the Debian Package
@@ -17,6 +18,7 @@ Development and testing has been run on Ubuntu 17.10 and Ubuntu 18.04. If run on
 ```
   sudo apt-get install libfftw3-3
   sudo apt-get install libsoundio
+  sudo apt-get install libsoapysdr
 ```
 
 
@@ -52,6 +54,7 @@ Development and testing has been run on MacOS Sierra 10.12.6 and MacOS high Sier
   brew install gnome-icon-theme
   brew install libsoundio
   brew install libffi
+  brew install soapysdr
 ```
 
 ### linhpsdr requires WDSP to be built and installed

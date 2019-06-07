@@ -1196,7 +1196,9 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   create_smartsdr_server();
 
+#ifdef SOAPYSDR
   soapy_protocol_set_mic_sample_rate(r->sample_rate);
+#endif
   if(radio->local_microphone) {
     if(audio_open_input(r)!=0) {
       radio->local_microphone=FALSE;

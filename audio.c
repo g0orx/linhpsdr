@@ -51,7 +51,9 @@
 #include "radio.h"
 #include "protocol1.h"
 #include "protocol2.h"
+#ifdef SOAPYSDR
 #include "soapy_protocol.h"
+#endif
 #include "audio.h"
 
 

@@ -8,6 +8,8 @@ LINK=gcc
 
 GTKINCLUDES=`pkg-config --cflags gtk+-3.0`
 GTKLIBS=`pkg-config --libs gtk+-3.0`
+#GTKINCLUDES=`pkg-config --cflags gtk+-3.0 epoxy`
+#GTKLIBS=`pkg-config --libs gtk+-3.0 epoxy`
 
 #PULSEINCLUDES=`pkg-config --cflags libpulse`
 #PULSELIBS=`pkg-config --libs libpulse`

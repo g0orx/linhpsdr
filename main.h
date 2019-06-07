@@ -22,3 +22,4 @@
 
 extern GtkWidget *main_window;
 extern RADIO *radio;
+extern gboolean opengl;

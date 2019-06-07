@@ -451,11 +451,6 @@ static void agc_changed_cb(GtkWidget *widget, gpointer data) {
   soapy_protocol_set_automatic_gain(radio->receiver[0],agc);
 }
 
-static void iqswap_changed_cb(GtkWidget *widget, gpointer data) {
-  RADIO *r=(RADIO *)data;
-  r->iqswap=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
-}
-
 static void dac0_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   DAC *dac=(DAC *)data;
   int gain;
@@ -470,8 +465,12 @@ static void dac0_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
     }
   }
 }
-
 #endif
+
+static void iqswap_changed_cb(GtkWidget *widget, gpointer data) {
+  RADIO *r=(RADIO *)data;
+  r->iqswap=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+}
 
 static void attenuation_value_changed_cb(GtkWidget *widget, gpointer data) {
   ADC *adc=(ADC *)data;

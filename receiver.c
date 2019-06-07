@@ -553,6 +553,7 @@ void receiver_xvtr_changed(RECEIVER *rx) {
 
 void receiver_change_sample_rate(RECEIVER *rx,int sample_rate) {
 g_print("receiver_change_sample_rate: from %d to %d radio=%d\n",rx->sample_rate,sample_rate,radio->sample_rate);
+  g_mutex_lock(&rx->mutex);
   SetChannelState(rx->channel,0,1);
   g_free(rx->audio_output_buffer);
   rx->audio_output_buffer=NULL;
@@ -576,6 +577,7 @@ g_print("receiver_change_sample_rate: resample_step=%d\n",rx->resample_step);
 #endif
 
   SetChannelState(rx->channel,1,0);
+  g_mutex_unlock(&rx->mutex);
   receiver_update_title(rx);
 }
 
@@ -926,6 +928,7 @@ int j;
      xnobEXT (rx->channel, rx->iq_input_buffer, rx->iq_input_buffer);
   }
 
+  g_mutex_lock(&rx->mutex);
   fexchange0(rx->channel, rx->iq_input_buffer, rx->audio_output_buffer, &error);
   if(error!=0 && error!=-2) {
     fprintf(stderr,"full_rx_buffer: channel=%d fexchange0: error=%d\n",rx->channel,error);
@@ -945,6 +948,7 @@ int j;
   g_mutex_unlock(&rx->freedv_mutex);
 #endif
 
+  g_mutex_unlock(&rx->mutex);
 
 }
 

@@ -182,9 +182,7 @@ typedef struct _radio {
 
   gboolean duplex;
 
-#ifdef SOAPYSDR
   gboolean iqswap;
-#endif
 
 } RADIO;
 

@@ -21,10 +21,8 @@
 #define DAC_H
 
 typedef struct _dac {
-#ifdef SOAPYSDR
   gint antenna;
   gint *tx_gain;
-#endif
 } DAC;
 
 #endif

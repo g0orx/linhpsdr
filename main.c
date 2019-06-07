@@ -68,6 +68,7 @@ static GtkWidget *retry;
 static DISCOVERED *d=NULL;
 
 RADIO *radio;
+gboolean opengl=FALSE;
 
 enum {
   NAME_COLUMN,
@@ -492,6 +493,15 @@ static void activate_hpsdr(GtkApplication *app, gpointer data) {
     g_print("HPSDR: no default screen!\n");
     _exit(0);
   }
+
+#ifdef OPENGL
+  GtkWidget *opengl_widget=gtk_gl_area_new();
+  opengl=opengl_widget!=NULL;
+  if(opengl_widget!=NULL) {
+    gtk_widget_destroy(opengl_widget);
+  }
+#endif
+  g_print("opengl: %d\n",opengl);
 
 #ifdef __APPLE__
   sprintf(png_path,"/usr/local/share/linhpsdr/hpsdr.png");

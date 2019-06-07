@@ -1029,7 +1029,9 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
         select->rx=rx;
         select->choice=1536000;
         g_signal_connect(sample_rate_1536,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
+#ifdef SOAPYSDR
       }
+#endif
       }
     break;
   }

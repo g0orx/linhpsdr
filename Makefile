@@ -8,6 +8,8 @@ LINK=gcc
 
 GTKINCLUDES=`pkg-config --cflags gtk+-3.0`
 GTKLIBS=`pkg-config --libs gtk+-3.0`
+#GTKINCLUDES=`pkg-config --cflags gtk+-3.0 epoxy`
+#GTKLIBS=`pkg-config --libs gtk+-3.0 epoxy`
 
 
 #AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
