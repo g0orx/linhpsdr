@@ -128,7 +128,7 @@ static void write_callback(struct SoundIoOutStream *outstream, int frame_count_m
       if (frame_count <= 0)
         return;
       if ((err = soundio_outstream_begin_write(outstream, &areas, &frame_count))) {
-        g_print("write_callback: begin write error: %s", soundio_strerror(err));
+        //g_print("write_callback: begin write error: %s\n", soundio_strerror(err));
         return;
       }
       if (frame_count <= 0)
