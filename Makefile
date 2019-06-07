@@ -8,8 +8,10 @@ LINK=gcc
 
 GTKINCLUDES=`pkg-config --cflags gtk+-3.0`
 GTKLIBS=`pkg-config --libs gtk+-3.0`
-#GTKINCLUDES=`pkg-config --cflags gtk+-3.0 epoxy`
-#GTKLIBS=`pkg-config --libs gtk+-3.0 epoxy`
+
+#OPENGL_OPTIONS=-D OPENGL
+#OPENGL_INCLUDES=`pkg-config --cflags epoxy`
+#OPENGL_LIBS=`pkg-config --libs epoxy`
 
 
 #AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
@@ -44,11 +46,11 @@ soapy_protocol.o
 endif
 
 
-OPTIONS=-Wno-deprecated-declarations -D SOUNDIO -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) -O3 -g
+OPTIONS=-Wno-deprecated-declarations -D SOUNDIO -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) $(OPENGL_OPTIONS) -O3 -g
 #OPTIONS=-g -Wno-deprecated-declarations -D SOUNDIO -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
 LIBS=-lrt -lm -lpthread -lwdsp
-INCLUDES=$(GTKINCLUDES)
+INCLUDES=$(GTKINCLUDES) $(OPGL_INCLUDES)
 
 COMPILE=$(CC) $(OPTIONS) $(INCLUDES)
 
@@ -208,7 +210,7 @@ prebuild:
 	rm -f version.o
 
 $(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS)
-	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(GTKLIBS) $(LIBS) $(AUDIO_LIBS) $(SOAPYSDR_LIBS)
+	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(GTKLIBS) $(LIBS) $(AUDIO_LIBS) $(SOAPYSDR_LIBS) $(OPENGL_LIBS)
 
 .c.o:
 	$(COMPILE) -c -o $@ $<
