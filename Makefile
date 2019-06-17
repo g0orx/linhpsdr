@@ -9,14 +9,26 @@ LINK=gcc
 GTKINCLUDES=`pkg-config --cflags gtk+-3.0`
 GTKLIBS=`pkg-config --libs gtk+-3.0`
 
-#OPENGL_OPTIONS=-D OPENGL
-#OPENGL_INCLUDES=`pkg-config --cflags epoxy`
-#OPENGL_LIBS=`pkg-config --libs epoxy`
+OPENGL_OPTIONS=-D OPENGL
+OPENGL_INCLUDES=`pkg-config --cflags epoxy`
+OPENGL_LIBS=`pkg-config --libs epoxy`
 
 
-#AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
+# uncomment either PULSEADIO_INCLUDE or SOUNDIO_INCLUDE
+#PULSEAUDIO_INCLUDE=PULSEAUDIO
+SOUNDIO_INCLUDE=SOUNDIO
 
+ifeq ($(PULSEAUDIO_INCLUDE),PULSEAUDIO)
+AUDIO_OPTIONS=-D PULSEAUDIO
+AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
+endif
+
+ifeq ($(SOUNDIO_INCLUDE),SOUNDIO)
+AUDIO_OPTIONS=-D SOUNDIO
 AUDIO_LIBS=-lsoundio
+endif
+
+
 
 # uncomment the line below to include SoapySDR support
 #
@@ -46,8 +58,8 @@ soapy_protocol.o
 endif
 
 
-OPTIONS=-Wno-deprecated-declarations -D SOUNDIO -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) $(OPENGL_OPTIONS) -O3 -g
-#OPTIONS=-g -Wno-deprecated-declarations -D SOUNDIO -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
+OPTIONS=-Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) $(OPENGL_OPTIONS) -O3 -g
+#OPTIONS=-g -Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
 LIBS=-lrt -lm -lpthread -lwdsp
 INCLUDES=$(GTKINCLUDES) $(OPGL_INCLUDES)
