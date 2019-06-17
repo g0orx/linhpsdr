@@ -9,9 +9,9 @@ LINK=gcc
 GTKINCLUDES=`pkg-config --cflags gtk+-3.0`
 GTKLIBS=`pkg-config --libs gtk+-3.0`
 
-OPENGL_OPTIONS=-D OPENGL
-OPENGL_INCLUDES=`pkg-config --cflags epoxy`
-OPENGL_LIBS=`pkg-config --libs epoxy`
+#OPENGL_OPTIONS=-D OPENGL
+#OPENGL_INCLUDES=`pkg-config --cflags epoxy`
+#OPENGL_LIBS=`pkg-config --libs epoxy`
 
 
 # uncomment either PULSEADIO_INCLUDE or SOUNDIO_INCLUDE
