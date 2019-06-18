@@ -88,6 +88,21 @@ static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) 
   return FALSE;
 }
 
+static gboolean switch_page_event(GtkNotebook *notebook,GtkWidget *page,guint page_num,gpointer data) {
+  RADIO *radio=(RADIO *)data;
+  GtkWidget *label=gtk_notebook_get_tab_label(notebook,page);
+  const char *text=gtk_label_get_text(GTK_LABEL(label));
+  g_print("switch_page: %d %s\n",page_num,text);
+  if(strncmp("RX",text,2)==0) {
+    int rx=atoi(&text[3]);
+    g_print("switch_page: %d %s rx=%d\n",page_num,text,rx);
+    update_audio_choices(radio->receiver[rx]);
+  }
+  if(strncmp("TX",text,2)==0) {
+    update_transmitter_audio_choices(radio->transmitter);
+  }
+}
+
 GtkWidget *create_configure_dialog(RADIO *radio,int tab) {
   int i;
   gchar title[64];
@@ -104,7 +119,6 @@ GtkWidget *create_configure_dialog(RADIO *radio,int tab) {
   GtkWidget *notebook=gtk_notebook_new();
 
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_radio_dialog(radio),gtk_label_new("Radio"));
-
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_oc_dialog(radio),gtk_label_new("OC"));
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_xvtr_dialog(radio),gtk_label_new("XVTR"));
 
@@ -130,6 +144,8 @@ GtkWidget *create_configure_dialog(RADIO *radio,int tab) {
   gtk_container_add(GTK_CONTAINER(content),notebook);
   gtk_widget_show_all(dialog);
   gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook),tab);
+
+  g_signal_connect (notebook,"switch-page",G_CALLBACK(switch_page_event),(gpointer)radio);
 
   return dialog;
 

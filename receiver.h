@@ -21,9 +21,8 @@
 #define RECEIVER_H
 
 
-#ifdef SOUNDIO
 #include <soundio/soundio.h>
-#else
+#ifndef __APPLE__
 #include <pulse/simple.h>
 #endif
 
@@ -191,12 +190,13 @@ typedef struct _receiver {
   gchar *audio_name;
   int output_index;
   gboolean mute_when_not_active;
-#ifdef SOUNDIO
+
   struct SoundIoDevice *output_device;
   struct SoundIoOutStream *output_stream;
   struct SoundIoRingBuffer *ring_buffer;
   gboolean output_started;
-#else
+
+#ifndef __APPLE__
   pa_simple* playstream;
 #endif
 

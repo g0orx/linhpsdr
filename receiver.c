@@ -907,11 +907,9 @@ static void process_rx_buffer(RECEIVER *rx) {
       }
     }
   }
-#ifdef SOUNDIO
   if(rx->local_audio && !rx->output_started) {
     audio_start_output(rx);
   }
-#endif
 }
 
 static void full_rx_buffer(RECEIVER *rx) {

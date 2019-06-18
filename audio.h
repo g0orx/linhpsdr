@@ -20,6 +20,13 @@
 #ifndef _AUDIO_H
 #define _AUDIO_H
 
+enum {
+  USE_SOUNDIO
+#ifndef __APPLE__
+  ,USE_PULSEAUDIO
+#endif
+};
+
 typedef struct _audio_device {
   char *name;
   int index;
@@ -36,13 +43,13 @@ extern AUDIO_DEVICE output_devices[MAX_AUDIO_DEVICES];
 extern int audio_open_input(RADIO *r);
 extern void audio_close_input(RADIO *r);
 extern int audio_open_output(RECEIVER *rx);
-#ifdef SOUNDIO
 void audio_start_output(RECEIVER *rx);
-#endif
 extern void audio_close_output(RECEIVER *rx);
-//extern int audio_write(RECEIVER *rx,short left_sample,short right_sample);
 extern int audio_write(RECEIVER *rx,float left_sample,float right_sample);
 extern int audio_write_buffer(RECEIVER *rx);
 extern void audio_get_cards();
-extern void create_audio(/*GMainContext *context*/);
+extern void create_audio(int backend_index,const char *backend);
+extern int audio_get_backends(RADIO *r);
+extern const char *audio_get_backend_name(int backend);
+
 #endif

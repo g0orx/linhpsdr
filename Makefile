@@ -16,7 +16,7 @@ GTKLIBS=`pkg-config --libs gtk+-3.0`
 
 # uncomment either PULSEADIO_INCLUDE or SOUNDIO_INCLUDE
 #PULSEAUDIO_INCLUDE=PULSEAUDIO
-SOUNDIO_INCLUDE=SOUNDIO
+#SOUNDIO_INCLUDE=SOUNDIO
 
 ifeq ($(PULSEAUDIO_INCLUDE),PULSEAUDIO)
 AUDIO_OPTIONS=-D PULSEAUDIO
@@ -29,6 +29,7 @@ AUDIO_LIBS=-lsoundio
 endif
 
 
+AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib -lsoundio
 
 # uncomment the line below to include SoapySDR support
 #

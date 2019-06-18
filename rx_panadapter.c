@@ -93,9 +93,28 @@ g_print("rx_panadapter: resize_timeout\n");
 }
 
 #ifdef OPENGL
+
+GLuint gl_program, gl_vao;
+
+const GLchar *vert_src ="\n" \
+"#version 330                                  \n" \
+"#extension GL_ARB_explicit_attrib_location: enable  \n" \
+"                                              \n" \
+"layout(location = 0) in vec2 in_position;     \n" \
+"                                              \n" \
+"void main()                                   \n" \
+"{                                             \n" \
+"  gl_Position = ftransform;                   \n" \
+"}                                             \n";
+
+const GLchar *frag_src ="\n" \
+"void main (void)                              \n" \
+"{                                             \n" \
+"  gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);    \n" \
+"}                                             \n";
+
 static gboolean rx_panadapter_render(GtkGLArea *area, GdkGLContext *context)
 {
-g_print("rx_panadapter_render\n");
   //g_mutex_lock(&rx->mutex);
   // inside this function it's safe to use GL; the given
   // #GdkGLContext has been made current to the drawable
@@ -108,12 +127,22 @@ g_print("rx_panadapter_render\n");
 
   // draw the object
   if(signal_vertices_size!=-1) {
-    glColor3i(255,255,255);
+    glLineWidth(2.0);
+    glColor3f(1.0,1.0,0.0);
     GLuint vbo;
     glGenBuffers(1, &vbo); // Generate 1 buffer
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, signal_vertices_size*sizeof(float)*2, signal_vertices, GL_STREAM_DRAW);
+
+    glUseProgram(gl_program);
+    glBindVertexArray(gl_vao);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
     glDrawArrays(GL_LINE_STRIP,0,signal_vertices_size);
+    glDisableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0); //Unbind
+    glBindVertexArray(0);
+    glUseProgram(0);
   }
 
   // we completed our drawing; the draw commands will be
@@ -136,28 +165,25 @@ g_print("rx_panadapter_realize\n");
   if (gtk_gl_area_get_error (area) != NULL)
     return;
 
-  // You can also use gtk_gl_area_set_error() in order
-  // to show eventual initialization errors on the
-  // GtkGLArea widget itself
-/*
-  GError *error = NULL;
-  init_buffer_objects (&error);
-  if (error != NULL)
-    {
-      gtk_gl_area_set_error (area, error);
-      g_error_free (error);
-      return;
-    }
-*/
-/*
-  init_shaders (&error);
-  if (error != NULL)
-    {
-      gtk_gl_area_set_error (area, error);
-      g_error_free (error);
-      return;
-    }
-*/
+  GLuint frag_shader, vert_shader;
+  frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
+  vert_shader = glCreateShader(GL_VERTEX_SHADER);
+
+  glShaderSource(frag_shader, 1, &frag_src, NULL);
+  glShaderSource(vert_shader, 1, &vert_src, NULL);
+
+  glCompileShader(frag_shader);
+  glCompileShader(vert_shader);
+
+  gl_program = glCreateProgram();
+  glAttachShader(gl_program, frag_shader);
+  glAttachShader(gl_program, vert_shader);
+  glLinkProgram(gl_program);
+
+  glGenVertexArrays(1, &gl_vao);
+  glBindVertexArray(gl_vao);
+
+
 }
 #endif
 
@@ -246,6 +272,8 @@ GtkWidget *create_rx_panadapter(RECEIVER *rx) {
   return panadapter;
 }
 
+static gboolean first_time=TRUE;
+
 void update_rx_panadapter(RECEIVER *rx) {
   int i;
   int x1,x2;
@@ -281,15 +309,20 @@ void update_rx_panadapter(RECEIVER *rx) {
       signal_vertices_size=display_width;
     }
     float h_half=(float)display_width/2.0;
-    float v_half=(float)display_height/2.0;
+    float v_half=(float)rx->panadapter_low+(((float)rx->panadapter_high-(float)rx->panadapter_low)/2.0);
     for(i=0;i<display_width;i++) {
       float x=((float)i-h_half)/h_half;
       double s2=(double)samples[i+offset]+attenuation+radio->panadapter_calibration;
-      s2 = floor((rx->panadapter_high - s2) *dbm_per_line);
       float y=((float)s2-v_half)/v_half;
+      if(y>1.0) y=1.0;
+      if(y<-1.0) y=-1.0;
       signal_vertices[i*2]=x;
       signal_vertices[(i*2)+1]=y;
+      if(first_time) {
+        g_print("i=%d x=%f y=%f\n",i,x,y);
+      }
     }
+    first_time=FALSE;
     gtk_widget_queue_draw (rx->panadapter);
   } else {
 

@@ -8,6 +8,7 @@ Development and testing has been run on Ubuntu 17.10 and Ubuntu 18.04. If run on
 
 ```
   sudo apt-get install libfftw3-dev
+  sudo apt-get install libpulse-dev
   sudo apt-get install libsoundio-dev
   sudo apt-get install libgtk-3-dev
   sudo apt-get install libsoapysdr-dev

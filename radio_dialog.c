@@ -40,6 +40,7 @@
 #include "soapy_protocol.h"
 #endif
 #include "audio.h"
+#include "receiver_dialog.h"
 #include "rigctl.h"
 
 
@@ -65,6 +66,8 @@ static GtkWidget *rigctl_base;
 
 static GtkWidget *dac0_frame;
 static GtkWidget *dac0_antenna_combo_box;
+
+static GtkWidget *audio_backend_combo_box;
 
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   RADIO *radio=(RADIO *)data;
@@ -341,6 +344,33 @@ static void boost_cb(GtkWidget *widget, gpointer data) {
   RADIO *radio=(RADIO *)data;
   radio->mic_boost=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 }
+
+static void update_audio_backends(RADIO *radio) {
+  int i;
+  gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(audio_backend_combo_box));
+  if(radio->which_audio==USE_SOUNDIO) {
+    for(i=0;i<audio_get_backends(radio);i++) {
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_backend_combo_box),NULL,audio_get_backend_name(i));
+    }
+  }
+  radio_change_audio_backend(radio,radio->which_audio_backend);
+}
+
+static void audio_cb(GtkWidget *widget, gpointer data) {
+  RADIO *radio=(RADIO *)data;
+  int selected=gtk_combo_box_get_active (GTK_COMBO_BOX(widget));
+g_print("radio_dialog: audio_cb: selected=%d\n",selected);
+  radio_change_audio(radio,selected);
+  update_audio_backends(radio);
+}
+
+static void audio_backend_cb(GtkWidget *widget, gpointer data) {
+  RADIO *radio=(RADIO *)data;
+  int selected=gtk_combo_box_get_active (GTK_COMBO_BOX(widget));
+g_print("radio_dialog: audio_backend_cb: selected=%d\n",selected);
+  radio_change_audio_backend(radio,selected);
+}
+
 
 static void smeter_calibrate_changed_cb(GtkWidget *widget, gpointer data) {
   RADIO *radio=(RADIO *)data;
@@ -915,6 +945,32 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     gtk_grid_attach(GTK_GRID(mic_grid),boost_b,x,y++,1,1);
     g_signal_connect(boost_b,"toggled",G_CALLBACK(boost_cb),radio);
   }
+
+  GtkWidget *audio_frame=gtk_frame_new("Audio");
+  GtkWidget *audio_grid=gtk_grid_new();
+  gtk_grid_set_row_homogeneous(GTK_GRID(audio_grid),TRUE);
+  gtk_grid_set_column_homogeneous(GTK_GRID(audio_grid),FALSE);
+  gtk_container_add(GTK_CONTAINER(audio_frame),audio_grid);
+  gtk_grid_attach(GTK_GRID(grid),audio_frame,col,row++,1,1);
+
+  GtkWidget *audio_combo=gtk_combo_box_text_new();
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_combo),NULL,"SOUNDIO");
+#ifndef __APPLE__
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_combo),NULL,"PULSEAUDIO");
+#endif
+  gtk_combo_box_set_active(GTK_COMBO_BOX(audio_combo),radio->which_audio);
+  gtk_grid_attach(GTK_GRID(audio_grid),audio_combo,0,0,1,1);
+  g_signal_connect(audio_combo,"changed",G_CALLBACK(audio_cb),radio);
+
+  GtkWidget *backend_label=gtk_label_new(" Backend:");
+  gtk_grid_attach(GTK_GRID(audio_grid),backend_label,1,0,1,1);
+
+  audio_backend_combo_box=gtk_combo_box_text_new();
+  update_audio_backends(radio);
+  gtk_combo_box_set_active(GTK_COMBO_BOX(audio_backend_combo_box),radio->which_audio_backend);
+  gtk_grid_attach(GTK_GRID(audio_grid),audio_backend_combo_box,2,0,1,1);
+  g_signal_connect(audio_backend_combo_box,"changed",G_CALLBACK(audio_backend_cb),radio);
+
 
   GtkWidget *calibration_frame=gtk_frame_new("Calibration [dBm]");
   GtkWidget *calibration_grid=gtk_grid_new();

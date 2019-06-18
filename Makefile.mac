@@ -50,7 +50,7 @@ soapy_protocol.o
 endif
 
 
-OPTIONS=-Wno-deprecated-declarations -D SOUNDIO -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) -O3 -g
+OPTIONS=-Wno-deprecated-declarations -D SOUNDIO -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) $(OPENGL_OPTIONS) -O3 -g
 
 LIBS=-lm -lpthread -lwdsp
 INCLUDES=$(GTKINCLUDES) $(PULSEINCLUDES) $(OPENGL_INCLUDES)

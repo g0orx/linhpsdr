@@ -856,28 +856,38 @@ static void audio_choice_cb(GtkComboBox *widget,gpointer data) {
     i=gtk_combo_box_get_active(widget);
     if(rx->audio_name!=NULL) {
       g_free(rx->audio_name);
+      rx->audio_name=NULL;
     }
-    rx->audio_name=g_new0(gchar,strlen(output_devices[i].name)+1);
-    rx->output_index=output_devices[i].index;
-    strcpy(rx->audio_name,output_devices[i].name);
-    if(audio_open_output(rx)<0) {
-      rx->local_audio=FALSE;
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON (local_audio),FALSE);
+    if(i>=0) {
+      rx->audio_name=g_new0(gchar,strlen(output_devices[i].name)+1);
+      rx->output_index=output_devices[i].index;
+      strcpy(rx->audio_name,output_devices[i].name);
+      if(audio_open_output(rx)<0) {
+        rx->local_audio=FALSE;
+        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON (local_audio),FALSE);
+      }
     }
   } else {
     i=gtk_combo_box_get_active(widget);
     if(rx->audio_name!=NULL) {
       g_free(rx->audio_name);
+      rx->audio_name=NULL;
     }
-    rx->audio_name=g_new0(gchar,strlen(output_devices[i].name)+1);
-    strcpy(rx->audio_name,output_devices[i].name);
+    if(i>=0) {
+      rx->audio_name=g_new0(gchar,strlen(output_devices[i].name)+1);
+      strcpy(rx->audio_name,output_devices[i].name);
+    }
   }
   if(gtk_combo_box_get_active(GTK_COMBO_BOX(audio_choice))==-1) {
     gtk_widget_set_sensitive(local_audio, FALSE);
   } else {
     gtk_widget_set_sensitive(local_audio, TRUE);
   }
-  g_print("Output device changed: %d: %s (%s)\n",i,output_devices[i].name,output_devices[i].description);
+  if(i>=0) {
+    g_print("Output device changed: %d: %s (%s)\n",i,output_devices[i].name,output_devices[i].description);
+  } else {
+    g_print("Output device changed: %d\n",i);
+  }
 }
 
 static void buffer_size_spin_cb(GtkWidget *widget,gpointer data) {
@@ -918,6 +928,21 @@ static void high_value_changed_cb (GtkWidget *widget, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   rx->equalizer[3]=(int)gtk_range_get_value(GTK_RANGE(widget));
   SetRXAGrphEQ(rx->channel, rx->equalizer);
+}
+
+void update_audio_choices(RECEIVER *rx) {
+  int i;
+g_print("receiver_dialog: update_audio_choices: rx=%d\n",rx->channel);
+  gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(audio_choice));
+  for(i=0;i<n_output_devices;i++) {
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_choice),NULL,output_devices[i].description);
+    if(rx->audio_name!=NULL) {
+      if(strcmp(output_devices[i].name,rx->audio_name)==0) {
+        gtk_combo_box_set_active(GTK_COMBO_BOX(audio_choice),i);
+      }
+    }
+  }
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (local_audio), rx->local_audio);
 }
 
 GtkWidget *create_receiver_dialog(RECEIVER *rx) {
@@ -1101,14 +1126,13 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
 
   col=0;
 
-  if(n_output_devices>0) {
+  if(n_output_devices>=0) {
     GtkWidget *audio_frame=gtk_frame_new("Audio");
     GtkWidget *audio_grid=gtk_grid_new();
     gtk_grid_set_row_homogeneous(GTK_GRID(audio_grid),TRUE);
     gtk_grid_set_column_homogeneous(GTK_GRID(audio_grid),TRUE);
     gtk_container_add(GTK_CONTAINER(audio_frame),audio_grid);
-    gtk_grid_attach(GTK_GRID(grid),audio_frame,col,row++,1,2);
-    row++;
+    gtk_grid_attach(GTK_GRID(grid),audio_frame,col,row++,1,1);
 
     local_audio=gtk_check_button_new_with_label("Local Audio");
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (local_audio), rx->local_audio);
@@ -1128,14 +1152,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     }
 
     audio_choice=gtk_combo_box_text_new();
-    for(i=0;i<n_output_devices;i++) {
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_choice),NULL,output_devices[i].description);
-      if(rx->audio_name!=NULL) {
-        if(strcmp(output_devices[i].name,rx->audio_name)==0) {
-          gtk_combo_box_set_active(GTK_COMBO_BOX(audio_choice),i);
-        }
-      }
-    }
+    update_audio_choices(rx);
     gtk_grid_attach(GTK_GRID(audio_grid),audio_choice,0,1,2,1);
     g_signal_connect(audio_choice,"changed",G_CALLBACK(audio_choice_cb),rx);
     if(gtk_combo_box_get_active(GTK_COMBO_BOX(audio_choice))==-1) {

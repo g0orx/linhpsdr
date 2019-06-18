@@ -58,6 +58,7 @@
 #include "property.h"
 #include "rigctl.h"
 #include "smartsdr_server.h"
+#include "receiver_dialog.h"
 
 static GtkWidget *add_receiver_b;
 static GtkWidget *add_wideband_b;
@@ -248,10 +249,14 @@ g_print("radio_save_state: %s\n",filename);
   sprintf(value,"%d",rigctl_port_base);
   setProperty("rigctl_port_base",value);
 
-#ifdef SOAPYSDR
   sprintf(value,"%d",radio->iqswap);
   setProperty("radio.iqswap",value);
-#endif
+
+  sprintf(value,"%d",radio->which_audio);
+  setProperty("radio.which_audio",value);
+
+  sprintf(value,"%d",radio->which_audio_backend);
+  setProperty("radio.which_audio_backend",value);
 
   filterSaveState();
   bandSaveState();
@@ -434,10 +439,14 @@ void radio_restore_state(RADIO *radio) {
   value=getProperty("radio.classE");
   if(value!=NULL) radio->classE=atoi(value);
 
-#ifdef SOAPYSDR
   value=getProperty("radio.iqswap");
   if(value) radio->iqswap=atoi(value);
-#endif
+
+  value=getProperty("radio.which_audio");
+  if(value) radio->which_audio=atoi(value);
+
+  value=getProperty("radio.which_audio_backend");
+  if(value) radio->which_audio_backend=atoi(value);
 
   value=getProperty("rigctl_enable");
   if(value!=NULL) rigctl_enable=atoi(value);
@@ -479,6 +488,50 @@ void radio_change_region(RADIO *r) {
     bandstack60.entry=bandstack_entries60_OTHER;
   }
 }
+
+void radio_change_audio(RADIO *r,int selected) {
+  int i;
+  if(r->which_audio!=selected) {
+    if(r->local_microphone) {
+      radio->local_microphone=FALSE;
+      audio_close_input(r);
+    }
+    for(i=0;i<radio->discovered->supported_receivers;i++) {
+      if(radio->receiver[i]!=NULL) {
+        if(radio->receiver[i]->local_audio) {
+          radio->receiver[i]->local_audio=FALSE;
+          audio_close_output(radio->receiver[i]);
+        }
+      }
+    }
+  }
+
+  r->which_audio=selected;
+  create_audio(r->which_audio_backend,r->which_audio==USE_SOUNDIO?audio_get_backend_name(r->which_audio_backend):NULL);
+}
+
+void radio_change_audio_backend(RADIO *r,int selected) {
+  int i;
+  if(r->which_audio_backend!=selected) {
+    if(r->local_microphone) {
+      radio->local_microphone=FALSE;
+      audio_close_input(r);
+    }
+    for(i=0;i<radio->discovered->supported_receivers;i++) {
+      if(radio->receiver[i]!=NULL) {
+        if(radio->receiver[i]->local_audio) {
+          radio->receiver[i]->local_audio=FALSE;
+          audio_close_output(radio->receiver[i]);
+        }
+      }
+      //update_audio_choices(radio->receiver[i]);
+    }
+  }
+
+  r->which_audio_backend=selected;
+  create_audio(r->which_audio_backend,r->which_audio==USE_SOUNDIO?audio_get_backend_name(r->which_audio_backend):NULL);
+}
+
 
 void vox_changed(RADIO *r) {
   rxtx(radio);
@@ -1055,10 +1108,9 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->local_microphone_buffer=NULL;
 
   g_mutex_init(&r->local_microphone_mutex);
-#ifdef SOUNDIO
+
   g_mutex_init(&r->ring_buffer_mutex);
   g_cond_init(&r->ring_buffer_cond);
-#endif
 
   r->filter_board=ALEX;
 
@@ -1119,9 +1171,10 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   r->region=REGION_OTHER;
 
-#ifdef SOAPYSDR
   r->iqswap=FALSE;
-#endif
+
+  r->which_audio=USE_SOUNDIO;
+  r->which_audio_backend=0;
 
   r->dialog=NULL;
 
@@ -1136,7 +1189,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   }
 #endif
 
-  create_audio();
+  create_audio(r->which_audio_backend,r->which_audio==USE_SOUNDIO?audio_get_backend_name(r->which_audio_backend):NULL);
 
   add_receivers(r);
 

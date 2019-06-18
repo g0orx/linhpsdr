@@ -94,16 +94,18 @@ typedef struct _radio {
 
   gboolean local_microphone;
   gchar *microphone_name;
-#ifdef SOUNDIO
+
   struct SoundIoDevice *input_device;
   struct SoundIoInStream *input_stream;
   struct SoundIoRingBuffer *ring_buffer;
   gboolean input_started;
   GMutex ring_buffer_mutex;
   GCond ring_buffer_cond;
-#else
+
+#ifndef __APPLE__
   pa_simple* microphone_stream;
 #endif
+
   gint local_microphone_buffer_size;
   gint local_microphone_buffer_offset;
   float *local_microphone_buffer;
@@ -184,6 +186,9 @@ typedef struct _radio {
 
   gboolean iqswap;
 
+  gint which_audio;
+  gint which_audio_backend;
+
 } RADIO;
 
 extern int radio_start(void *data);
@@ -201,4 +206,6 @@ extern void ptt_changed(RADIO *r);
 extern gboolean radio_button_press_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data);
 extern void set_mox(RADIO *r,gboolean state);
 extern void radio_change_region(RADIO *r);
+extern void radio_change_audio(RADIO *r,int selected);
+extern void radio_change_audio_backend(RADIO *r,int selected);
 #endif
