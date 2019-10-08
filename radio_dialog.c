@@ -94,13 +94,15 @@ static void update_controls() {
     case ANAN_8000DLE:
       radio->filter_board=ALEX;
       break;
+    case HERMES_LITE:
+      radio->filter_board=N2ADR;
+      break;
     case ATLAS:
     case HERMES:
     case HERMES_2:
     case ANGELIA:
     case ORION_1:
     case ORION_2:
-    case HERMES_LITE:
 #ifdef SOAPYSDR
     case SOAPYSDR_USB:
 #endif
@@ -598,9 +600,10 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   if(radio->discovered->device!=DEVICE_SOAPYSDR_USB) {
 #endif
     filter_board_combo_box=gtk_combo_box_text_new();
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"NONE");
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"ALEX FILTERS");
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"APOLLO FILTERS");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"NONE");
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"N2ADR FILTERS");
     gtk_combo_box_set_active(GTK_COMBO_BOX(filter_board_combo_box),radio->filter_board);
     g_signal_connect(filter_board_combo_box,"changed",G_CALLBACK(filter_board_cb),radio);
     gtk_grid_attach(GTK_GRID(model_grid),filter_board_combo_box,x,0,1,1);
@@ -957,6 +960,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_combo),NULL,"SOUNDIO");
 #ifndef __APPLE__
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_combo),NULL,"PULSEAUDIO");
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_combo),NULL,"ALSA");
 #endif
   gtk_combo_box_set_active(GTK_COMBO_BOX(audio_combo),radio->which_audio);
   gtk_grid_attach(GTK_GRID(audio_grid),audio_combo,0,0,1,1);

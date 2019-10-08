@@ -35,6 +35,7 @@
 #include <pulse/pulseaudio.h>
 #include <pulse/glib-mainloop.h>
 #include <pulse/simple.h>
+#include <alsa/asoundlib.h>
 #endif
 
 #ifdef SOAPYSDR
@@ -61,26 +62,11 @@ AUDIO_DEVICE input_devices[MAX_AUDIO_DEVICES];
 int n_output_devices;
 AUDIO_DEVICE output_devices[MAX_AUDIO_DEVICES];
 
-int audio = 0;
-int audio_buffer_size = 480; // samples (both left and right)
-int mic_buffer_size = 720; // samples (both left and right)
-
-// each buffer contains 63 samples of left and right audio at 16 bits
-#define AUDIO_SAMPLES 63
-#define AUDIO_SAMPLE_SIZE 2
-#define AUDIO_CHANNELS 2
-#define AUDIO_BUFFERS 10
-#define OUTPUT_BUFFER_SIZE (AUDIO_SAMPLE_SIZE*AUDIO_CHANNELS*audio_buffer_size)
-
-#define MIC_BUFFER_SIZE (AUDIO_SAMPLE_SIZE*AUDIO_CHANNELS*mic_buffer_size)
-
-static unsigned char *mic_buffer=NULL;
-
-static GThread *mic_read_thread_id;
 
 static int running=FALSE;
-
+static GThread *mic_read_thread_id;
 static void *mic_read_thread(void *arg);
+
 
 struct SoundIo *soundio;
 
@@ -344,6 +330,93 @@ g_print("audio_open_output: %s\n",rx->audio_name);
         g_mutex_unlock(&rx->local_audio_mutex);
       }
       break;
+
+    case USE_ALSA:
+      {
+      int err;
+      snd_pcm_hw_params_t *hw_params;
+      int rate=48000;
+      int dir=0;
+
+      int i;
+      char hw[128];
+
+fprintf(stderr,"audio_open_output: selected=%s\n",rx->audio_name);
+
+      i=0;
+      while(rx->audio_name[i]!=' ') {
+        hw[i]=rx->audio_name[i];
+        i++;
+      }
+      hw[i]='\0';
+
+      if ((err = snd_pcm_open (&rx->playback_handle, hw, SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
+        fprintf (stderr, "audio_open_output: cannot open audio device %s (%s)\n",
+                hw,
+                snd_strerror (err));
+        return -1;
+      }
+
+fprintf(stderr,"audio_open_output: handle=%p\n",rx->playback_handle);
+
+      if ((err = snd_pcm_hw_params_malloc (&hw_params)) < 0) {
+        fprintf (stderr, "audio_open_output: cannot allocate hardware parameter structure (%s)\n",
+                snd_strerror (err));
+        audio_close_output(rx);
+        return -1;
+      }
+
+      if ((err = snd_pcm_hw_params_any (rx->playback_handle, hw_params)) < 0) {
+        fprintf (stderr, "audio_open_output: cannot initialize hardware parameter structure (%s)\n",
+                snd_strerror (err));
+        audio_close_output(rx);
+        return -1;
+      }
+
+      if ((err = snd_pcm_hw_params_set_access (rx->playback_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
+        fprintf (stderr, "audio_open_output: cannot set access type (%s)\n",
+                snd_strerror (err));
+        audio_close_output(rx);
+        return -1;
+      }
+
+      if ((err = snd_pcm_hw_params_set_format (rx->playback_handle, hw_params, SND_PCM_FORMAT_FLOAT_LE)) < 0) {
+        fprintf (stderr, "audio_open_output: cannot set sample format (%s)\n",
+                snd_strerror (err));
+        audio_close_output(rx);
+        return -1;
+      }
+
+      if ((err = snd_pcm_hw_params_set_rate_near (rx->playback_handle, hw_params, &rate, &dir)) < 0) {
+        fprintf (stderr, "audio_open_output: cannot set sample rate (%s)\n",
+                 snd_strerror (err));
+        audio_close_output(rx);
+        return -1;
+      }
+
+      if ((err = snd_pcm_hw_params_set_channels (rx->playback_handle, hw_params, 2)) < 0) {
+        fprintf (stderr, "audio_open_output: cannot set channel count (%s)\n",
+                snd_strerror (err));
+        audio_close_output(rx);
+        return -1;
+      }
+
+      if ((err = snd_pcm_hw_params (rx->playback_handle, hw_params)) < 0) {
+        fprintf (stderr, "audio_open_output: cannot set parameters (%s)\n",
+                snd_strerror (err));
+        audio_close_output(rx);
+        return -1;
+      }
+
+      snd_pcm_hw_params_free (hw_params);
+
+      rx->local_audio_buffer_offset=0;
+      rx->local_audio_buffer=g_new0(float,2*rx->local_audio_buffer_size);
+fprintf(stderr,"audio_open_output: allocated local_audio_buffer %p size %ld bytes\n",rx->local_audio_buffer,2*rx->local_audio_buffer_size*sizeof(float));
+
+fprintf(stderr,"audio_open_output: rx=%d audio_device=%s handle=%p buffer=%p\n",rx->channel,rx->audio_name,rx->playback_handle,rx->local_audio_buffer);
+      }
+      break;
 #endif
   }
 
@@ -355,6 +428,7 @@ int audio_open_input(RADIO *r) {
   int err;
 #ifndef __APPLE__
   pa_sample_spec sample_spec;
+  snd_pcm_hw_params_t *hw_params;
 #endif
 
   switch(radio->which_audio) {
@@ -441,7 +515,6 @@ int audio_open_input(RADIO *r) {
       break;
 #ifndef __APPLE__
     case USE_PULSEAUDIO:
-    
       if(r->microphone_name==NULL) {
         return -1;
       }
@@ -478,6 +551,78 @@ int audio_open_input(RADIO *r) {
         result=-1;
       }
       g_mutex_unlock(&r->local_microphone_mutex);
+      break;
+
+    case USE_ALSA:
+      {
+      int err;
+      int rate=48000;
+      int dir=0;
+
+      if ((err = snd_pcm_hw_params_malloc (&hw_params)) < 0) {
+        fprintf (stderr, "audio_open_input: cannot allocate hardware parameter structure (%s)\n",
+                snd_strerror (err));
+        audio_close_input(r);
+        return -1;
+      }
+
+      if ((err = snd_pcm_hw_params_any (r->record_handle, hw_params)) < 0) {
+        fprintf (stderr, "audio_open_input: cannot initialize hardware parameter structure (%s)\n",
+                snd_strerror (err));
+        audio_close_input(r);
+        return -1;
+      }
+
+      if ((err = snd_pcm_hw_params_set_access (r->record_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
+        fprintf (stderr, "audio_open_input: cannot set access type (%s)\n",
+                snd_strerror (err));
+        audio_close_input(r);
+        return -1;
+      }
+
+      if ((err = snd_pcm_hw_params_set_format (r->record_handle, hw_params, SND_PCM_FORMAT_FLOAT_LE)) < 0) {
+        fprintf (stderr, "audio_open_input: cannot set sample format (%s)\n",
+                snd_strerror (err));
+        audio_close_input(r);
+        return -1;
+      }
+
+      if ((err = snd_pcm_hw_params_set_rate_near (r->record_handle, hw_params, &rate, &dir)) < 0) {
+        fprintf (stderr, "audio_open_input: cannot set sample rate (%s)\n",
+                snd_strerror (err));
+        audio_close_input(r);
+        return -1;
+      }
+
+      if ((err = snd_pcm_hw_params_set_channels (r->record_handle, hw_params, 1)) < 0) {
+        fprintf (stderr, "audio_open_input: cannot set channel count (%s)\n",
+                snd_strerror (err));
+        audio_close_input(r);
+        return -1;
+      }
+
+      if ((err = snd_pcm_hw_params (r->record_handle, hw_params)) < 0) {
+        fprintf (stderr, "audio_open_input: cannot set parameters (%s)\n",
+                snd_strerror (err));
+        audio_close_input(r);
+        return -1;
+      }
+
+      snd_pcm_hw_params_free (hw_params);
+
+      r->local_microphone_buffer_offset=0;
+      r->local_microphone_buffer=g_new0(float,r->local_microphone_buffer_size);
+      running=TRUE;
+
+      mic_read_thread_id = g_thread_new( "mic_thread", mic_read_thread, r);
+      if(!mic_read_thread_id ) {
+        fprintf(stderr,"g_thread_new failed on mic_read_thread\n");
+        g_free(r->local_microphone_buffer);
+        r->local_microphone_buffer=NULL;
+        running=FALSE;
+        result=-1;
+      }
+      }
       break;
 #endif
   }
@@ -518,6 +663,19 @@ void audio_close_output(RECEIVER *rx) {
       rx->output_started=FALSE;
       g_mutex_unlock(&rx->local_audio_mutex);
       break;
+
+    case USE_ALSA:
+      g_mutex_lock(&rx->local_audio_mutex);
+      if(rx->playback_handle!=NULL) {
+        snd_pcm_close (rx->playback_handle);
+        rx->playback_handle=NULL;
+      }
+      if(rx->local_audio_buffer!=NULL) {
+        g_free(rx->local_audio_buffer);
+        rx->local_audio_buffer=NULL;
+      }
+      g_mutex_unlock(&rx->local_audio_mutex);
+      break;
 #endif
   }
 }
@@ -539,6 +697,16 @@ void audio_close_input(RADIO *r) {
       g_free(r->local_microphone_buffer);
       r->local_microphone_buffer=NULL;
       g_mutex_unlock(&r->local_microphone_mutex);
+      break;
+    case USE_ALSA:
+      g_mutex_lock(&r->local_microphone_mutex);
+      running=FALSE;
+      if(r->record_handle!=NULL) {
+        snd_pcm_close (r->record_handle);
+        r->record_handle=NULL;
+      }
+      g_free(r->local_microphone_buffer);
+      r->local_microphone_buffer=NULL;
       break;
 #endif
   }
@@ -592,6 +760,9 @@ void audio_start_output(RECEIVER *rx) {
     case USE_PULSEAUDIO:
       rx->output_started=TRUE;
       break;
+    case USE_ALSA:
+      rx->output_started=TRUE;
+      break;
 #endif
   }
 }
@@ -638,6 +809,49 @@ int audio_write(RECEIVER *rx,float left_sample,float right_sample) {
           fprintf(stderr,"audio_write failed err=%d\n",err);
         }
         rx->local_audio_buffer_offset=0;
+      }
+      g_mutex_unlock(&rx->local_audio_mutex);
+      break;
+    case USE_ALSA:
+      {
+      snd_pcm_sframes_t delay;
+      long trim;
+      int error;
+
+      g_mutex_lock(&rx->local_audio_mutex);
+      if(rx->local_audio_buffer==NULL) {
+        rx->local_audio_buffer_offset=0;
+        rx->local_audio_buffer=g_new0(float,2*rx->local_audio_buffer_size);
+      }
+      rx->local_audio_buffer[rx->local_audio_buffer_offset*2]=left_sample;
+      rx->local_audio_buffer[(rx->local_audio_buffer_offset*2)+1]=right_sample;
+      rx->local_audio_buffer_offset++;
+      if(rx->local_audio_buffer_offset>=rx->local_audio_buffer_size) {
+        trim=0;
+/*
+        if(snd_pcm_delay(rx->playback_handle,&delay)==0) {
+          if(delay>2048) {
+            trim=delay-2048;
+fprintf(stderr,"audio delay=%ld trim=%ld\n",delay,trim);
+          }
+        }
+*/
+        if ((error = snd_pcm_writei (rx->playback_handle, rx->local_audio_buffer, rx->local_audio_buffer_size-trim)) != rx->local_audio_buffer_size-trim) {
+          if(error==-EPIPE) {
+            if ((error = snd_pcm_prepare (rx->playback_handle)) < 0) {
+              fprintf (stderr, "audio_write: cannot prepare audio interface for use (%s)\n",
+                      snd_strerror (error));
+              return -1;
+            }
+            if ((error = snd_pcm_writei (rx->playback_handle, rx->local_audio_buffer, rx->local_audio_buffer_size-trim)) != rx->local_audio_buffer_size) {
+              fprintf (stderr, "audio_write: write to audio interface failed (%s)\n",
+                      snd_strerror (error));
+              return -1;
+            }
+          }
+        }
+        rx->local_audio_buffer_offset=0;
+      }
       }
       g_mutex_unlock(&rx->local_audio_mutex);
       break;
@@ -711,6 +925,47 @@ static void *mic_read_thread(gpointer arg) {
           }
         }
         g_mutex_unlock(&r->local_microphone_mutex);
+      }
+      break;
+
+    case USE_ALSA:
+      {
+      int rc;
+      if ((rc = snd_pcm_prepare (r->record_handle)) < 0) {
+        fprintf (stderr, "mic_read_thread: cannot prepare audio interface for use (%s)\n",
+                snd_strerror (rc));
+        return NULL;
+      }
+fprintf(stderr,"mic_read_thread: mic_buffer_size=%d\n",r->local_microphone_buffer_size);
+      while(running) {
+        if ((rc = snd_pcm_readi (r->record_handle, r->local_microphone_buffer, r->local_microphone_buffer_size)) != r->local_microphone_buffer_size) {
+          if(running) {
+            if(rc<0) {
+              fprintf (stderr, "mic_read_thread: read from audio interface failed (%s)\n",
+                      snd_strerror (rc));
+              running=FALSE;
+            } else {
+              fprintf(stderr,"mic_read_thread: read %d\n",rc);
+            }
+          }
+        } else {
+          // process the mic input
+          switch(r->discovered->protocol) {
+            case PROTOCOL_1:
+              protocol1_process_local_mic(r);
+              break;
+            case PROTOCOL_2:
+              protocol2_process_local_mic(r);
+              break;
+#ifdef SOAPYSDR
+            case PROTOCOL_SOAPYSDR:
+              soapy_protocol_process_local_mic(r);
+              break;
+#endif
+          }
+        }
+      }
+
       }
       break;
 #endif
@@ -867,6 +1122,109 @@ g_print("audio: create_audio: USE_PULSEAUDIO\n");
       pa_ctx=pa_context_new(main_loop_api,"linhpsdr");
       pa_context_connect(pa_ctx,NULL,0,NULL);
       pa_context_set_state_callback(pa_ctx, state_cb, &ready);
+      break;
+
+    case USE_ALSA:
+      {
+        int card=-1;
+        snd_ctl_card_info_t *info;
+        snd_pcm_info_t *pcminfo;
+        char *device_id;
+
+        snd_ctl_card_info_alloca(&info);
+        snd_pcm_info_alloca(&pcminfo);
+        while (snd_card_next(&card) >= 0 && card >= 0) {
+          int err = 0;
+          snd_ctl_t *handle;
+          char name[20];
+          snprintf(name, sizeof(name), "hw:%d", card);
+          if ((err = snd_ctl_open(&handle, name, 0)) < 0) {
+            continue;
+          }
+
+          if ((err = snd_ctl_card_info(handle, info)) < 0) {
+            snd_ctl_close(handle);
+            continue;
+          }
+
+          int dev = -1;
+
+          while (snd_ctl_pcm_next_device(handle, &dev) >= 0 && dev >= 0) {
+            snd_pcm_info_set_device(pcminfo, dev);
+            snd_pcm_info_set_subdevice(pcminfo, 0);
+
+            // input devices
+            snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_CAPTURE);
+            if ((err = snd_ctl_pcm_info(handle, pcminfo)) == 0) {
+              device_id=malloc(128);
+              snprintf(device_id, 128, "plughw:%d,%d %s", card, dev, snd_ctl_card_info_get_name(info));
+              if(n_input_devices<MAX_AUDIO_DEVICES) {
+                input_devices[n_input_devices].name=g_new0(char,strlen(device_id)+1);
+                strncpy(input_devices[n_input_devices].name,device_id,strlen(device_id));
+                input_devices[n_input_devices].description=g_new0(char,strlen(device_id)+1);
+                strncpy(input_devices[n_input_devices].description,device_id,strlen(device_id));
+                input_devices[n_input_devices].index=i;
+                n_input_devices++;
+              }
+fprintf(stderr,"input_device: %s\n",device_id);
+            }
+
+            // ouput devices
+            snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_PLAYBACK);
+            if ((err = snd_ctl_pcm_info(handle, pcminfo)) == 0) {
+              device_id=malloc(128);
+              snprintf(device_id, 128, "plughw:%d,%d %s", card, dev, snd_ctl_card_info_get_name(info));
+              if(n_output_devices<MAX_AUDIO_DEVICES) {
+                output_devices[n_output_devices].name=g_new0(char,strlen(device_id)+1);
+                strncpy(output_devices[n_output_devices].name,device_id,strlen(device_id));
+                output_devices[n_output_devices].description=g_new0(char,strlen(device_id)+1);
+                strncpy(output_devices[n_output_devices].description,device_id,strlen(device_id));
+                input_devices[n_output_devices].index=i;
+                n_output_devices++;
+              }
+fprintf(stderr,"output_device: %s\n",device_id);
+            }
+          }
+          snd_ctl_close(handle);
+        }
+        // look for dmix
+        void **hints, **n;
+        char *name, *descr, *io;
+
+        if (snd_device_name_hint(-1, "pcm", &hints) < 0)
+          return;
+        n = hints;
+        while (*n != NULL) {
+          name = snd_device_name_get_hint(*n, "NAME");
+          descr = snd_device_name_get_hint(*n, "DESC");
+          io = snd_device_name_get_hint(*n, "IOID");
+
+          if(strncmp("dmix:", name, 5)==0/* || strncmp("pulse", name, 5)==0*/) {
+            fprintf(stderr,"name=%s descr=%s io=%s\n",name, descr, io);
+            device_id=malloc(128);
+
+            snprintf(device_id, 128, "%s", name);
+            if(n_output_devices<MAX_AUDIO_DEVICES) {
+              output_devices[n_output_devices].name=g_new0(char,strlen(device_id)+1);
+              strncpy(output_devices[n_output_devices].name,device_id,strlen(device_id));
+              output_devices[n_output_devices].description=g_new0(char,strlen(device_id)+1);
+              strncpy(output_devices[n_output_devices].description,device_id,strlen(device_id));
+              input_devices[n_output_devices].index=i;
+              n_output_devices++;
+            }
+fprintf(stderr,"output_device: %s\n",device_id);
+          }
+
+          if (name != NULL)
+            free(name);
+          if (descr != NULL)
+            free(descr);
+          if (io != NULL)
+            free(io);
+          n++;
+        }
+        snd_device_name_free_hint(hints);
+      }
       break;
 #endif
   }

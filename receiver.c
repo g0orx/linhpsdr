@@ -128,19 +128,19 @@ void receiver_save_state(RECEIVER *rx) {
   setProperty(name,value);
 
   sprintf(name,"receiver[%d].frequency_a",rx->channel);
-  sprintf(value,"%ld",rx->frequency_a);
+  sprintf(value,"%" G_GINT64_FORMAT,rx->frequency_a);
   setProperty(name,value);
   sprintf(name,"receiver[%d].lo_a",rx->channel);
-  sprintf(value,"%ld",rx->lo_a);
+  sprintf(value,"%" G_GINT64_FORMAT,rx->lo_a);
   setProperty(name,value);
   sprintf(name,"receiver[%d].error_a",rx->channel);
-  sprintf(value,"%ld",rx->error_a);
+  sprintf(value,"%" G_GINT64_FORMAT,rx->error_a);
   setProperty(name,value);
   sprintf(name,"receiver[%d].lo_tx",rx->channel);
-  sprintf(value,"%ld",rx->lo_tx);
+  sprintf(value,"%" G_GINT64_FORMAT,rx->lo_tx);
   setProperty(name,value);
   sprintf(name,"receiver[%d].error_tx",rx->channel);
-  sprintf(value,"%ld",rx->error_tx);
+  sprintf(value,"%" G_GINT64_FORMAT,rx->error_tx);
   setProperty(name,value);
   sprintf(name,"receiver[%d].tx_track_rx",rx->channel);
   sprintf(value,"%d",rx->tx_track_rx);
@@ -157,13 +157,13 @@ void receiver_save_state(RECEIVER *rx) {
 
 
   sprintf(name,"receiver[%d].frequency_b",rx->channel);
-  sprintf(value,"%ld",rx->frequency_b);
+  sprintf(value,"%" G_GINT64_FORMAT,rx->frequency_b);
   setProperty(name,value);
   sprintf(name,"receiver[%d].lo_b",rx->channel);
-  sprintf(value,"%ld",rx->lo_b);
+  sprintf(value,"%" G_GINT64_FORMAT,rx->lo_b);
   setProperty(name,value);
   sprintf(name,"receiver[%d].error_b",rx->channel);
-  sprintf(value,"%ld",rx->error_b);
+  sprintf(value,"%" G_GINT64_FORMAT,rx->error_b);
   setProperty(name,value);
   sprintf(name,"receiver[%d].band_b",rx->channel);
   sprintf(value,"%d",rx->band_b);

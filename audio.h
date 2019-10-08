@@ -24,6 +24,7 @@ enum {
   USE_SOUNDIO
 #ifndef __APPLE__
   ,USE_PULSEAUDIO
+  ,USE_ALSA
 #endif
 };
 
@@ -33,7 +34,7 @@ typedef struct _audio_device {
   char *description;
 } AUDIO_DEVICE;
 
-#define MAX_AUDIO_DEVICES 32
+#define MAX_AUDIO_DEVICES 64
 
 extern int n_input_devices;
 extern AUDIO_DEVICE input_devices[MAX_AUDIO_DEVICES];

@@ -24,6 +24,7 @@
 #include <soundio/soundio.h>
 #ifndef __APPLE__
 #include <pulse/simple.h>
+#include <alsa/asoundlib.h>
 #endif
 
 typedef struct _receiver {
@@ -198,6 +199,7 @@ typedef struct _receiver {
 
 #ifndef __APPLE__
   pa_simple* playstream;
+  snd_pcm_t *playback_handle;
 #endif
 
   GtkWidget *toolbar;

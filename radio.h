@@ -48,9 +48,10 @@ enum {
 };
 
 enum {
-  ALEX=0,
+  NONE=0,
+  ALEX,
   APOLLO,
-  NONE
+  N2ADR
 };
 
 enum {
@@ -104,6 +105,7 @@ typedef struct _radio {
 
 #ifndef __APPLE__
   pa_simple* microphone_stream;
+  snd_pcm_t *record_handle;
 #endif
 
   gint local_microphone_buffer_size;
