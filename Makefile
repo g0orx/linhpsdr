@@ -13,7 +13,7 @@ GTKLIBS=`pkg-config --libs gtk+-3.0`
 #OPENGL_INCLUDES=`pkg-config --cflags epoxy`
 #OPENGL_LIBS=`pkg-config --libs epoxy`
 
-AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib -lsoundio
+AUDIO_LIBS=-lasound -lpulse-simple -lpulse -lpulse-mainloop-glib -lsoundio
 
 # uncomment the line below to include SoapySDR support
 #
@@ -26,7 +26,7 @@ AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib -lsoundio
 #	sudo apt-get install soapysdr-module-rtlsdr
 #	sudo apt-get install soapysdr-module-lms7
 #
-SOAPYSDR_INCLUDE=SOAPYSDR
+#SOAPYSDR_INCLUDE=SOAPYSDR
 
 ifeq ($(SOAPYSDR_INCLUDE),SOAPYSDR)
 SOAPYSDR_OPTIONS=-D SOAPYSDR
