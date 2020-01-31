@@ -1044,7 +1044,7 @@ static void create_visual(RECEIVER *rx) {
   rx->table=gtk_table_new(4,6,FALSE);
 
   rx->vfo=create_vfo(rx);
-  gtk_widget_set_size_request(rx->vfo,715,60);
+  gtk_widget_set_size_request(rx->vfo,715,65);
   gtk_table_attach(GTK_TABLE(rx->table), rx->vfo, 0, 4, 0, 1,
       GTK_FILL, GTK_FILL, 0, 0);
 
