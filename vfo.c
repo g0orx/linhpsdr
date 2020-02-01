@@ -91,7 +91,7 @@ static gboolean vfo_configure_event_cb(GtkWidget *widget,GdkEventConfigure *even
   /* Initialize the surface to black */
   cairo_t *cr;
   cr = cairo_create (rx->vfo_surface);
-  cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
+  cairo_set_source_rgb (cr, 0.1, 0.1, 0.1);
   cairo_paint (cr);
   cairo_destroy(cr);
   return TRUE;
@@ -218,8 +218,10 @@ static int which_button(int x,int y) {
       button=BUTTON_STEP;
     } else if(x>285 && x<355) {
       button=BUTTON_ZOOM;
+    } else if (x>195 && x<230) {
+      button=BUTTON_SPLIT;
     } else {
-      if(x>=70 && x<210) {
+      if(x>=70 && x<175) {
         button=(x/35)-2+BUTTON_ATOB;
       }
     }
@@ -1647,26 +1649,96 @@ void update_vfo(RECEIVER *rx) {
 
   if(rx!=NULL && rx->vfo_surface!=NULL) {
     cr = cairo_create (rx->vfo_surface);
-    cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
-    cairo_paint (cr);
+    SetColour(cr, BACKGROUND);
+    cairo_paint(cr);
     long long af=rx->frequency_a+rx->ctun_offset;
     long long bf=rx->frequency_b;
 
-    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_select_font_face(cr, "Overpass", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+
+    // Lock
+    if(rx->locked) {
+      RoundedRectangle(cr, 8.0, 51.0, 22.0, 6.0, TRUE);
+    } 
+    else {
+      RoundedRectangle(cr, 8.0, 51.0, 22.0, 6.0, FALSE);       
+    }
+    // Mode
+    RoundedRectangle(cr, 43.0, 51.0, 22.0, 6.0, TRUE);    
+    // Filter bandwidth
+    RoundedRectangle(cr, 78.0, 51.0, 20.0, 6.0, TRUE);
+    // NB    
+    if((rx->nb) || (rx->nb2)) {
+      RoundedRectangle(cr, 110.0, 51.0, 22.0, 6.0, TRUE);  
+    }
+    else {
+      RoundedRectangle(cr, 110.0, 51.0, 22.0, 6.0, FALSE);      
+    }
+    // NR
+    if((rx->nr) || (rx->nr2)) {
+      RoundedRectangle(cr, 148.0, 51.0, 18.0, 6.0, TRUE);   
+    }  
+    else {
+      RoundedRectangle(cr, 148.0, 51.0, 18.0, 6.0, FALSE);
+    }
+    // SNB
+    if(rx->snb) {
+      RoundedRectangle(cr, 184.0, 51.0, 18.0, 6.0, TRUE);
+    }
+    else {
+      RoundedRectangle(cr, 184.0, 51.0, 18.0, 6.0, FALSE);      
+    }
+    // ANF
+    if(rx->anf) {
+      RoundedRectangle(cr, 218.0, 51.0, 18.0, 6.0, TRUE);       
+    } 
+    else {
+      RoundedRectangle(cr, 218.0, 51.0, 18.0, 6.0, FALSE); 
+    }
+    // AGC
+    if(rx->agc == AGC_OFF) {
+      RoundedRectangle(cr, 252.0, 51.0, 60.0, 6.0, FALSE);  
+    }
+    else {   
+      RoundedRectangle(cr, 252.0, 51.0, 60.0, 6.0, TRUE);
+    }
+    // BMK
+    RoundedRectangle(cr, 325.0, 51.0, 18.0, 6.0, FALSE);      
+    // CAT
+    if(rx->cat_control>-1) {
+      RoundedRectangle(cr, 358.0, 51.0, 18.0, 6.0, TRUE); 
+    }
+    else {
+      RoundedRectangle(cr, 358.0, 51.0, 18.0, 6.0, FALSE); 
+    }
+    // RIT
+    if(rx->rit_enabled) {    
+      RoundedRectangle(cr, 390.0, 51.0, 18.0, 6.0, TRUE);   
+    }
+    else {
+      RoundedRectangle(cr, 390.0, 51.0, 18.0, 6.0, FALSE);       
+    }
+    if(rx->split) {
+      RoundedRectangle(cr, 203.0, 6.0, 22.0, 5.0, TRUE);    
+    }  
+    else {
+      RoundedRectangle(cr, 203.0, 6.0, 22.0, 5.0, FALSE);
+    }
+
 
     if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && !radio->transmitter->rx->split) {
-      cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+      SetColour(cr, TEXT_C);
     } else {
-      cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
+      SetColour(cr, TEXT_C);
     }
     cairo_move_to(cr, 5, 12);
     cairo_set_font_size(cr, 12);
     cairo_show_text(cr, "VFO A");
 
     if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && !radio->transmitter->rx->split && isTransmitting(radio)) {
-      cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+      SetColour(cr, WARNING);
     } else {
-      cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
+      SetColour(cr, TEXT_C);
     }
     sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
     cairo_move_to(cr, 5, 38);
@@ -1674,18 +1746,18 @@ void update_vfo(RECEIVER *rx) {
     cairo_show_text(cr, temp);
 
     if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split) {
-      cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+      SetColour(cr, WARNING);
     } else {
-      cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
+      SetColour(cr, TEXT_B);
     }
     cairo_move_to(cr, 240, 12);
     cairo_set_font_size(cr, 12);
     cairo_show_text(cr, "VFO B");
 
     if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split && isTransmitting(radio)) {
-      cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+      SetColour(cr, WARNING);
     } else {
-      cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
+      SetColour(cr, TEXT_B);
     }
     sprintf(temp,"%5lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
     cairo_move_to(cr, 240, 38);
@@ -1697,18 +1769,18 @@ void update_vfo(RECEIVER *rx) {
     cairo_set_font_size(cr, 12);
 
     int x=5;
-
-    cairo_move_to(cr, x, 58);
+    // NB
+    cairo_move_to(cr, x, 58);  
     if(rx->locked) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
-    } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, OFF_WHITE);
+    } else {      
+      SetColour(cr, DARK_TEXT);
     }
     cairo_show_text(cr, "Lock");
     x+=35;
 
     cairo_move_to(cr, x, 58);
-    cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_show_text(cr, mode_string[rx->mode_a]);
     x+=35;
 
@@ -1726,44 +1798,44 @@ void update_vfo(RECEIVER *rx) {
 
     cairo_move_to(cr, x, 58);
     if(rx->nb) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+      SetColour(cr, OFF_WHITE);
       cairo_show_text(cr, "NB");
     } else if(rx->nb2) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+      SetColour(cr, OFF_WHITE);
       cairo_show_text(cr, "NB2");
     } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, DARK_TEXT);
       cairo_show_text(cr, "NB");
     }
     x+=35;
 
     cairo_move_to(cr, x, 58);
     if(rx->nr) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+      SetColour(cr, OFF_WHITE);
       cairo_show_text(cr, "NR");
     } else if(rx->nr2) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+      SetColour(cr, OFF_WHITE);
       cairo_show_text(cr, "NR2");
     } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, DARK_TEXT);
       cairo_show_text(cr, "NR");
     }
     x+=35;
 
 
     if(rx->snb) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+      SetColour(cr, OFF_WHITE);
     } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, DARK_TEXT);
     }
     cairo_move_to(cr, x, 58);
     cairo_show_text(cr, "SNB");
     x+=35;
 
     if(rx->anf) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+      SetColour(cr, OFF_WHITE);
     } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, DARK_TEXT);
     }
     cairo_move_to(cr, x, 58);
     cairo_show_text(cr, "ANF");
@@ -1772,23 +1844,23 @@ void update_vfo(RECEIVER *rx) {
     cairo_move_to(cr, x, 58);
     switch(rx->agc) {
       case AGC_OFF:
-        cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+        SetColour(cr, DARK_TEXT);
         cairo_show_text(cr, "AGC OFF");
         break;
       case AGC_LONG:
-        cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+        SetColour(cr, OFF_WHITE);
         cairo_show_text(cr, "AGC LONG");
         break;
       case AGC_SLOW:
-        cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+        SetColour(cr, OFF_WHITE);
         cairo_show_text(cr, "AGC SLOW");
         break;
       case AGC_MEDIUM:
-        cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+        SetColour(cr, OFF_WHITE);
         cairo_show_text(cr, "AGC MED");
         break;
       case AGC_FAST:
-        cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+        SetColour(cr, OFF_WHITE);
         cairo_show_text(cr, "AGC FAST");
         break;
     }
@@ -1796,31 +1868,32 @@ void update_vfo(RECEIVER *rx) {
     x+=35;
     
     cairo_move_to(cr, x, 58);
-    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+    SetColour(cr, DARK_TEXT); 
     cairo_show_text(cr, "BMK");
     x+=35;
 
     cairo_move_to(cr, x, 58);
     if(rx->cat_control>-1) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, DARK_TEXT);       
+    } 
+    else {
+      SetColour(cr, DARK_TEXT);
     }
     cairo_show_text(cr, "CAT");
     x+=35;
 
     cairo_move_to(cr,x,58);
     if(rx->rit_enabled) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+      SetColour(cr, OFF_WHITE);
     } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, DARK_TEXT); 
     }
     cairo_show_text(cr, "RIT");
     x+=35;
  
     if(rx->rit_enabled) {
       cairo_move_to(cr,x,58);
-      cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+      SetColour(cr, OFF_WHITE);
       sprintf(temp,"%ld",rx->rit);
       cairo_show_text(cr, temp);
     }
@@ -1845,7 +1918,7 @@ void update_vfo(RECEIVER *rx) {
     x+=35;
 
     x=70;
-    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+    SetColour(cr, OFF_WHITE);
     cairo_move_to(cr, x, 12);
     cairo_show_text(cr, "A>B");
     x+=35;
@@ -1856,16 +1929,16 @@ void update_vfo(RECEIVER *rx) {
 
     cairo_move_to(cr, x, 12);
     cairo_show_text(cr, "A<>B");
-    x+=35;
+    x+=60;
 
     cairo_move_to(cr, x, 12);
     if(rx->split) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+      SetColour(cr, OFF_WHITE);
     } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, DARK_TEXT); 
     }
     cairo_show_text(cr, "Split");
-    x+=35;
+    //x+=10;
 
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_move_to(cr,285,12);
@@ -1879,14 +1952,14 @@ void update_vfo(RECEIVER *rx) {
 
 
     x=500;
-
+    // --------------------------------------- AF Gain control
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_set_font_size(cr,10);
     cairo_move_to(cr,x,30);
     cairo_show_text(cr,"AF Gain");
     x+=60;
 
-    cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
+    SetColour(cr, TEXT_B);
     cairo_rectangle(cr,x,25,rx->volume*100,5);
     cairo_fill(cr);
 
@@ -1918,14 +1991,14 @@ void update_vfo(RECEIVER *rx) {
 
 
     x=500;
-
+    // --------------------------------------- AGC Gain control
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_set_font_size(cr,10);
     cairo_move_to(cr,x,45);
     cairo_show_text(cr,"AGC Gain");
     x+=60;
 
-    cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
+    SetColour(cr, TEXT_C);
     cairo_rectangle(cr,x,40,rx->agc_gain+20.0,5);
     cairo_fill(cr);
 
@@ -1966,8 +2039,88 @@ void update_vfo(RECEIVER *rx) {
     cairo_move_to(cr,x,45);
     cairo_line_to(cr,x,39);
     cairo_stroke(cr);
-
+    // --------------------------------------- House keeping
     cairo_destroy (cr);
     gtk_widget_queue_draw (rx->vfo);
   }
 }
+
+void RoundedRectangle(cairo_t *cr, double x, double y, double width, double height, bool state) {
+    double aspect        = 1.0;     
+    double        corner_radius = height / 10.0;   
+
+    double radius = corner_radius / aspect;
+    double degrees = (22/7) / 180.0;           
+           
+           
+    cairo_arc (cr, x + width - radius, y + radius, radius, -90 * degrees, 0 * degrees);
+    cairo_arc (cr, x + width - radius, y + height - radius, radius, 0 * degrees, 90 * degrees);
+    cairo_arc (cr, x + radius, y + height - radius, radius, 90 * degrees, 180 * degrees);
+    cairo_arc (cr, x + radius, y + radius, radius, 180 * degrees, 270 * degrees);
+    cairo_close_path (cr);
+
+    //cairo_set_source_rgb (cr, 0.2,	0.2,	0.2);
+    if (state == TRUE) {
+      SetColour(cr, BOX_ON);
+    }
+    else {
+      SetColour(cr, BOX_OFF);
+    }
+    cairo_fill_preserve (cr);
+    cairo_set_line_width (cr, 10.0);
+    cairo_stroke (cr);    
+}
+
+void SetColour(cairo_t *cr, const int colour) {
+  
+  //rgb 237, 111, 118
+  //237, 161, 111
+  
+  switch(colour) {
+    case BACKGROUND: {
+      cairo_set_source_rgb (cr, 0.1, 0.1, 0.1); 
+      break;
+    }
+    case OFF_WHITE: {
+      cairo_set_source_rgb (cr, 0.9, 0.9, 0.9);       
+      break;
+    }
+    case BOX_ON: {
+      cairo_set_source_rgb (cr, 0.624, 0.427, 0.690); 
+      break;     
+    }
+    case BOX_OFF: {
+      cairo_set_source_rgb (cr, 0.2, 0.2,	0.2);      
+      break;
+    }    
+    case TEXT_A: {
+      cairo_set_source_rgb(cr, 0.929, 0.616, 0.502);
+      break;
+    }
+    case TEXT_B: {
+      //light blue
+      cairo_set_source_rgb(cr, 0.639, 0.800, 0.820);
+      break;
+    }
+    case TEXT_C: {
+      // Pale orange
+      cairo_set_source_rgb(cr, 0.929,	0.616,	0.502);     
+      break;
+    }
+    case WARNING: {
+      // Pale red
+        cairo_set_source_rgb (cr, 0.851, 0.271, 0.271);    
+      break;
+    }    
+    case DARK_LINES: {
+      // Dark grey
+        cairo_set_source_rgb (cr, 0.3, 0.3, 0.3);   
+      break;
+    }  
+    case DARK_TEXT: {
+      cairo_set_source_rgb(cr, 0.7, 0.7, 0.7);
+    }
+  }
+}
+  
+  

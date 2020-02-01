@@ -1082,7 +1082,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->classE=FALSE;
 
   r->cw_keyer_internal=TRUE;
-  r->cw_keyer_sidetone_frequency=400;
+  r->cw_keyer_sidetone_frequency=650;
   r->cw_keyer_sidetone_volume=127;
   r->cw_keyer_speed=12;
   r->cw_keyer_mode=KEYER_STRAIGHT;
@@ -1113,6 +1113,10 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   g_cond_init(&r->ring_buffer_cond);
 
   r->filter_board=ALEX;
+  
+  // Hermes lite 2
+  r->enable_pa = TRUE;
+  r->psu_clk = TRUE;
 
   r->adc[0].antenna=ANTENNA_1;
   r->adc[0].filters=AUTOMATIC;

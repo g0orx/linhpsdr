@@ -56,6 +56,7 @@ static GtkWidget *preamp_b;
 static GtkWidget *attenuation_label;
 static GtkWidget *attenuation_b;
 static GtkWidget *enable_attenuation_b;
+static GtkWidget *disable_fpgaclk_b;
 
 static GtkWidget *adc1_frame;
 static GtkWidget *adc1_antenna_combo_box;
@@ -431,6 +432,11 @@ static void cw_keyer_sidetone_frequency_value_changed_cb(GtkWidget *widget, gpoi
   }
 }
 
+static void psu_clk_cb(GtkWidget *widget, gpointer data) {
+  RADIO *radio=(RADIO *)data;
+  radio->psu_clk=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+}
+
 static void region_cb(GtkWidget *widget, gpointer data) {
   radio->region=gtk_combo_box_get_active (GTK_COMBO_BOX(widget));
   radio_change_region(radio);
@@ -502,6 +508,11 @@ static void dac0_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
 static void iqswap_changed_cb(GtkWidget *widget, gpointer data) {
   RADIO *r=(RADIO *)data;
   r->iqswap=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+}
+
+static void enablepa_changed_cb(GtkWidget *widget, gpointer data) {
+  RADIO *r=(RADIO *)data;
+  r->enable_pa=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 }
 
 static void attenuation_value_changed_cb(GtkWidget *widget, gpointer data) {
@@ -589,11 +600,18 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   g_signal_connect(model_combo_box,"changed",G_CALLBACK(model_cb),radio);
   gtk_grid_attach(GTK_GRID(model_grid),model_combo_box,x,0,1,1);
   x++;
-
-  GtkWidget *iqswap=gtk_check_button_new_with_label("Swap I & Q");
-  gtk_grid_attach(GTK_GRID(model_grid),iqswap,x,0,1,1);
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(iqswap),radio->iqswap);
-  g_signal_connect(iqswap,"toggled",G_CALLBACK(iqswap_changed_cb),radio);
+  if (radio->discovered->device == DEVICE_HERMES_LITE) {
+    GtkWidget *paswap=gtk_check_button_new_with_label("Enable PA");
+    gtk_grid_attach(GTK_GRID(model_grid),paswap,x,0,1,1);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(paswap),radio->enable_pa);
+    g_signal_connect(paswap,"toggled",G_CALLBACK(enablepa_changed_cb),radio);
+  }
+  else {
+    GtkWidget *iqswap=gtk_check_button_new_with_label("Swap I & Q");
+    gtk_grid_attach(GTK_GRID(model_grid),iqswap,x,0,1,1);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(iqswap),radio->iqswap);
+    g_signal_connect(iqswap,"toggled",G_CALLBACK(iqswap_changed_cb),radio);
+  }
   x++;
 
 #ifdef SOAPYSDR
@@ -702,6 +720,12 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       gtk_spin_button_set_value(GTK_SPIN_BUTTON(attenuation_b),(double)radio->adc[0].attenuation);
       gtk_grid_attach(GTK_GRID(adc0_grid),attenuation_b,1,0,1,1);
       g_signal_connect(attenuation_b,"value_changed",G_CALLBACK(attenuation_value_changed_cb),&radio->adc[0]);
+
+      disable_fpgaclk_b=gtk_check_button_new_with_label("FPGA PSU clock");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (disable_fpgaclk_b), radio->psu_clk);
+      gtk_grid_attach(GTK_GRID(adc0_grid),disable_fpgaclk_b,0,1,1,1);
+      g_signal_connect(disable_fpgaclk_b,"toggled",G_CALLBACK(psu_clk_cb),radio);
+
 
       enable_attenuation_b=gtk_check_button_new_with_label("Enable 20dB Attenuation");
       gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (enable_attenuation_b), radio->adc[0].dither);

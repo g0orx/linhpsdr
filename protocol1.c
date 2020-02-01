@@ -1098,8 +1098,15 @@ void ozy_send_buffer() {
 
 // TODO - add Alex Attenuation and Alex Antenna
     output_buffer[C3]=0x00;
-    if(radio->adc[0].random) {
-      output_buffer[C3]|=LT2208_RANDOM_ON;
+    if(radio->discovered->device==DEVICE_HERMES_LITE) {
+      if (radio->psu_clk == FALSE) { 
+        output_buffer[C3]|=LT2208_RANDOM_ON;    
+      }
+    }
+    else {
+      if(radio->adc[0].random) {
+        output_buffer[C3]|=LT2208_RANDOM_ON;
+      }
     }
 /*
     if(radio->discovered->device==DEVICE_HERMES_LITE) {
@@ -1334,11 +1341,17 @@ void ozy_send_buffer() {
         if(radio->mic_linein) {
           output_buffer[C2]|=0x02;
         }
-        if(radio->filter_board==APOLLO) {
+        
+        if ((radio->model=HERMES_LITE) && (radio->enable_pa)) {
           output_buffer[C2]|=0x2C;
         }
-        if((radio->filter_board==APOLLO) && radio->tune) {
-          output_buffer[C2]|=0x10;
+        else {
+          if(radio->filter_board==APOLLO) {
+            output_buffer[C2]|=0x2C;
+          }
+          if((radio->filter_board==APOLLO) && radio->tune) {
+            output_buffer[C2]|=0x10;
+          }
         }
         output_buffer[C3]=0x00;
         if(radio->transmitter->rx->band_a==band6) {
