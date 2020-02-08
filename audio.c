@@ -523,7 +523,11 @@ int audio_open_input(RADIO *r) {
       
       
       pa_buffer_attr attr;
-      attr.maxlength=4000;
+      attr.maxlength = (uint32_t) -1;
+      attr.tlength = (uint32_t) -1;
+      attr.prebuf = (uint32_t) -1;
+      attr.minreq = (uint32_t) -1;
+      attr.fragsize = 512;    
       
       
       sample_spec.rate=48000;
@@ -537,6 +541,7 @@ int audio_open_input(RADIO *r) {
                       "TX",            // Description of our stream.
                       &sample_spec,                // Our sample format.
                       NULL,               // Use default channel map
+                      //NULL,
                       &attr,               // Use default buffering attributes.
                       NULL               // Ignore error code.
                       );
