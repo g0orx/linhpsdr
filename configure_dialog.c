@@ -96,10 +96,10 @@ static gboolean switch_page_event(GtkNotebook *notebook,GtkWidget *page,guint pa
   if(strncmp("RX",text,2)==0) {
     int rx=atoi(&text[3]);
     g_print("switch_page: %d %s rx=%d\n",page_num,text,rx);
-    update_audio_choices(radio->receiver[rx]);
+    //update_audio_choices(radio->receiver[rx]);
   }
   if(strncmp("TX",text,2)==0) {
-    update_transmitter_audio_choices(radio->transmitter);
+    //update_transmitter_audio_choices(radio->transmitter);
   }
 }
 

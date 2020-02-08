@@ -559,8 +559,7 @@ g_print("process_control_bytes: ppt=%d dot=%d dash=%d\n",radio->ptt,radio->dot,r
       radio->transmitter->exciter_power=((control_in[1]&0xFF)<<8)|(control_in[2]&0xFF); // from Penelope or Hermes
       
       int adc = ((control_in[1]&0xFF)<<8)|(control_in[2]&0xFF);
-      double deg = (3.26 * ((double)adc/4096.0) - 0.5) / 0.01;
-      radio->transmitter->temperature = deg;
+      radio->transmitter->temperature = (3.26 * ((double)adc/4096.0) - 0.5) / 0.01;
       
       radio->transmitter->alex_forward_power=((control_in[3]&0xFF)<<8)|(control_in[4]&0xFF); // from Alex or Apollo
       break;

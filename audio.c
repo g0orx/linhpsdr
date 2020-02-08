@@ -1069,8 +1069,8 @@ void create_audio(int backend_index,const char *backend) {
   int i;
   char text[1024];
 
-  n_output_devices=0;
-  n_input_devices=0;
+  //n_output_devices=0;
+  //n_input_devices=0;
 
   switch(radio->which_audio) {
     case USE_SOUNDIO:
@@ -1239,6 +1239,7 @@ fprintf(stderr,"output_device: %s\n",device_id);
       break;
 #endif
   }
+  g_print("n_input_devices=%d\n", n_input_devices);
 }
 
 int audio_get_backends(RADIO *r) {

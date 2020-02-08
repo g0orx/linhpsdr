@@ -856,7 +856,7 @@ static void audio_choice_cb(GtkComboBox *widget,gpointer data) {
     i=gtk_combo_box_get_active(widget);
     if(rx->audio_name!=NULL) {
       g_free(rx->audio_name);
-      rx->audio_name=NULL;
+      //rx->audio_name=NULL;
     }
     if(i>=0) {
       rx->audio_name=g_new0(gchar,strlen(output_devices[i].name)+1);
@@ -1152,7 +1152,18 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     }
 
     audio_choice=gtk_combo_box_text_new();
-    update_audio_choices(rx);
+    //update_audio_choices(rx);
+    
+    audio_choice=gtk_combo_box_text_new();
+    for(i=0;i<n_output_devices;i++) {
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_choice),NULL,output_devices[i].description);
+      if(rx->audio_name!=NULL) {
+        if(strcmp(output_devices[i].name,rx->audio_name)==0) {
+          gtk_combo_box_set_active(GTK_COMBO_BOX(audio_choice),i);
+        }
+      }
+    }    
+    
     gtk_grid_attach(GTK_GRID(audio_grid),audio_choice,0,1,2,1);
     g_signal_connect(audio_choice,"changed",G_CALLBACK(audio_choice_cb),rx);
     if(gtk_combo_box_get_active(GTK_COMBO_BOX(audio_choice))==-1) {

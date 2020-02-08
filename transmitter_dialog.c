@@ -261,7 +261,16 @@ GtkWidget *create_transmitter_dialog(TRANSMITTER *tx) {
     g_signal_connect(local_microphone,"toggled",G_CALLBACK(microphone_audio_cb),radio);
 
     microphone_choice=gtk_combo_box_text_new();
-    update_transmitter_audio_choices(tx);
+    //update_transmitter_audio_choices(tx);
+    for(i=0;i<n_input_devices;i++) {
+      g_print("adding: %s\n",input_devices[i].description);
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(microphone_choice),NULL,input_devices[i].description);
+      if(radio->microphone_name!=NULL) {
+        if(strcmp(input_devices[i].name,radio->microphone_name)==0) {
+          gtk_combo_box_set_active(GTK_COMBO_BOX(microphone_choice),i);
+        }
+      }
+    }
     if(gtk_combo_box_get_active(GTK_COMBO_BOX(microphone_choice))==-1) {
       gtk_widget_set_sensitive(local_microphone, FALSE);
     } else {

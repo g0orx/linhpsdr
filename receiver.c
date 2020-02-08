@@ -1330,7 +1330,7 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   rx->panadapter_surface=NULL;
   
   rx->panadapter_filled=TRUE;
-  rx->panadapter_gradient=TRUE;
+  rx->panadapter_gradient=FALSE;
   rx->panadapter_agc_line=TRUE;
 
   rx->waterfall_automatic=TRUE;
