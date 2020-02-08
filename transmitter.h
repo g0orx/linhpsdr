@@ -81,6 +81,7 @@ typedef struct _transmitter {
 
   gint output_samples;
   
+  gdouble temperature;
 
   gboolean pre_emphasize;
   gboolean enable_equalizer;

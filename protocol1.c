@@ -538,7 +538,17 @@ g_print("process_control_bytes: ppt=%d dot=%d dash=%d\n",radio->ptt,radio->dot,r
       }
       if(radio->penelope_software_version!=control_in[3]) {
         radio->penelope_software_version=control_in[3];
-        fprintf(stderr,"  Penelope Software version: %d (0x%0X)\n",radio->penelope_software_version,radio->penelope_software_version);
+
+        if(radio->discovered->device==DEVICE_HERMES_LITE) {        
+          int recov = (control_in[3]&0x80) == 0x40;
+          int msb = (control_in[3]&0x80) == 0x80;
+          if (msb == 1) {
+            g_print("Buffer recovery %d %d \n", recov, msb);
+          }
+        }
+        else {
+          fprintf(stderr,"  Penelope Software version: %d (0x%0X)\n",radio->penelope_software_version,radio->penelope_software_version);          
+        }
       }
       if(radio->ozy_software_version!=control_in[4]) {
         radio->ozy_software_version=control_in[4];
@@ -547,6 +557,11 @@ g_print("process_control_bytes: ppt=%d dot=%d dash=%d\n",radio->ptt,radio->dot,r
       break;
     case 1:
       radio->transmitter->exciter_power=((control_in[1]&0xFF)<<8)|(control_in[2]&0xFF); // from Penelope or Hermes
+      
+      int adc = ((control_in[1]&0xFF)<<8)|(control_in[2]&0xFF);
+      double deg = (3.26 * ((double)adc/4096.0) - 0.5) / 0.01;
+      radio->transmitter->temperature = deg;
+      
       radio->transmitter->alex_forward_power=((control_in[3]&0xFF)<<8)|(control_in[4]&0xFF); // from Alex or Apollo
       break;
     case 2:
@@ -558,7 +573,6 @@ g_print("process_control_bytes: ppt=%d dot=%d dash=%d\n",radio->ptt,radio->dot,r
       radio->AIN6=(control_in[3]<<8)+control_in[4]; // from Pennelope or Hermes
       break;
   }
-
 }
 
 static int nreceiver;
@@ -967,6 +981,7 @@ void protocol1_iq_samples(int isample,int qsample) {
     }
   }
 }
+
 void protocol1_eer_iq_samples(int isample,int qsample,int lasample,int rasample) {
   if(isTransmitting(radio)) {
     output_buffer[output_buffer_index++]=lasample>>8;
@@ -985,14 +1000,13 @@ void protocol1_eer_iq_samples(int isample,int qsample,int lasample,int rasample)
   }
 }
 
-
 void protocol1_process_local_mic(RADIO *r) {
   int b;
   int i;
   short sample;
 
 // always 48000 samples per second
-g_print("process_local_mic size=%d buffer=%p\n",r->local_microphone_buffer_size,r->local_microphone_buffer);
+  //g_print("process_local_mic size=%d buffer=%p\n",r->local_microphone_buffer_size,r->local_microphone_buffer);
   b=0;
   for(i=0;i<r->local_microphone_buffer_size;i++) {
     sample=(short)(r->local_microphone_buffer[i]*32767.0);

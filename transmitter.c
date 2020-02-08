@@ -300,6 +300,7 @@ static gboolean update_timer_cb(void *data) {
   int rc;
   double constant1;
   double constant2;
+  int fwd_cal_offset=6;
 
   TRANSMITTER *tx=(TRANSMITTER *)data;
   //if(isTransmitting(radio)) {
@@ -313,6 +314,19 @@ static gboolean update_timer_cb(void *data) {
 
   if(isTransmitting(radio)) {
     tx->alc=GetTXAMeter(tx->channel,tx->alc_meter);
+
+    int fwd_power;
+    int rev_power;
+    int ex_power;
+    double v1;
+
+    fwd_power=tx->alex_forward_power;
+    rev_power=tx->alex_reverse_power;
+    if(radio->discovered->device==DEVICE_HERMES_LITE) {
+      ex_power=0;
+    } else {
+      ex_power=tx->exciter_power;
+    }
 
     switch(radio->discovered->device) {
       case DEVICE_METIS:
@@ -340,30 +354,38 @@ static gboolean update_timer_cb(void *data) {
         constant2=0.108;
         break;
       case DEVICE_HERMES_LITE:
+        if(rev_power>fwd_power) {
+          fwd_power=tx->alex_reverse_power;
+          rev_power=tx->alex_forward_power;
+        }
         constant1=3.3;
-        constant2=0.095;
+        constant2=1.4;
+        fwd_cal_offset=6;      
         break;
     }
 
-    int power=tx->alex_forward_power;
-    if(power==0) {
-      power=tx->exciter_power;
-    }
-    double v1;
-    v1=((double)power/4095.0)*constant1;
-    tx->fwd=(v1*v1)/constant2;
 
-    power=tx->exciter_power;
-    v1=((double)power/4095.0)*constant1;
-    tx->exciter=(v1*v1)/constant2;
-
-    tx->rev=0.0;
-    if(tx->alex_forward_power!=0) {
-      power=tx->alex_reverse_power;
-      v1=((double)power/4095.0)*constant1;
-      tx->rev=(v1*v1)/constant2;
+    if(fwd_power==0) {
+      fwd_power=ex_power;
     }
     
+    fwd_power=fwd_power-fwd_cal_offset;
+    v1=((double)fwd_power/4095.0)*constant1;
+    tx->fwd=(v1*v1)/constant2;    
+    
+    if(radio->discovered->device==DEVICE_HERMES_LITE) {
+      tx->exciter=0.0;
+    } else {
+      ex_power=ex_power-fwd_cal_offset;
+      v1=((double)ex_power/4095.0)*constant1;
+      tx->exciter=(v1*v1)/constant2;
+    }
+
+    tx->rev=0.0;
+    if(fwd_power!=0) {
+      v1=((double)rev_power/4095.0)*constant1;
+      tx->rev=(v1*v1)/constant2;
+    }    
   }
 
   return TRUE;
@@ -877,6 +899,8 @@ g_print("create_transmitter: channel=%d\n",channel);
   tx->drive=20.0;
   tx->tune_use_drive=FALSE;
   tx->tune_percent=10.0;
+
+  tx->temperature = 0.0;
 
   tx->panadapter_high=20;
   tx->panadapter_low=-140;
