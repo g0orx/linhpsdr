@@ -520,6 +520,12 @@ int audio_open_input(RADIO *r) {
       }
 
       g_mutex_lock(&r->local_microphone_mutex);
+      
+      
+      pa_buffer_attr attr;
+      attr.maxlength=4000;
+      
+      
       sample_spec.rate=48000;
       sample_spec.channels=1;
       sample_spec.format=PA_SAMPLE_FLOAT32NE;
@@ -531,7 +537,7 @@ int audio_open_input(RADIO *r) {
                       "TX",            // Description of our stream.
                       &sample_spec,                // Our sample format.
                       NULL,               // Use default channel map
-                      NULL,               // Use default buffering attributes.
+                      &attr,               // Use default buffering attributes.
                       NULL               // Ignore error code.
                       );
 
