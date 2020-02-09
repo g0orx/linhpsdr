@@ -1367,10 +1367,11 @@ void ozy_send_buffer() {
           if(radio->filter_board==APOLLO) {
             output_buffer[C2]|=0x2C;
           }
-          if(((radio->filter_board==APOLLO) || (radio->model=HERMES_LITE)) && radio->tune) {
-            output_buffer[C2]|=0x10;
-          }
         }
+        if(((radio->filter_board==APOLLO) || (radio->model=HERMES_LITE)) && radio->tune) {
+            output_buffer[C2]|=0x10;
+        }
+        
         output_buffer[C3]=0x00;
         if(radio->transmitter->rx->band_a==band6) {
           output_buffer[C3]=output_buffer[C3]|0x40; // Alex 6M low noise amplifier
