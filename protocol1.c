@@ -540,7 +540,7 @@ g_print("process_control_bytes: ppt=%d dot=%d dash=%d\n",radio->ptt,radio->dot,r
         radio->penelope_software_version=control_in[3];
 
         if(radio->discovered->device==DEVICE_HERMES_LITE) {        
-          int recov = (control_in[3]&0x80) == 0x40;
+          int recov = (control_in[3]&0x40) == 0x40;
           int msb = (control_in[3]&0x80) == 0x80;
           if (msb == 1) {
             g_print("Buffer recovery %d %d \n", recov, msb);
@@ -1367,7 +1367,7 @@ void ozy_send_buffer() {
           if(radio->filter_board==APOLLO) {
             output_buffer[C2]|=0x2C;
           }
-          if((radio->filter_board==APOLLO) && radio->tune) {
+          if(((radio->filter_board==APOLLO) || (radio->model=HERMES_LITE)) && radio->tune) {
             output_buffer[C2]|=0x10;
           }
         }
