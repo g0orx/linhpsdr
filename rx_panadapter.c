@@ -542,6 +542,12 @@ void update_rx_panadapter(RECEIVER *rx) {
     cairo_set_line_width(cr, 1.0);
 
     f1=frequency-half+(long long)(rx->hz_per_pixel*offset);
+    if (rx->mode_a==CWU) {
+      f1 -= radio->cw_keyer_sidetone_frequency;
+    }
+    else if (rx->mode_a==CWL) {
+      f1 += radio->cw_keyer_sidetone_frequency;
+    }    
     f2=(f1/divisor2)*divisor2;
 
     int x=0;

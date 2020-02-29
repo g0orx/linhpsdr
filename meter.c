@@ -31,6 +31,7 @@
 #include "radio.h"
 #include "meter.h"
 #include "main.h"
+#include "vfo.h"
 
 //static int meter_width;
 //static int meter_height;
@@ -127,7 +128,7 @@ void update_meter(RECEIVER *rx,gdouble value) {
 
   cr = cairo_create (rx->meter_surface);
 
-  cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
+  SetColour(cr, BACKGROUND);
   cairo_paint (cr);
   cairo_set_font_size(cr, 12);
 
@@ -144,12 +145,12 @@ void update_meter(RECEIVER *rx,gdouble value) {
   double radius=cy-20.0;
 
   cairo_set_line_width(cr, 1.0);
-  cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+  SetColour(cr, OFF_WHITE);
   cairo_arc(cr, cx, cy, radius, 216.0*M_PI/180.0, 324.0*M_PI/180.0);
   cairo_stroke(cr);
 
   cairo_set_line_width(cr, 2.0);
-  cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+  SetColour(cr, BOX_ON);
   cairo_arc(cr, cx, cy, radius+2, 264.0*M_PI/180.0, 324.0*M_PI/180.0);
   cairo_stroke(cr);
 
@@ -210,7 +211,7 @@ void update_meter(RECEIVER *rx,gdouble value) {
   cairo_line_to(cr, cx, cy);
   cairo_stroke(cr);
 
-  cairo_set_source_rgb (cr, 1.0, 1.0, 0.0);
+  SetColour(cr, TEXT_A);
   sprintf(sf,"%d dBm %s",(int)level,rx->smeter==RXA_S_AV?"Av":"Pk");
   cairo_move_to(cr, meter_width-130, meter_height-2);
   cairo_show_text(cr, sf);

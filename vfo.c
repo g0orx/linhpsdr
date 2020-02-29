@@ -1457,7 +1457,7 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
     case BUTTON_VFO:
       if(x>4 && x<230) {
         if(!rx->locked) {
-          int digit=(x-5)/17;
+          int digit=(x-5)/16;
           long long step=0LL;
           switch(digit) {
             case 0:
@@ -1511,12 +1511,16 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
             }
           } else {
             rx->frequency_a+=step;
+            if (rx->frequency_a < 0) {
+              rx->frequency_a = 0;
+            }            
           }
+
           frequency_changed(rx);
         }
       } else if(x>240 && x<400) {
         if(!rx->locked) {
-          int digit=(x-240)/12;
+          int digit=(x-240)/11;
           long long step=0LL;
           switch(digit) {
             case 0:
@@ -1563,6 +1567,9 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
             rx->frequency_b+=step;
           } else {
             rx->frequency_b-=step;
+            if (rx->frequency_b < 0) {
+              rx->frequency_b = 0;
+            }
           }
           frequency_changed(rx);
         }
@@ -1731,6 +1738,7 @@ void update_vfo(RECEIVER *rx) {
     } else {
       SetColour(cr, TEXT_C);
     }
+
     cairo_move_to(cr, 5, 12);
     cairo_set_font_size(cr, 12);
     cairo_show_text(cr, "VFO A");
@@ -1741,7 +1749,24 @@ void update_vfo(RECEIVER *rx) {
       SetColour(cr, TEXT_C);
     }
     sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
-    cairo_move_to(cr, 5, 38);
+    
+
+    
+    int vfo_start_idx;
+    if ((af/1000000) < 10) {
+      vfo_start_idx = 32;
+    }
+    else if ((af/1000000) < 100) {
+      vfo_start_idx = 23;
+    }
+    else if ((af/1000000) < 1000) {    
+      vfo_start_idx = 14;
+    }
+    else { 
+      vfo_start_idx = 5;
+    }
+        
+    cairo_move_to(cr, vfo_start_idx, 38);
     cairo_set_font_size(cr, 28);
     cairo_show_text(cr, temp);
 
@@ -1760,7 +1785,25 @@ void update_vfo(RECEIVER *rx) {
       SetColour(cr, TEXT_B);
     }
     sprintf(temp,"%5lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
-    cairo_move_to(cr, 240, 38);
+    
+    
+    if ((bf/1000000) < 10) {
+      vfo_start_idx = 240 + (7*3);
+    }
+    else if ((bf/1000000) < 100) {
+      vfo_start_idx = 240 + (7*2);
+    }
+    else if ((bf/1000000) < 1000) {    
+      vfo_start_idx = 240 + (7*1);
+    }
+    else { 
+      vfo_start_idx = 240;
+    }
+    
+    
+    
+    
+    cairo_move_to(cr, vfo_start_idx, 38);
     cairo_set_font_size(cr, 20);
     cairo_show_text(cr, temp);
 
