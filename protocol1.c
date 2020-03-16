@@ -1308,8 +1308,20 @@ void ozy_send_buffer() {
       case 3:
         {
         
+        gint tx_mode=USB;
+        tx_receiver=radio->transmitter->rx;
+        if(tx_receiver!=NULL) {
+          if(radio->transmitter->rx->split) {
+            tx_mode=tx_receiver->mode_b;
+          } else {
+            tx_mode=tx_receiver->mode_a;
+          }
+        }
+        
+        
         int level=0;
-        if(isTransmitting(radio)) {
+        // Always send TX drive level for CW mode
+        if(isTransmitting(radio) || (tx_mode==CWL) || (tx_mode==CWU)) {
           BAND *band;
           if(radio->transmitter!=NULL) {
             if(radio->transmitter->rx!=NULL) {
@@ -1322,7 +1334,7 @@ void ozy_send_buffer() {
           }
     
           int power=0;
-          if(isTransmitting(radio)) {
+          if(isTransmitting(radio) || (tx_mode==CWL) || (tx_mode==CWU)) {
             if(radio->tune && !radio->transmitter->tune_use_drive) {
               power=(int)(radio->transmitter->drive/100.0*radio->transmitter->tune_percent);
             } else {

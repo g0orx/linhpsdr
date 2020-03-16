@@ -738,6 +738,12 @@ static gboolean tune_cb(GtkWidget *widget,gpointer data) {
   r->tune=!r->tune;
   set_button_text_color(widget,r->tune?"red":"black");
   if(r->tune) {
+    //SM4VEY
+    struct timeval te;
+    gettimeofday(&te,NULL);
+    long long now=te.tv_sec*1000LL+te.tv_usec/1000 + radio->OCfull_tune_time;
+    radio->tune_timeout = now;
+    
     switch(radio->transmitter->rx->mode_a) {
       case CWL:
         SetTXAMode(radio->transmitter->channel, LSB);
