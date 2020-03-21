@@ -39,6 +39,8 @@
 #include <arpa/inet.h> //inet_addr
 
 #include "receiver.h"
+#include "vfo.h"
+#include "transmitter.h"
 #ifdef PIHPSDR
 #include "toolbar.h"
 #include "band_menu.h"
@@ -119,6 +121,7 @@ int connect_cnt = 0;
 int rigctlGetFilterLow();
 int rigctlGetFilterHigh();
 int rigctlGetMode(RECEIVER *rx);
+void rigctlSetMode(RECEIVER *rx, int new_mode);
 int rigctlSetFilterLow(int val);
 int rigctlSetFilterHigh(int val);
 int new_level;
@@ -749,9 +752,9 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
         // Check to see if first part of string is ZZ - if so
         //    strip the ZZ out and set the zzid_flag = 1;
  
-       #ifdef  RIGCTL_DEBUG
+       //#ifdef  RIGCTL_DEBUG
         fprintf(stderr,"RIGCTL: CMD=%s\n",cmd_input);
-       #endif
+       //#endif
         zzid_flag = 0;  // Set to indicate we haven't seen ZZ
         char * zzid_ptr;
         char temp[80];
@@ -2161,104 +2164,30 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                              }
                                          }
         else if((strcmp(cmd_str,"MD")==0) && (zzid_flag == 0)) {  
-                                            // TS-2000 - MD - Set/Read Mode
-                                            // Mode - digit selects mode
-                                            // 1 = LSB
-                                            // 2 = USB
-                                            // 3 = CWU
-                                            // 4 = FM
-                                            // 5 = AM
-                                            // 6 = DIGL
-                                            // 7 = CWL
-                                            // 9 = DIGU 
-        #ifdef PIHPSDR
-                                            int new_mode;
-                                            if(len > 2) { // Set Mode
-                                               switch(atoi(&cmd_input[2])) {   
-                                                 case 1:  
-                                                     new_mode = modeLSB;
-                                                     break;
-                                                 case 2:  
-                                                     new_mode = modeUSB;
-                                                     break;
-                                                 case 3:  
-                                                     new_mode = modeCWU;
-                                                     break;
-                                                 case 4:  
-                                                     new_mode = modeFMN;
-                                                     break;
-                                                 case 5:  
-                                                     new_mode = modeAM;
-                                                     break;
-                                                 case 6:  
-                                                     new_mode = modeDIGL;
-                                                     break;
-                                                 case 7:  
-                                                     new_mode = modeCWL;
-                                                     break;
-                                                 case 9:  
-                                                     new_mode = modeDIGU;
-                                                     break;
-                                                 default:
-                                                     break;
-                                                     #ifdef RIGCTL_DEBUG
-                                                     fprintf(stderr,"MD command Unknown\n");
-                                                     #endif
-                                               }
-                                            // Other stuff to switch modes goes here..
-                                            // since new_mode has the interpreted command in 
-                                            // in it now.
-                                            entry= (BANDSTACK_ENTRY *) 
-                                                  bandstack_entry_get_current();
-                                            entry->mode=new_mode;
-                                            // BUG - kills the system when there is some
-                                            // GPIO activity and Mode sets occur. Used twittling the
- 					    // frequency along with setting mode between USB/LSB with
-					    // flrig. Tried doing the g_idle_add trick - but don't know the
-					    // the magic to get that to compile without warnings 
-                                            //setMode(entry->mode);
-                                            set_mode(active_receiver,entry->mode);
-                                            // Moved the ext_vfo_update down after filter updated. (John G0ORX)
-                                            //g_idle_add(ext_vfo_update,NULL);
-                                            
-                                            FILTER* band_filters=filters[entry->mode];
-                                            FILTER* band_filter=&band_filters[entry->filter];
-                                            //setFilter(band_filter->low,band_filter->high);
-                                            set_filter(active_receiver,band_filter->low,band_filter->high);
-                                            /* Need a way to update VFO info here..*/
-                                            g_idle_add(ext_vfo_update,NULL);
-                                            }  else {     // Read Mode
-                                               int curr_mode;
-                                               switch (vfo[active_receiver->id].mode) {
-                                                  case modeLSB: curr_mode = 1; 
-                                                          break;   
-                                                  case modeUSB: curr_mode = 2;
-                                                          break;
-                                                  case modeCWL: curr_mode = 7; // CWL
-                                                          break;
-                                                  case modeCWU: curr_mode = 3; // CWU
-                                                          break;
-                                                  case modeFMN: curr_mode = 4; // FMN
-                                                          break;
-							  case modeAM: curr_mode = 5; // AM
-								  break;
-							  case modeDIGU: curr_mode = 9; // DIGU
-								  break;
-							  case modeDIGL: curr_mode = 6; // DIGL
-								  break;
-							  default: 
-								  #ifdef RIGCTL_DEBUG
-								    fprintf(stderr,
-								    "RIGCTL: MD command doesn't support %d\n",
-								    vfo[active_receiver->id].mode);
-								  #endif
-								  break;
-						       }
-						       sprintf(msg,"MD%1d;",curr_mode);
-						       send_resp(client_sock,msg);
-						    }
-                #endif // PIHPSDR
-						 }
+          // TS-2000 - MD - Set/Read Mode
+          // Mode - digit selects mode
+          // 1 = LSB
+          // 2 = USB
+          // 3 = CWU
+          // 4 = FM
+          // 5 = AM
+          // 6 = DIGL
+          // 7 = CWL
+          // 9 = DIGU 
+                
+          // Respond with the current mode                                            
+	  if(len <= 2) { 
+            int curr_mode = rigctlGetMode(rx);
+            sprintf(msg,"MD%1d;",curr_mode);
+	    send_resp(client_sock,msg);            
+          }
+          else {
+            // Set Mode
+            int new_mode = atoi(&cmd_input[2]);
+            printf("Set Mode\n");
+            rigctlSetMode(rx, new_mode);
+          }
+        }
 		else if((strcmp(cmd_str,"MD")==0) && (zzid_flag == 1)) {  
                 #ifdef PIHPSDR
 						    // PiHPSDR - ZZMD - Set/Read Modulation Mode
@@ -2279,7 +2208,7 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
 							  FILTER* band_filter=&band_filters[entry->filter];
 							  //setFilter(band_filter->low,band_filter->high);
 							  set_filter(active_receiver,band_filter->low,band_filter->high);
-							  /* Need a way to update VFO info here..*/
+							  // Need a way to update VFO info here..
 							  g_idle_add(ext_vfo_update,NULL);
 						       } else {
 							  fprintf(stderr,"RIGCTL: Error - ZZMD - Illegal cmd received=%d",work_int);
@@ -3990,6 +3919,44 @@ int rigctlGetMode(RECEIVER *rx)  {
         }
 }
 
+void rigctlSetMode(RECEIVER *rx, int new_mode)  {
+  printf("New mode %d\n", new_mode);
+  int mode = 1;
+        switch(new_mode) {
+           case 1: mode = 0;
+                   printf("LSB\n");
+                   break;
+           case 2: mode = 1;
+                   printf("USB\n");
+                   break;
+           case 3: mode = 3;
+                   printf("CWL\n");           
+                   break;
+           case 4: mode = 5;
+                   printf("FMN\n");
+                   break;
+           case 5: mode = 6;
+                   printf("AM\n");           
+                   break;
+           //case 6: rx->mode_a = 7;
+           //        break;
+           //case 7: rx->mode_a = 3;
+           //        printf("USB\n");
+           //        break;
+           default: return;
+        }
+  MODE *m = g_new0(MODE, 1);
+  m->rx = rx;
+  m->mode_a = mode;
+  g_idle_add(ext_set_mode,(gpointer)m);  
+  
+  //receiver_mode_changed(rx, rx->mode_a);     
+  //transmitter_set_mode(radio->transmitter, rx->mode_a);  
+  //update_vfo(rx);     
+  //g_mutex_unlock(&rx->mutex);
+  //transmitter_set_mode(radio->transmitter, rx->mode_a);        
+  return;
+}
 
 int rigctlSetFilterLow(int val){
 };

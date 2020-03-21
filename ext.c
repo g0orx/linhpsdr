@@ -69,6 +69,18 @@ int ext_set_frequency_a(void *data) {
   return 0;
 }
 
+int ext_set_mode(void *data) {
+  MODE *m=(MODE *)data;
+  if (m->rx != NULL) {
+    m->rx->mode_a = m->mode_a;
+  }
+  receiver_mode_changed(m->rx, m->rx->mode_a);    
+  update_vfo(m->rx);
+  g_free(m);
+  return 0;
+}
+
+
 int ext_tx_set_ps(void *data) {
   transmitter_set_ps(radio->transmitter,(uintptr_t)data);
   return 0;

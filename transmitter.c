@@ -409,6 +409,7 @@ void transmitter_enable_eer(TRANSMITTER *tx,gboolean state) {
   tx->eer=state;
   SetEERRun(0, tx->eer);
 }
+
 void transmitter_set_eer_mode_amiq(TRANSMITTER *tx,gboolean state) {
   tx->eer_amiq=state;
   SetEERAMIQ(0, tx->eer_amiq); // 0=phase only, 1=magnitude and phase, 2=magnitude only (not supported here)

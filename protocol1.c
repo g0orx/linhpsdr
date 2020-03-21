@@ -1743,7 +1743,7 @@ fprintf(stderr,"metis_restart\n");
   usleep(20000);
 
   // start the data flowing
-  metis_start_stop(3); // IQ data and wideband data
+  metis_start_stop(1); // IQ data (wideband data disabled)
 }
 
 static void metis_start_stop(int command) {
