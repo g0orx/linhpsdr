@@ -1089,7 +1089,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   r->cw_keyer_internal=TRUE;
   r->cw_keyer_sidetone_frequency=650;
-  r->cw_keyer_sidetone_volume=127;
+  r->cw_keyer_sidetone_volume=20;
   r->cw_keyer_speed=12;
   r->cw_keyer_mode=KEYER_STRAIGHT;
   r->cw_keyer_weight=30;
@@ -1099,6 +1099,9 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->cw_keys_reversed=FALSE;
   r->cw_keys_reversed=FALSE;
   r->cw_breakin=FALSE;
+  #ifdef CWDAEMON
+  r->cwdaemon=FALSE;
+  #endif
 
   r->display_filled=TRUE;
 

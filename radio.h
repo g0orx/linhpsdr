@@ -92,6 +92,9 @@ typedef struct _radio {
   gint cw_keyer_ptt_delay;
   gint cw_keyer_hang_time;
   gboolean cw_breakin;
+  #ifdef CWDAEMON
+  gboolean cwdaemon;
+  #endif
 
   gboolean local_microphone;
   gchar *microphone_name;
@@ -102,7 +105,7 @@ typedef struct _radio {
   gboolean input_started;
   GMutex ring_buffer_mutex;
   GCond ring_buffer_cond;
-
+  
 #ifndef __APPLE__
   pa_simple* microphone_stream;
   snd_pcm_t *record_handle;

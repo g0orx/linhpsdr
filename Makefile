@@ -42,8 +42,26 @@ soapy_discovery.o \
 soapy_protocol.o
 endif
 
+# cwdaemon support. Allows linux based logging software to key an Hermes/HermesLite2
+# needs :
+#			https://github.com/m5evt/unixcw
 
-OPTIONS=-Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) $(OPENGL_OPTIONS) -O3 -g
+CWDAEMON_INCLUDE=CWDAEMON
+
+ifeq ($(CWDAEMON_INCLUDE),CWDAEMON)
+CWDAEMON_OPTIONS=-D CWDAEMON
+CWDAEMON_LIBS=-lcw
+CWDAEMON_SOURCES= \
+cwdaemon.c
+CWDAEMON_HEADERS= \
+cwdaemon.h
+CWDAEMON_OBJS= \
+cwdaemon.o
+endif
+
+
+OPTIONS=-Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) \
+         $(CWDAEMON_OPTIONS)  $(OPENGL_OPTIONS) -O3 -g
 #OPTIONS=-g -Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
 LIBS=-lrt -lm -lpthread -lwdsp
@@ -201,13 +219,13 @@ rigctl.o\
 error_handler.o\
 bpsk.o
 
-all: prebuild  $(PROGRAM) $(HEADERS) $(SOURCES) $(SOAPYSDR_SOURCES)
+all: prebuild  $(PROGRAM) $(HEADERS) $(SOURCES) $(SOAPYSDR_SOURCES) $(CWDAEMON_SOURCES)
 
 prebuild:
 	rm -f version.o
 
-$(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS)
-	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(GTKLIBS) $(LIBS) $(AUDIO_LIBS) $(SOAPYSDR_LIBS) $(OPENGL_LIBS)
+$(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS)
+	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(GTKLIBS) $(LIBS) $(AUDIO_LIBS) $(SOAPYSDR_LIBS) $(CWDAEMON_LIBS) $(OPENGL_LIBS)
 
 .c.o:
 	$(COMPILE) -c -o $@ $<

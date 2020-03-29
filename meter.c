@@ -132,7 +132,14 @@ void update_meter(RECEIVER *rx,gdouble value) {
   cairo_paint (cr);
   cairo_set_font_size(cr, 12);
 
-  double level=value+radio->adc[rx->adc].attenuation;
+  double attenuation = radio->adc[rx->adc].attenuation;
+
+  if(radio->discovered->device==DEVICE_HERMES_LITE) {
+      attenuation += 12;
+      attenuation = attenuation * -1;
+  }
+
+  double level=value+attenuation;
 
   double offset=210.0;
   int i;

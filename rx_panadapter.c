@@ -291,12 +291,13 @@ void update_rx_panadapter(RECEIVER *rx) {
   samples[display_width-1+offset]=-200;
   double dbm_per_line=(double)display_height/((double)rx->panadapter_high-(double)rx->panadapter_low);
   double attenuation=radio->adc[rx->adc].attenuation;
+  
+  
   if(radio->discovered->device==DEVICE_HERMES_LITE) {
-    if(!radio->adc[rx->adc].dither) {
-      attenuation-=20;
-    }
+      attenuation += 12;
+      attenuation = attenuation * -1;
   }
-            
+  
 
   if(display_height<=1) return;
 

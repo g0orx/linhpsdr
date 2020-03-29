@@ -254,8 +254,8 @@ void update_waterfall(RECEIVER *rx) {
     } 
 
     if(rx->waterfall_automatic) {
-      rx->waterfall_low=average/(width-2);
-      rx->waterfall_high=rx->waterfall_low+50;
+      rx->waterfall_low=(average/(width-2))-14;
+      rx->waterfall_high=rx->waterfall_low+80;
     }
 
     gtk_widget_queue_draw (rx->waterfall);

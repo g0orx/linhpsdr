@@ -1720,11 +1720,20 @@ void update_vfo(RECEIVER *rx) {
     }
     // RIT
     if(rx->rit_enabled) {    
-      RoundedRectangle(cr, 390.0, 51.0, 18.0, 6.0, TRUE);   
+      RoundedRectangle(cr, 391.0, 51.0, 18.0, 6.0, TRUE);   
     }
     else {
-      RoundedRectangle(cr, 390.0, 51.0, 18.0, 6.0, FALSE);       
+      RoundedRectangle(cr, 391.0, 51.0, 18.0, 6.0, FALSE);       
     }
+    #ifdef CWDAEMON 
+    // CWX
+    if(radio->cwdaemon) {    
+      RoundedRectangle(cr, 463.0, 51.0, 23.0, 6.0, TRUE);   
+    }
+    else {
+      RoundedRectangle(cr, 463.0, 51.0, 23.0, 6.0, FALSE);       
+    }    
+    #endif
     if(rx->split) {
       RoundedRectangle(cr, 203.0, 6.0, 22.0, 5.0, TRUE);    
     }  
@@ -1917,7 +1926,7 @@ void update_vfo(RECEIVER *rx) {
 
     cairo_move_to(cr, x, 58);
     if(rx->cat_control>-1) {
-      SetColour(cr, DARK_TEXT);       
+      SetColour(cr, OFF_WHITE);       
     } 
     else {
       SetColour(cr, DARK_TEXT);
@@ -1943,21 +1952,36 @@ void update_vfo(RECEIVER *rx) {
     x+=35;
 
     cairo_move_to(cr,x,58);
-    if(rx->ctun) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+    
+    if(radio->discovered->device==DEVICE_HERMES_LITE) {  
+      if(radio->cwdaemon) {
+        SetColour(cr, OFF_WHITE);
+      } else {
+        SetColour(cr, DARK_TEXT);
+      }   
+      cairo_show_text(cr, "CWX");      
     }
-    cairo_show_text(cr, "CTUN");
+    else {
+    
+      if(rx->ctun) {
+        SetColour(cr, OFF_WHITE);
+      } else {
+        SetColour(cr, DARK_TEXT);
+      }
+      cairo_show_text(cr, "CTUN");
+    }
     x+=35;
 
     cairo_move_to(cr,x,58);
-    if(rx->bpsk) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+    
+    if(radio->discovered->device!=DEVICE_HERMES_LITE) {      
+      if(rx->bpsk) {
+        cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+      } else {
+        cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      }
+      cairo_show_text(cr, "BPSK");
     }
-    cairo_show_text(cr, "BPSK");
     x+=35;
 
     x=70;

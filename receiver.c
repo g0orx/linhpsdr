@@ -899,7 +899,7 @@ static void process_rx_buffer(RECEIVER *rx) {
       }
       switch(radio->discovered->protocol) {
         case PROTOCOL_1:
-          protocol1_audio_samples(rx,left_audio_sample,right_audio_sample);
+          //protocol1_audio_samples(rx,left_audio_sample,right_audio_sample);
           break;
         case PROTOCOL_2:
           protocol2_audio_samples(rx,left_audio_sample,right_audio_sample);
