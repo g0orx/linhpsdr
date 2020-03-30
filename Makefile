@@ -44,7 +44,7 @@ endif
 
 # cwdaemon support. Allows linux based logging software to key an Hermes/HermesLite2
 # needs :
-#			https://github.com/m5evt/unixcw
+#			https://github.com/m5evt/unixcw-3.5.1.git
 
 CWDAEMON_INCLUDE=CWDAEMON
 
