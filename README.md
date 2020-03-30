@@ -35,14 +35,44 @@ Development and testing has been run on Ubuntu 17.10 and Ubuntu 18.04. If run on
   sudo make install
 ```
 
-### To download, compile and install linHPSDR from https://github.com/g0orx/linhpsdr
+### To download, compile and install linHPSDR from here
 
 ```
-  git clone https://github.com/g0orx/linhpsdr.git
+  git clone https://github.com/m5evt/linhpsdr.git
   cd linhpsdr
   make
   sudo make install
 ```
+
+
+### CW support
+
+HL2 CWX/cwdaemon support added. Requires the following to be installed:
+
+```
+  git clone https://github.com/m5evt/unixcw-3.5.1.git
+  cd unixcw-3.5.1
+  autoreconf -i
+  ./configure
+  make
+  sudo make install
+```
+If this is not wanted/required. You must disable in the Makefile. Comment the following lines as follows
+```
+#CWDAEMON_INCLUDE=CWDAEMON
+
+#ifeq ($(CWDAEMON_INCLUDE),CWDAEMON)
+#CWDAEMON_OPTIONS=-D CWDAEMON
+#CWDAEMON_LIBS=-lcw
+#CWDAEMON_SOURCES= \
+#cwdaemon.c
+#CWDAEMON_HEADERS= \
+#cwdaemon.h
+#CWDAEMON_OBJS= \
+#cwdaemon.o
+#endif
+```
+
 
 # LinHPSDR MacOS Support
   
