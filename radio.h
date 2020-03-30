@@ -92,9 +92,7 @@ typedef struct _radio {
   gint cw_keyer_ptt_delay;
   gint cw_keyer_hang_time;
   gboolean cw_breakin;
-  #ifdef CWDAEMON
   gboolean cwdaemon;
-  #endif
 
   gboolean local_microphone;
   gchar *microphone_name;

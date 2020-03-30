@@ -52,6 +52,8 @@
 #include "audio.h"
 #include "signal.h"
 #include "vfo.h"
+#include "transmitter.h"
+
 #ifdef FREEDV
 #include "freedv.h"
 #endif
@@ -61,6 +63,11 @@
 //#include "vox.h"
 #include "ext.h"
 #include "error_handler.h"
+
+
+#ifdef CWDAEMON
+#include "cwdaemon.h"
+#endif
 
 static int last_level=-1;
 
@@ -171,6 +178,7 @@ static int right_tx_sample;
 
 static unsigned char output_buffer[OZY_BUFFER_SIZE];
 static int output_buffer_index=8;
+static int tx_output_buffer_index=8;
 
 static int command=1;
 
@@ -257,7 +265,7 @@ void protocol1_set_mic_sample_rate(int rate) {
 
 void protocol1_init(RADIO *r) {
   int i;
-
+  QueueInit();
   fprintf(stderr,"protocol1_init\n");
 
   protocol1_set_mic_sample_rate(r->sample_rate);
@@ -488,6 +496,7 @@ static gpointer receive_thread(gpointer arg) {
         }
         break;
     }
+      full_tx_buffer(radio->transmitter);
   }
 
   fprintf(stderr,"EXIT: protocol1: receive_thread\n");
@@ -935,7 +944,10 @@ static void process_ozy_input_buffer(char  *buffer) {
 }
 #endif
 
+// No longer used, all packets sent to radio are through full protocol1_iq_samples or 
+// protocol1_eer_iq_samples
 void protocol1_audio_samples(RECEIVER *rx,short left_audio_sample,short right_audio_sample) {
+  return;
   if(!isTransmitting(radio)) {
 //    if(rx->mixed_audio==0) {
       rx->mixed_left_audio=left_audio_sample;
@@ -963,22 +975,52 @@ void protocol1_audio_samples(RECEIVER *rx,short left_audio_sample,short right_au
   }
 }
 
-void protocol1_iq_samples(int isample,int qsample) {
-  if(isTransmitting(radio)) {
-    output_buffer[output_buffer_index++]=0;
-    output_buffer[output_buffer_index++]=0;
-    output_buffer[output_buffer_index++]=0;
-    output_buffer[output_buffer_index++]=0;    
+void protocol1_iq_samples(int isample,int qsample) { 
+    output_buffer[tx_output_buffer_index++]=0;
+    output_buffer[tx_output_buffer_index++]=0;
+    output_buffer[tx_output_buffer_index++]=0;
+    output_buffer[tx_output_buffer_index++]=0;    
     
-    output_buffer[output_buffer_index++]=isample>>8;
-    output_buffer[output_buffer_index++]=isample;
-    output_buffer[output_buffer_index++]=qsample>>8;
-    output_buffer[output_buffer_index++]=qsample;
-    if(output_buffer_index>=OZY_BUFFER_SIZE) {
-      ozy_send_buffer();
-      output_buffer_index=8;
+    #ifdef CWDAEMON
+    gint tx_mode=USB;    
+    RECEIVER *tx_receiver=radio->transmitter->rx;
+    if(tx_receiver!=NULL) {
+      if(radio->transmitter->rx->split) {
+        tx_mode=tx_receiver->mode_b;
+      } else {
+        tx_mode=tx_receiver->mode_a;
+      }
+    }    
+    // I[0] of IQ stream is CWX keydown
+    if ((radio->cwdaemon) && (tx_mode==CWL || tx_mode==CWU)) {
+      g_mutex_lock(&cwdaemon_mutex);
+      if(keytx) { 
+        output_buffer[tx_output_buffer_index++]=0x00;
+        output_buffer[tx_output_buffer_index++]=0x01;
+      }
+      else {
+        output_buffer[tx_output_buffer_index++]=0x00;
+        output_buffer[tx_output_buffer_index++]=0x00; 
+      }
+      g_mutex_unlock(&cwdaemon_mutex); 
     }
-  }
+    else {
+      output_buffer[tx_output_buffer_index++]=isample>>8;
+      output_buffer[tx_output_buffer_index++]=isample;
+    }    
+    #else 
+    output_buffer[tx_output_buffer_index++]=isample>>8;
+    output_buffer[tx_output_buffer_index++]=isample;    
+    #endif    
+
+    output_buffer[tx_output_buffer_index++]=qsample>>8;
+    output_buffer[tx_output_buffer_index++]=qsample;
+
+    if(tx_output_buffer_index>=OZY_BUFFER_SIZE) {
+      tx_output_buffer_index=8;
+      ozy_send_buffer();
+    }
+  //}
 }
 
 void protocol1_eer_iq_samples(int isample,int qsample,int lasample,int rasample) {
@@ -999,6 +1041,7 @@ void protocol1_eer_iq_samples(int isample,int qsample,int lasample,int rasample)
   }
 }
 
+// Microphone buffer dump called from audio.c
 void protocol1_process_local_mic(RADIO *r) {
   int b;
   int i;
@@ -1479,10 +1522,8 @@ void ozy_send_buffer() {
   
         output_buffer[C4]=0x00;
         if(radio->discovered->device==DEVICE_HERMES_LITE) {
-          if(!radio->adc[0].enable_step_attenuation) {
-            output_buffer[C4]=0x20;
-          }
-          output_buffer[C4]|=(int)radio->adc[0].attenuation&0x1F;
+          output_buffer[C4]=0x40;
+          output_buffer[C4]|=((int)radio->adc[0].attenuation&0x1F) + 12;
         } else if(radio->discovered->device==DEVICE_HERMES || radio->discovered->device==DEVICE_ANGELIA || radio->discovered->device==DEVICE_ORION || radio->discovered->device==DEVICE_ORION2) {
           if(radio->adc[0].enable_step_attenuation) {
             output_buffer[C4]=0x20;
@@ -1574,13 +1615,25 @@ void ozy_send_buffer() {
         if(tx_mode!=CWU && tx_mode!=CWL) {
           // output_buffer[C1]|=0x00;
         } else {
-          if(radio->tune || radio->vox || !radio->cw_keyer_internal) {
+          if(radio->tune || radio->vox || !radio->cw_keyer_internal || !radio->cwdaemon) {
             output_buffer[C1]|=0x00;
           } else {
             output_buffer[C1]|=0x01;
           }
         }
         output_buffer[C2]=radio->cw_keyer_sidetone_volume;
+        
+        //CWX enable/disable
+	#ifdef CWDAEMON 
+        if(radio->discovered->device==DEVICE_HERMES_LITE) {
+          if(radio->cwdaemon) {
+            radio->cw_keyer_ptt_delay = 0x1;
+          }
+          else {
+            radio->cw_keyer_ptt_delay = 0x0;
+          }
+        }
+	#endif
         output_buffer[C3]=radio->cw_keyer_ptt_delay;
         output_buffer[C4]=0x00;
         break;
@@ -1611,11 +1664,19 @@ void ozy_send_buffer() {
         output_buffer[C3]=0x00;
         output_buffer[C4]=0x00;
         break;
+      case 11:
+        // TX buffer size
+        output_buffer[C0]=0x2E;        
+        output_buffer[C1]=0x0;        
+        output_buffer[C2]=0x0;        
+        output_buffer[C3]=0x4;        
+        output_buffer[C4]=0x10;
+        break;
     }
 
     if(current_rx==0) {
       command++;
-      if(command>10) {
+      if(command>11) {
         command=1;
       }
     }

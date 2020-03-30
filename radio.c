@@ -1099,9 +1099,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->cw_keys_reversed=FALSE;
   r->cw_keys_reversed=FALSE;
   r->cw_breakin=FALSE;
-  #ifdef CWDAEMON
   r->cwdaemon=FALSE;
-  #endif
 
   r->display_filled=TRUE;
 
