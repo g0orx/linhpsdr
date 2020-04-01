@@ -66,6 +66,11 @@ static GtkWidget *adc1_antenna_combo_box;
 static GtkWidget *adc1_filters_combo_box;
 static GtkWidget *adc1_hpf_combo_box;
 static GtkWidget *adc1_lpf_combo_box;
+static GtkWidget *cw_keyer_sidetone_frequency_b;
+static GtkWidget *cw_keyer_speed_b;
+static GtkWidget *cw_keyer_weight_b;
+static GtkWidget *cw_keyer_sidetone_level_b;
+
 static GtkWidget *rigctl_base;
 
 static GtkWidget *dac0_frame;
@@ -576,11 +581,22 @@ static void cwdaemon_cb(GtkWidget *widget, gpointer data) {
       exit(-1);
     }
     fprintf(stderr, "cwdaemon_thread: id=%p\n",cwdaemon_thread_id);    
+    // CWdaemon now has control over keyer settings, user can't modify
+    gtk_widget_set_sensitive(cw_keyer_speed_b, FALSE);    
+    gtk_widget_set_sensitive(cw_keyer_sidetone_frequency_b, FALSE);
+    gtk_widget_set_sensitive(cw_keyer_weight_b, FALSE);
+    gtk_widget_set_sensitive(cw_keyer_sidetone_level_b, FALSE);        
+    
   } 
   else {
-    printf("Stopping CWdaemon\n");
+    //printf("Stopping CWdaemon\n");
     cwdaemon_stop();
-    cwdaemon_close_libcw_output();
+    gtk_widget_set_sensitive(cw_keyer_speed_b, TRUE);
+    gtk_widget_set_sensitive(cw_keyer_sidetone_frequency_b, TRUE);
+    gtk_widget_set_sensitive(cw_keyer_weight_b, TRUE);
+    gtk_widget_set_sensitive(cw_keyer_sidetone_level_b, TRUE);    
+
+    //g_thread_exit(cwdaemon_thread_id);
   }
 }
 
@@ -1089,7 +1105,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     gtk_grid_attach(GTK_GRID(cw_grid),cwdaemon_label,x++,y,1,1);
 
     GtkWidget *cwdaemon_tick=gtk_check_button_new();
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (cwdaemon_tick), radio->cw_keys_reversed);
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (cwdaemon_tick), radio->cwdaemon);
     gtk_widget_show(cwdaemon_tick);
     gtk_grid_attach(GTK_GRID(cw_grid),cwdaemon_tick,x++,y,1,1);
     g_signal_connect(cwdaemon_tick,"toggled",G_CALLBACK(cwdaemon_cb),radio);    
@@ -1109,11 +1125,13 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   x=0;
   y++;
 
+
   GtkWidget *cw_speed_label=gtk_label_new("CW Speed (WPM)");
   gtk_widget_show(cw_speed_label);
   gtk_grid_attach(GTK_GRID(cw_grid),cw_speed_label,x++,y,1,1);
 
-  GtkWidget *cw_keyer_speed_b=gtk_spin_button_new_with_range(1.0,60.0,1.0);
+
+  cw_keyer_speed_b=gtk_spin_button_new_with_range(1.0,60.0,1.0);
   gtk_spin_button_set_value(GTK_SPIN_BUTTON(cw_keyer_speed_b),(double)radio->cw_keyer_speed);
   gtk_widget_show(cw_keyer_speed_b);
   gtk_grid_attach(GTK_GRID(cw_grid),cw_keyer_speed_b,x++,y,1,1);
@@ -1123,7 +1141,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   gtk_widget_show(cw_keyer_sidetone_level_label);
   gtk_grid_attach(GTK_GRID(cw_grid),cw_keyer_sidetone_level_label,x++,y,1,1);
 
-  GtkWidget *cw_keyer_sidetone_level_b=gtk_spin_button_new_with_range(1.0,radio->discovered->protocol==PROTOCOL_2?255.0:127.0,1.0);
+  cw_keyer_sidetone_level_b=gtk_spin_button_new_with_range(1.0,radio->discovered->protocol==PROTOCOL_2?255.0:127.0,1.0);
   gtk_spin_button_set_value(GTK_SPIN_BUTTON(cw_keyer_sidetone_level_b),(double)radio->cw_keyer_sidetone_volume);
   gtk_widget_show(cw_keyer_sidetone_level_b);
   gtk_grid_attach(GTK_GRID(cw_grid),cw_keyer_sidetone_level_b,x++,y,1,1);
@@ -1136,7 +1154,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   gtk_widget_show(cw_keyer_sidetone_frequency_label);
   gtk_grid_attach(GTK_GRID(cw_grid),cw_keyer_sidetone_frequency_label,x++,y,1,1);
 
-  GtkWidget *cw_keyer_sidetone_frequency_b=gtk_spin_button_new_with_range(100.0,1000.0,1.0);
+  cw_keyer_sidetone_frequency_b=gtk_spin_button_new_with_range(100.0,1000.0,1.0);
   gtk_spin_button_set_value(GTK_SPIN_BUTTON(cw_keyer_sidetone_frequency_b),(double)radio->cw_keyer_sidetone_frequency);
   gtk_widget_show(cw_keyer_sidetone_frequency_b);
   gtk_grid_attach(GTK_GRID(cw_grid),cw_keyer_sidetone_frequency_b,x++,y,1,1);
@@ -1146,7 +1164,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   gtk_widget_show(cw_keyer_weight_label);
   gtk_grid_attach(GTK_GRID(cw_grid),cw_keyer_weight_label,x++,y,1,1);
 
-  GtkWidget *cw_keyer_weight_b=gtk_spin_button_new_with_range(0.0,100.0,1.0);
+  cw_keyer_weight_b=gtk_spin_button_new_with_range(0.0,100.0,1.0);
   gtk_spin_button_set_value(GTK_SPIN_BUTTON(cw_keyer_weight_b),(double)radio->cw_keyer_weight);
   gtk_widget_show(cw_keyer_weight_b);
   gtk_grid_attach(GTK_GRID(cw_grid),cw_keyer_weight_b,x++,y,1,1);

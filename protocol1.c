@@ -1596,6 +1596,7 @@ void ozy_send_buffer() {
 #endif
         output_buffer[C3]=0x00;
         output_buffer[C3]|=radio->transmitter->attenuation;
+        if(radio->discovered->device==DEVICE_HERMES_LITE) output_buffer[C3]|=0x80;
         output_buffer[C4]=0x00;
         break;
       case 7:

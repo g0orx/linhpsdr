@@ -55,45 +55,6 @@
 
    Size of a message is not constant.
    Maximal size of a message is CWDAEMON_MESSAGE_SIZE_MAX.
-
-
-
-   cwdaemon can be configured either through command line arguments on
-   start of the daemon, or through requests (escaped requests) sent
-   over network.
-
-<verbatim>
-   Feature               command line argument     escaped request
-   ---------------------------------------------------------------
-   help                  -h, --help                N/A
-   version               -V, --version             N/A
-   keying device         -d, --cwdevice            8
-   don't fork daemon     -n, --nofork              N/A
-   network port          -p, --port                9 (obsolete)
-   process priority      -P, --priority            N/A
-   Morse speed (wpm)     -s, --wpm                 2
-   PTT delay             -t, --pttdelay            d
-   PTT keying on/off     N/A                       a
-   sound system          -x, --system              f
-   sound volume          -v, --volume              g
-   Morse weighting       -w, --weighting           7
-   sound tone            -T, --tone                3
-   debug verbosity       -i                        N/A
-   debug verbosity       -y, --verbosity           N/A
-   libcw debug flags     -I, --libcwflags          N/A
-   debug output          -f, --debugfile           N/A
-
-   reset parameters      N/A                       0
-   abort message         N/A                       4
-   exit daemon           N/A                       5
-   set word mode         N/A                       6
-   set SSB way           N/A                       b
-   tune                  N/A                       c
-   band switch           N/A                       e
-
-   </verbatim>
-
-
 */
 
 
@@ -119,7 +80,7 @@
 
 /* cwdaemon constants. */
 #define CWDAEMON_MORSE_SPEED_DEFAULT           30 /* [wpm] */
-#define CWDAEMON_MORSE_TONE_DEFAULT           837 /* [Hz] */
+#define CWDAEMON_MORSE_TONE_DEFAULT           650 /* [Hz] */
 #define CWDAEMON_MORSE_VOLUME_DEFAULT          10 /* [%] */
 
 /* TODO: why the limitation to 50 ms? Is it enough? */
@@ -201,7 +162,7 @@ static bool has_audio_output = false;
    it needs to send a reply back. This is why in addition to
    request_* we also have reply_* */
 
-static int socket_descriptor = 0;
+//static int socket_descriptor = 0;
 
 /* Default UDP port we listen on. Can be changed only through command
    line switch.
@@ -210,13 +171,13 @@ static int socket_descriptor = 0;
    port using network request, but now this code path is marked as
    "obsolete".
  */
-static int port = CWDAEMON_NETWORK_PORT_DEFAULT;
+//static int port = CWDAEMON_NETWORK_PORT_DEFAULT;
 
-static struct sockaddr_in request_addr;
-static socklen_t          request_addrlen;
+//static struct sockaddr_in request_addr;
+//static socklen_t          request_addrlen;
 
-static struct sockaddr_in reply_addr;
-static socklen_t          reply_addrlen;
+//static struct sockaddr_in reply_addr;
+//static socklen_t          reply_addrlen;
 
 static char reply_buffer[CWDAEMON_MESSAGE_SIZE_MAX];
 
@@ -243,8 +204,6 @@ static long int libcw_debug_flags = 0;
 
 /* Various variables. */
 static int wordmode = 0;               /* Start in character mode. */
-static int forking = 1;                /* We fork by default. */
-static int process_priority = 0;       /* Scheduling priority of cwdaemon process. */
 static int async_abort = 0;            /* Unused variable. It is used in patches/cwdaemon-mt.patch though. */
 static int inactivity_seconds = 9999;  /* Inactive since nnn seconds. */
 
@@ -337,8 +296,6 @@ static bool cwdaemon_params_ptt_on_off(const char *optarg);
 static char cwdaemon_debug_ptt_flag[3 + 1];
 static const char *cwdaemon_debug_ptt_flags(void);
 
-RETSIGTYPE cwdaemon_catch_sigint(int signal);
-
 /* Selected keying device:
    serial port (cwdevice_ttys) || parallel port (cwdevice_lp) || null (cwdevice_null).
    It should be configured with cwdaemon_cwdevice_set(). */
@@ -346,13 +303,6 @@ RETSIGTYPE cwdaemon_catch_sigint(int signal);
    device is available, the global_cwdevice is NULL, which causes the
    program to break. */
 static cwdevice *global_cwdevice = NULL;
-
-/* catch ^C when running in foreground */
-RETSIGTYPE cwdaemon_catch_sigint(__attribute__((unused)) int signal)
-{
-	printf("Exiting\n");
-	exit(EXIT_SUCCESS);
-}
 
 const char *cwdaemon_debug_ptt_flags(void)
 {
@@ -662,8 +612,8 @@ void cwdaemon_prepare_reply(char *reply, const char *request, size_t n)
 	printf("PTT flag +PTT_ACTIVE_ECHO (0x%02x/%s)", ptt_flag, cwdaemon_debug_ptt_flags());
 
 	/* We are sending reply to the same host that sent a request. */
-	memcpy(&reply_addr, &request_addr, sizeof(reply_addr));
-	reply_addrlen = request_addrlen;
+	memcpy(&radio->reply_addr, &radio->request_addr, sizeof(radio->reply_addr));
+	radio->reply_addrlen = radio->request_addrlen;
 
 	strncpy(reply, request, n);
 	reply[n] = '\0'; /* FIXME: where is boundary checking? */
@@ -691,8 +641,8 @@ ssize_t cwdaemon_sendto(const char *reply)
 	/* TODO: Do we *really* need to end replies with CRLF? */
 	assert(reply[len - 2] == '\r' && reply[len - 1] == '\n');
 
-	ssize_t rv = sendto(socket_descriptor, reply, len, 0,
-			    (struct sockaddr *) &reply_addr, reply_addrlen);
+	ssize_t rv = sendto(radio->socket_descriptor, reply, len, 0,
+			    (struct sockaddr *) &radio->reply_addr, radio->reply_addrlen);
 
 	if (rv == -1) {
 		printf("sendto: \"%s\"", strerror(errno));
@@ -719,13 +669,13 @@ ssize_t cwdaemon_sendto(const char *reply)
  */
 int cwdaemon_recvfrom(char *request, int n)
 {
-	ssize_t recv_rc = recvfrom(socket_descriptor,
+	ssize_t recv_rc = recvfrom(radio->socket_descriptor,
 				   request,
 				   n,
 				   0, /* flags */
-				   (struct sockaddr *) &request_addr,
+				   (struct sockaddr *) &radio->request_addr,
 				   /* TODO: request_addrlen may be modified. Check it. */
-				   &request_addrlen);
+				   &radio->request_addrlen);
 
 	if (recv_rc == -1) { /* No requests available? */
 
@@ -1576,17 +1526,18 @@ bool cwdaemon_params_ptt_on_off(const char *optarg)
 
 /* main program: fork, open network connection and go into an endless loop
    waiting for something to happen on the UDP port */
-
-
 extern gpointer cwdaemon_thread(gpointer data)
 {
   printf("Starting cwdaemon\n");
   keytx = false;
-  cwdaemon_run = 1;
 	if (!cwdaemon_initialize_socket()) {
-		exit(EXIT_FAILURE);
+    g_print("Failed to initialise socket\n");
+    radio->cwdaemon_running = FALSE;
+    g_thread_exit(NULL);    
+		//exit(EXIT_FAILURE);
 	}
-
+  
+  radio->cwdaemon_running = TRUE;
 	// Initialize libcw 
 	cwdaemon_reset_almost_all();
   
@@ -1620,12 +1571,13 @@ extern gpointer cwdaemon_thread(gpointer data)
 
 	/* The main loop of cwdaemon. */
 	request_queue[0] = '\0';
-	do {
+	//do {
+  while (radio->cwdaemon_running = TRUE) {
 		fd_set readfd;
 		struct timeval udptime;
 
 		FD_ZERO(&readfd);
-		FD_SET(socket_descriptor, &readfd);
+		FD_SET(radio->socket_descriptor, &readfd);
 
 		if (inactivity_seconds < 30) {
 			udptime.tv_sec = 1;
@@ -1636,7 +1588,7 @@ extern gpointer cwdaemon_thread(gpointer data)
 
 		udptime.tv_usec = 0;
 		/* udptime.tv_usec = 999000; */	/* 1s is more than enough */
-		int fd_count = select(socket_descriptor + 1, &readfd, NULL, NULL, &udptime);
+		int fd_count = select(radio->socket_descriptor + 1, &readfd, NULL, NULL, &udptime);
 		/* int fd_count = select(socket_descriptor + 1, &readfd, NULL, NULL, NULL); */
 		if (fd_count == -1 && errno != EINTR) {
 			printf("Select");
@@ -1644,11 +1596,15 @@ extern gpointer cwdaemon_thread(gpointer data)
 			cwdaemon_receive();
 		}
 
-	} while (cwdaemon_run);
+	//} while (radio->cwdaemon_running = TRUE);
+  } 
   g_print("Close cwdaemon thread\n");
   
+
   cwdaemon_close_socket();
-  g_thread_exit(NULL);
+  //g_thread_exit(NULL);
+  return NULL;
+  //return;
 }
 
 
@@ -1662,34 +1618,36 @@ extern gpointer cwdaemon_thread(gpointer data)
 */
 bool cwdaemon_initialize_socket(void)
 {
-	memset(&request_addr, '\0', sizeof (request_addr));
-	request_addr.sin_family = AF_INET;
-	request_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	request_addr.sin_port = htons(port);
-	request_addrlen = sizeof (request_addr);
+	memset(&radio->request_addr, '\0', sizeof (radio->request_addr));
+	radio->request_addr.sin_family = AF_INET;
+	radio->request_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	radio->request_addr.sin_port = htons(radio->cwd_port);
+	radio->request_addrlen = sizeof (radio->request_addr);
 
-	socket_descriptor = socket(AF_INET, SOCK_DGRAM, 0);
-	if (socket_descriptor == -1) {
+	radio->socket_descriptor = socket(AF_INET, SOCK_DGRAM, 0);
+	if (radio->socket_descriptor == -1) {
 		printf("Socket open");
-		return false;
+		return NULL;
 	}
+  int on = 1;
+  setsockopt(radio->socket_descriptor, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
 
-	if (bind(socket_descriptor,
-		 (struct sockaddr *) &request_addr,
-		 request_addrlen) == -1) {
+	if (bind(radio->socket_descriptor,
+		 (struct sockaddr *) &radio->request_addr,
+		 radio->request_addrlen) == -1) {
 
 		printf("Bind");
 		return false;
 	}
 
-	int save_flags = fcntl(socket_descriptor, F_GETFL);
+	int save_flags = fcntl(radio->socket_descriptor, F_GETFL);
 	if (save_flags == -1) {
 		printf("Trying get flags");
 		return false;
 	}
 	save_flags |= O_NONBLOCK;
 
-	if (fcntl(socket_descriptor, F_SETFL, save_flags) == -1) {
+	if (fcntl(radio->socket_descriptor, F_SETFL, save_flags) == -1) {
 		printf("Trying non-blocking");
 		return false;
 	}
@@ -1698,16 +1656,23 @@ bool cwdaemon_initialize_socket(void)
 }
 
 void cwdaemon_stop(void) {
-  cwdaemon_run = 0;
+  g_print("Stop cwdaemon\n");
+  g_print("cwd run %d\n", radio->cwdaemon_running);
+  cwdaemon_close_libcw_output();
+  cwdaemon_close_socket();
+  g_print("cwd run %d\n", radio->cwdaemon_running);  
 }
 
 void cwdaemon_close_socket(void)
 {
-	if (socket_descriptor) {
-		if (close(socket_descriptor) == -1) {
+  radio->cwdaemon_running = FALSE;
+  g_print("Close cwdaemon socket\n");
+	if (radio->socket_descriptor) {
+		if (close(radio->socket_descriptor) == -1) {
 			printf("Close socket\n");
 			//exit(EXIT_FAILURE);
 		}
+    radio->socket_descriptor = -1;
 	}
 	return;
 }
