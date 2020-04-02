@@ -59,12 +59,17 @@ int ext_set_mox(void *data) {
 
 int ext_set_frequency_a(void *data) {
   RX_FREQUENCY *f=(RX_FREQUENCY *)data;
+  
+  g_mutex_lock(&f->rx->mutex);  
+  
   if(f->rx!=NULL) {
     f->rx->frequency_a=f->frequency;
     f->rx->band_a=get_band_from_frequency(f->frequency);
   }
   frequency_changed(f->rx);
   update_vfo(f->rx);
+  g_mutex_unlock(&f->rx->mutex);
+  
   g_free(f);
   return 0;
 }

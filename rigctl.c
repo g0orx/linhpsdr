@@ -752,9 +752,9 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
         // Check to see if first part of string is ZZ - if so
         //    strip the ZZ out and set the zzid_flag = 1;
  
-       //#ifdef  RIGCTL_DEBUG
-        fprintf(stderr,"RIGCTL: CMD=%s\n",cmd_input);
-       //#endif
+       #ifdef  RIGCTL_DEBUG
+       fprintf(stderr,"RIGCTL: CMD=%s\n",cmd_input);
+       #endif
         zzid_flag = 0;  // Set to indicate we haven't seen ZZ
         char * zzid_ptr;
         char temp[80];
@@ -1648,10 +1648,13 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                             // Next data will be rest of freq
                                             if(len == 13) { //We are receiving freq info
                                                new_freqA = atoll(&cmd_input[2]);
+                                               g_print("chg to %ld\n", new_freqA);
                                                RX_FREQUENCY *f=g_new0(RX_FREQUENCY,1);
                                                f->rx=rx;
                                                f->frequency=new_freqA;
+                                               g_print("ext freq set\n");
                                                g_idle_add(ext_set_frequency_a,(gpointer)f);
+                                               g_print("Done\n");
                                                return;
                                             } else {
                                                if(len==2) {

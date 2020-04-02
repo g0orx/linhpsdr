@@ -135,7 +135,6 @@ void update_meter(RECEIVER *rx,gdouble value) {
   double attenuation = radio->adc[rx->adc].attenuation;
 
   if(radio->discovered->device==DEVICE_HERMES_LITE) {
-      attenuation += 12;
       attenuation = attenuation * -1;
   }
 

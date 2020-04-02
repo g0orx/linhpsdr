@@ -130,7 +130,6 @@ static int current_morse_volume = CWDAEMON_MORSE_VOLUME_DEFAULT;
 static int current_ptt_delay    = CWDAEMON_PTT_DELAY_DEFAULT;
 static int current_audio_system = CWDAEMON_AUDIO_SYSTEM_DEFAULT;
 static int current_weighting    = CWDAEMON_MORSE_WEIGHTING_DEFAULT;
-static int current_verbosity    = CWDAEMON_VERBOSITY_DEFAULT;
 
 /* Level of libcw's tone queue that triggers 'callback for low level
    in tone queue'.  The callback function is
@@ -194,13 +193,6 @@ static const char *cwdaemon_verbosity_labels[] = {
 	"WW",    /* Warning. */
 	"II",    /* Information. */
 	"DD" };  /* Debug. */
-
-/* An integer that is a result of ORing libcw's debug flags. See
-   libcw.h (or is it libcw_debug.h?) for numeric values of the
-   flags. */
-static long int libcw_debug_flags = 0;
-
-
 
 /* Various variables. */
 static int wordmode = 0;               /* Start in character mode. */
@@ -785,8 +777,6 @@ int cwdaemon_receive(void)
 */
 void cwdaemon_handle_escaped_request(char *request)
 {
-	long lv;
-
 	/* Take action depending on Escape code. */
 	switch ((int) request[1]) {
 	case '0':
