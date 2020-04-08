@@ -227,8 +227,9 @@ static int which_button(int x,int y) {
         button=(x/35)-2+BUTTON_ATOB;
       }
     }
-  } else if(y>=48) {
-    button=(x-5)/35;
+  } else if(y>=48) {; 
+    int click_loc = (x-5)/35;
+    if (click_loc < 15) button = click_loc;
   } else if(x>=560) {
     if(y<=35) {
       button=SLIDER_AF;
