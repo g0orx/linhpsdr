@@ -57,7 +57,9 @@
 #include "frequency.h"
 #include "property.h"
 #include "rigctl.h"
+#ifdef SMARTSDR
 #include "smartsdr_server.h"
+#endif 
 #include "receiver_dialog.h"
 
 static GtkWidget *add_receiver_b;
@@ -77,7 +79,9 @@ fprintf(stderr,"radio_start\n");
 }
 
 void radio_save_state(RADIO *radio) {
+#ifdef SOAPYSDR
   char name[80];
+#endif
   char value[80];
   int i;
   gint x,y;
@@ -287,7 +291,9 @@ g_print("radio_save_state: %s\n",filename);
 }
 
 void radio_restore_state(RADIO *radio) {
+  #ifdef SOAPYSDR
   char name[80];
+  #endif
   char *value;
   char filename[128];
   switch(radio->discovered->protocol) {
@@ -458,8 +464,6 @@ void radio_restore_state(RADIO *radio) {
 }
 
 gboolean radio_button_press_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-  TRANSMITTER *rx=(TRANSMITTER *)data;
-  int x=(int)event->x;
   switch(event->button) {
     case 1: // left button
       break;
@@ -552,7 +556,6 @@ void frequency_changed(RECEIVER *rx) {
     }
 #endif
   } else {
-    double f=(double)(rx->frequency_a-rx->lo_a+rx->error_a);
     if(radio->discovered->protocol==PROTOCOL_2) {
       protocol2_high_priority();
 #ifdef SOAPYSDR
@@ -898,13 +901,13 @@ int add_wideband(void *data) {
 
 static gboolean add_receiver_cb(GtkWidget *widget,gpointer data) {
   RADIO *r=(RADIO *)data;
-  int rc=add_receiver(r);
+  add_receiver(r);
   return TRUE;
 }
 
 static gboolean add_wideband_cb(GtkWidget *widget,gpointer data) {
   RADIO *r=(RADIO *)data;
-  int rc=add_wideband(r);
+  add_wideband(r);
   if(r->wideband !=NULL) {
     gtk_widget_set_sensitive(add_wideband_b,FALSE);
   }
@@ -1263,8 +1266,9 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 #endif
   }
 
-
+#ifdef SMARTSDR
   create_smartsdr_server();
+#endif
 
 #ifdef SOAPYSDR
   soapy_protocol_set_mic_sample_rate(r->sample_rate);

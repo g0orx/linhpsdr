@@ -115,8 +115,6 @@ static void focus_in_event_cb(GtkWindow *window,GdkEventFocus *event,gpointer da
 }
 
 gboolean wideband_button_press_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-  WIDEBAND *w=(WIDEBAND *)data;
-  int x=(int)event->x;
   switch(event->button) {
     case 1: // left button
       break;
@@ -127,9 +125,6 @@ gboolean wideband_button_press_event_cb(GtkWidget *widget, GdkEventButton *event
 }
 
 gboolean wideband_button_release_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-  gint64 hz;
-  WIDEBAND *w=(WIDEBAND *)data;
-  int x=(int)event->x;
   switch(event->button) {
     case 1: // left button
       break;
@@ -142,7 +137,6 @@ gboolean wideband_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
 gboolean wideband_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
   gint x,y;
   GdkModifierType state;
-  WIDEBAND *w=(WIDEBAND *)data;
   gdk_window_get_device_position(event->window,event->device,&x,&y,&state);
   if((state & GDK_BUTTON1_MASK) == GDK_BUTTON1_MASK) {
   }
@@ -150,7 +144,6 @@ gboolean wideband_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *even
 }
 
 gboolean wideband_scroll_event_cb(GtkWidget *widget, GdkEventScroll *event, gpointer data) {
-  WIDEBAND *w=(WIDEBAND *)data;
   if(event->direction==GDK_SCROLL_UP) {
   } else {
   }
@@ -253,8 +246,6 @@ void wideband_init_analyzer(WIDEBAND *w) {
     int span_clip_h = 0;
     int pixels=w->pixels;
     int stitches = 1;
-    int avm = 0;
-    double tau = 0.001 * 120.0;
     int calibration_data_set = 0;
     double span_min_freq = 0.0;
     double span_max_freq = 0.0;

@@ -103,34 +103,22 @@ static int wide_addr_length;
 static GThread *protocol2_thread_id;
 static GThread *protocol2_timer_thread_id;
 
-static long rx_sequence = 0;
-
 static long high_priority_sequence = 0;
 static long general_sequence = 0;
 static long rx_specific_sequence = 0;
 static long tx_specific_sequence = 0;
 
-//static int buffer_size=BUFFER_SIZE;
-//static int fft_size=4096;
-static int dspRate=48000;
-static int outputRate=48000;
-
-static int micSampleRate=48000;
-static int micDspRate=48000;
-static int micOutputRate=192000;
 static int micoutputsamples;  // 48000 in, 192000 out
 
-static double micinputbuffer[MAX_BUFFER_SIZE*2]; // 48000
-static double iqoutputbuffer[MAX_BUFFER_SIZE*4*2]; //192000
+//static double micinputbuffer[MAX_BUFFER_SIZE*2]; // 48000 ---- UNUSED
+//static double iqoutputbuffer[MAX_BUFFER_SIZE*4*2]; //192000 --- UNUSED
 
 static long tx_iq_sequence;
 static unsigned char iqbuffer[1444];
 static int iqindex;
 static int micsamples;
 
-static int SPECTRUM_UPDATES_PER_SECOND=10;
-
-static float phase = 0.0F;
+//static float phase = 0.0F; //UNUSED
 
 static long response_sequence;
 static int response;
@@ -140,8 +128,6 @@ static int samples[MAX_RECEIVERS];
 static int outputsamples;
 #endif
 
-static int leftaudiosample;
-static int rightaudiosample;
 static long audiosequence;
 static unsigned char audiobuffer[260]; // was 1444
 static int audioindex;
@@ -242,7 +228,7 @@ void protocol2_stop_wideband() {
 
 void protocol2_init(RADIO *r) {
     int i;
-    int rc;
+    // int rc; // UNUSED
 
     fprintf(stderr,"protocol2_init: MIC_SAMPLES=%d\n",MIC_SAMPLES);
 
@@ -393,9 +379,9 @@ void protocol2_general() {
 }
 
 void protocol2_high_priority() {
-    int i, r;
+    int r;
     BAND *band;
-    int xvtr;
+    int xvtr = 0; // IS THIS UNUSED?
     long long rxFrequency;
     long long txFrequency;
     long phase;
@@ -450,7 +436,7 @@ void protocol2_high_priority() {
 
       for(r=0;r<radio->discovered->supported_receivers;r++) {
         if(radio->receiver[r]!=NULL) {
-          int v=radio->receiver[r]->channel;
+          //int v=radio->receiver[r]->channel; // UNUSED
           rxFrequency=radio->receiver[r]->frequency_a-radio->receiver[r]->lo_a+radio->receiver[r]->error_a;
           if(radio->receiver[r]->rit_enabled) {
             rxFrequency+=radio->receiver[r]->rit;
@@ -1068,7 +1054,7 @@ static gpointer protocol2_thread(gpointer data) {
 
     int i;
     int ddc;
-    short sourceport;
+    //short sourceport;
     static unsigned char *buffer;
     int bytesread;
 
@@ -1199,8 +1185,11 @@ fprintf(stderr,"protocol2_thread: Unknown port %d free %p\n",sourceport,buffer);
 
 static void process_iq_data(RECEIVER *rx,unsigned char *buffer) {
   long sequence;
+  /*
   long long timestamp;
   int bitspersample;
+  */
+  
   int samplesperframe;
   int b;
   int leftsample;
@@ -1213,6 +1202,7 @@ static void process_iq_data(RECEIVER *rx,unsigned char *buffer) {
 
   if(buffer!=NULL) {
   sequence=((buffer[0]&0xFF)<<24)+((buffer[1]&0xFF)<<16)+((buffer[2]&0xFF)<<8)+(buffer[3]&0xFF);
+  
 
   if(rx->iq_sequence!=sequence) {
     //fprintf(stderr,"rx %d sequence error: expected %ld got %ld\n",rx->channel,rx->iq_sequence,sequence);
@@ -1220,9 +1210,12 @@ static void process_iq_data(RECEIVER *rx,unsigned char *buffer) {
   }
   rx->iq_sequence++;
 
+  /* UNUSED
   timestamp=((long long)(buffer[4]&0xFF)<<56)+((long long)(buffer[5]&0xFF)<<48)+((long long)(buffer[6]&0xFF)<<40)+((long long)(buffer[7]&0xFF)<<32)+
   ((long long)(buffer[8]&0xFF)<<24)+((long long)(buffer[9]&0xFF)<<16)+((long long)(buffer[10]&0xFF)<<8)+(long long)(buffer[11]&0xFF);
+
   bitspersample=((buffer[12]&0xFF)<<8)+(buffer[13]&0xFF);
+  */
   samplesperframe=((buffer[14]&0xFF)<<8)+(buffer[15]&0xFF);
 
 //fprintf(stderr,"process_iq_data: rx=%d seq=%ld bitspersample=%d samplesperframe=%d\n",rx->id, sequence,bitspersample,samplesperframe);
@@ -1338,7 +1331,7 @@ static void process_ps_iq_data(RECEIVER *rx) {
 #endif
 
 static void process_wideband_data(WIDEBAND *w,unsigned char *buffer) {
-  long sequence;
+  //long sequence; // UNUSED
   int b;
   int sample;
   double sampledouble;
@@ -1347,7 +1340,7 @@ static void process_wideband_data(WIDEBAND *w,unsigned char *buffer) {
   //buffer=wide_buffer;
 
 
-  sequence=((buffer[0]&0xFF)<<24)+((buffer[1]&0xFF)<<16)+((buffer[2]&0xFF)<<8)+(buffer[3]&0xFF);
+  //sequence=((buffer[0]&0xFF)<<24)+((buffer[1]&0xFF)<<16)+((buffer[2]&0xFF)<<8)+(buffer[3]&0xFF); // UNUSED
   b=4;
   while(b<1028) {
     sample   = (int)((signed char) buffer[b++])<<8;
@@ -1364,19 +1357,25 @@ static void process_command_response(unsigned char *buffer) {
 }
 
 static void process_high_priority(unsigned char *buffer) {
-    long sequence;
-    gint mode;
+
+
     int previous_ptt;
+    /* UNUSED
+    long sequence; 
+    gint mode;
     int previous_dot;
     int previous_dash;
+    */ 
 
-    int channel=radio->transmitter->rx->channel;
 
-    sequence=((buffer[0]&0xFF)<<24)+((buffer[1]&0xFF)<<16)+((buffer[2]&0xFF)<<8)+(buffer[3]&0xFF);
 
     previous_ptt=radio->ptt;
+    /* UNUSED
+    int channel=radio->transmitter->rx->channel; 
+    sequence=((buffer[0]&0xFF)<<24)+((buffer[1]&0xFF)<<16)+((buffer[2]&0xFF)<<8)+(buffer[3]&0xFF);
     previous_dot=radio->dot;
     previous_dash=radio->dash;
+    */
 
     radio->ptt=buffer[4]&0x01;
     radio->dot=(buffer[4]>>1)&0x01;
@@ -1391,12 +1390,13 @@ static void process_high_priority(unsigned char *buffer) {
     radio->transmitter->alex_reverse_power=((buffer[22]&0xFF)<<8)|(buffer[23]&0xFF);
     radio->supply_volts=((buffer[49]&0xFF)<<8)|(buffer[50]&0xFF);
 
+    /* UNUSED
     if(radio->transmitter->rx->split) {
       mode=radio->transmitter->rx->mode_a;
     } else {
       mode=radio->transmitter->rx->mode_b;
     }
-
+    */
     gint tx_mode=USB;
     RECEIVER *tx_receiver=radio->transmitter->rx;
     if(tx_receiver!=NULL) {
@@ -1418,12 +1418,12 @@ static void process_high_priority(unsigned char *buffer) {
 }
 
 static void process_mic_data(int bytes,unsigned char *buffer) {
-  long sequence;
+  // long sequence; //UNUSED
   int b;
   int i;
   short sample;
 
-  sequence=((buffer[0]&0xFF)<<24)+((buffer[1]&0xFF)<<16)+((buffer[2]&0xFF)<<8)+(buffer[3]&0xFF);
+  //sequence=((buffer[0]&0xFF)<<24)+((buffer[1]&0xFF)<<16)+((buffer[2]&0xFF)<<8)+(buffer[3]&0xFF); // UNUSED
   b=4;
   for(i=0;i<MIC_SAMPLES;i++) {
     sample=(short)(buffer[b++]<<8);
@@ -1511,7 +1511,7 @@ void protocol2_iq_samples(int isample,int qsample) {
 }
 
 void* protocol2_timer_thread(void* arg) {
-  int specific=0;
+  // int specific=0; // UNUSED
 fprintf(stderr,"protocol2_timer_thread\n");
   while(running) {
     usleep(100000); // 100ms

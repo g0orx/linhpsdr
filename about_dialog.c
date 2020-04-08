@@ -45,7 +45,6 @@
 static GtkWidget *label;
 
 GtkWidget *create_about_dialog(RADIO *r) {
-  int i;
   char text[2048];
   char addr[64];
   char interface_addr[64];

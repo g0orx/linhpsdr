@@ -122,8 +122,6 @@ int rigctlGetFilterLow();
 int rigctlGetFilterHigh();
 int rigctlGetMode(RECEIVER *rx);
 void rigctlSetMode(RECEIVER *rx, int new_mode);
-int rigctlSetFilterLow(int val);
-int rigctlSetFilterHigh(int val);
 int new_level;
 int active_transmitter = 0;
 int rigctl_busy = 0;  // Used to tell rigctl_menu that launch has already occured
@@ -159,13 +157,13 @@ FILTER * band_filter;
 //static GThread *rigctl_set_timer_thread_id = NULL;
 //static int server_running;
 
+#ifdef SERIAL
 static GThread *serial_server_thread_id = NULL;
+#endif
 
 //static int server_socket=-1;
 //static int server_address_length;
 //static struct sockaddr_in server_address;
-
-static int rigctl_timer = 0;
 
 typedef struct _client {
   int socket;
@@ -206,7 +204,6 @@ int ctcss_mode;  // Numbers 0/1 - on off.
 static gpointer rigctl_client (gpointer data);
 
 void close_rigctl_ports(RECEIVER *rx) {
-  int i;
   struct linger linger = { 0 };
   linger.l_onoff = 1;
   linger.l_linger = 0;
@@ -232,16 +229,7 @@ void close_rigctl_ports(RECEIVER *rx) {
   }
 }
 
-// RigCtl Timer - to throttle passes through the parser...
-// Sets rigctl_timer while waiting - clears and exits thread.
-static gpointer set_rigctl_timer (gpointer data) {
-      rigctl_timer = 1;
-      // Wait throttle time
-      usleep(RIGCTL_TIMER_DELAY);
-      rigctl_timer = 0;
-}
 
-//
 // Used to convert transmitter->ctcss_frequency into 1-39 value for TS2000.
 // This COULD be done with a simple table lookup - but I've already written the code
 // so at this point...
@@ -347,6 +335,7 @@ void send_dash() {
        //fprintf(stderr,"_%d",mox);
        
 }
+
 void send_dot() {
        int dot_delay = 1200/cw_keyer_speed;
        g_idle_add(ext_cw_key, (gpointer)(long)1);
@@ -355,6 +344,7 @@ void send_dot() {
        usleep((long)dot_delay* 1000L);
        //fprintf(stderr,".%d",mox);
 }
+
 void send_space() {
        int dot_delay = 1200/cw_keyer_speed;
        usleep((long)dot_delay* 7000L);
@@ -461,6 +451,7 @@ void rigctl_send_cw_char(char cw_char) {
     usleep(delay*3L);
     //fprintf(stderr,"\n");
 }
+
 void gui_vfo_move_to(gpointer data) {
    long long freq = *(long long *) data;
    fprintf(stderr,"GUI: %11lld\n",freq);
@@ -477,6 +468,7 @@ long long rigctl_getFrequency() {
       return vfo[active_receiver->id].frequency;
    } 
 }
+
 #endif // PIHPSDR
 // Looks up entry INDEX_NUM in the command structure and
 // returns the command string
@@ -486,9 +478,9 @@ void send_resp (int client_sock,char * msg) {
         fprintf(stderr,"RIGCTL: RESP=%s\n",msg);
     #endif
     if(client_sock == -1) { // Serial port 
-       int bytes=write(fd,msg,strlen(msg));   
+       write(fd,msg,strlen(msg));   
     } else {  // TCP/IP port
-       int bytes=write(client_sock, msg, strlen(msg));
+       write(client_sock, msg, strlen(msg));
     }
 }
 
@@ -499,9 +491,7 @@ void send_resp (int client_sock,char * msg) {
 static gpointer rigctl_server(gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   int port=rigctl_port_base+rx->channel;
-  int rc;
   int on=1;
-  int i;
   GThread *client_thread_id;
 
   fprintf(stderr,"rigctl_server: starting server on port %d\n",port);
@@ -560,10 +550,7 @@ static gpointer rigctl_server(gpointer data) {
   return NULL;
 }
 
-static gpointer rigctl_client (gpointer data) {
-   int len;
-   int c;
-   
+static gpointer rigctl_client (gpointer data) { 
    RECEIVER *rx=(RECEIVER *)data;
 
    fprintf(stderr,"rigctl_client: starting rigctl_client: socket=%d\n",rx->rigctl_client_socket);
@@ -580,17 +567,18 @@ static gpointer rigctl_client (gpointer data) {
    int semi_number = 0;
    int i;
    char * work_ptr;
-   char work_buf[MAXDATASIZE];
+
    int numbytes;
    char  cmd_input[MAXDATASIZE] ;
    char cmd_save[80];
    char cw_check_buf[4];
 
     while(rx->rigctl_running && (numbytes=recv(rx->rigctl_client_socket , cmd_input , MAXDATASIZE-2 , 0)) > 0 ) {
+         #ifdef RIGCTL_DEBUG
+         char work_buf[MAXDATASIZE];  
          for(i=0;i<numbytes;i++)  { work_buf[i] = cmd_input[i]; }
          work_buf[i+1] = '\0';
-         #ifdef RIGCTL_DEBUG
-         fprintf(stderr,"RIGCTL: RCVD=%s<-\n",work_buf);
+         fprintf(stderr,"RIGCTL: RCVD=%s\n",work_buf);
          #endif
 
         // Need to handle two cases
@@ -662,7 +650,6 @@ static gpointer rigctl_client (gpointer data) {
            }
            for(i=0;i<MAXDATASIZE;i++){
                 cmd_input[i] = '\0'; 
-                work_buf[i]  = '\0';  // Clear the input buffer
            }
         }
        // Got here because socket closed 
@@ -702,44 +689,23 @@ int ft_read() {
 // 
 void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
         int work_int;     
-        int new_low, new_high;
         int zzid_flag;
-        double meter;
-        double forward;
-        double reverse;
-        double vswr;
         char msg[200];
-        char buf[200];
-        int i;
+
 #ifdef PIHPSDR
+        char buf[200];
+        int new_low, new_high;
+        double vswr;
+        double forward;
+        double reverse;        
+        double meter;
+
         BANDSTACK_ENTRY *entry;
 #endif // PIHPSDR
         // Parse the cmd_input
         //int space = command.indexOf(' ');
         //char cmd_char = com_head->cmd_string[0]; // Assume the command is first thing!
         char cmd_str[3];
-
-/*
-        // Put in throtle check here - we have an issue with issuing to many 
-        // GUI commands - the idea is to create a separate thread that maintains a 200ms clock
-        // and use the Mutex mechanism to wait here till we process the next command
-
-        while(rigctl_timer != 0) {  // Wait here till the timer expires
-            usleep(1000);
-        }
- 
-        // Start a new timer...
-	
-        rigctl_set_timer_thread_id = g_thread_new( "rigctl_timer", set_rigctl_timer, NULL);
-
-        while(rigctl_timer != 1) {  // Wait here till the timer sets!
-            usleep(1000);
-        }
-        usleep(1000);
-
-	// Clean up the thread
-	g_thread_unref(rigctl_set_timer_thread_id);
-*/
 
         // On with the rest of the show..
         cmd_str[0] = cmd_input[0];
@@ -772,7 +738,6 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
            // It is 4AM and this was the only safe way for me to get a strcpy to work
            // so - there ya go...
            for(cnt=2; cnt<=len;cnt++) { 
-               //fprintf(stderr,"[%d]=%c:",cnt,cmd_input[cnt]);
                *zzid_ptr++= cmd_input[cnt]; 
            }
            temp[len+1] = '\0';
@@ -1648,13 +1613,10 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                             // Next data will be rest of freq
                                             if(len == 13) { //We are receiving freq info
                                                new_freqA = atoll(&cmd_input[2]);
-                                               g_print("chg to %ld\n", new_freqA);
                                                RX_FREQUENCY *f=g_new0(RX_FREQUENCY,1);
                                                f->rx=rx;
                                                f->frequency=new_freqA;
-                                               g_print("ext freq set\n");
                                                g_idle_add(ext_set_frequency_a,(gpointer)f);
-                                               g_print("Done\n");
                                                return;
                                             } else {
                                                if(len==2) {
@@ -2066,8 +2028,8 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                                 send_resp(client_sock,"IS00000;");
                                              } 
                                           }  
-        else if((strcmp(cmd_str,"KS")==0) && (zzid_flag == 0) || 
-                (strcmp(cmd_str,"CS")==0) && (zzid_flag==1))  { 
+        else if(((strcmp(cmd_str,"KS")==0) && (zzid_flag == 0)) || 
+                ((strcmp(cmd_str,"CS")==0) && (zzid_flag==1)))  { 
          #ifdef PIHPSDR
                                             // TS-2000 - KS - Set/Reads keying speed 0-060 max
                                             // PiHPSDR - ZZCS - Sets/Reads Keying speed
@@ -3103,8 +3065,8 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                                send_resp(client_sock,"?;"); 
                                              }
                                          }
-        else if((strcmp(cmd_str,"SD")==0) && (zzid_flag == 0) ||  
-                (strcmp(cmd_str,"CD")==0) && (zzid_flag ==1)) {  
+        else if(((strcmp(cmd_str,"SD")==0) && (zzid_flag == 0)) ||  
+                ((strcmp(cmd_str,"CD")==0) && (zzid_flag == 1))) {  
                                             // PiHPSDR - ZZCD - Set/Read CW Keyer Hang Time
                                             // TS-2000 - SD - Set/Read Break In Delay
                                             // 
@@ -3896,8 +3858,6 @@ void disable_serial () {
 //                   (Port numbers now const ints instead of defines..) 
 //
 void launch_rigctl (RECEIVER *rx) {
-   int err;
-   
    g_print("launch_rigctl for receiver: %d\n",rx->channel);
 
    // This routine encapsulates the thread call
@@ -3961,12 +3921,6 @@ void rigctlSetMode(RECEIVER *rx, int new_mode)  {
   return;
 }
 
-int rigctlSetFilterLow(int val){
-};
-
-int rigctlSetFilterHigh(int val){
-};
-
 void set_freqB(long long new_freqB) {      
 
    //BANDSTACK_ENTRY *bandstack = bandstack_entry_get_current();
@@ -3977,7 +3931,6 @@ void set_freqB(long long new_freqB) {
    g_idle_add(ext_vfo_update,NULL);
 #endif // PIHPSDR
 }
-
 
 int set_band (gpointer data) {
 #ifdef PIHPSDR 
@@ -4084,16 +4037,18 @@ int set_band (gpointer data) {
   //calcTuneDriveLevel();
   g_idle_add(ext_vfo_update,NULL);
 
+#endif // PIHPSDR
   return 0;
-  #endif // PIHPSDR
 }
+
 int set_alc(gpointer data) {
   #ifdef PIHPSDR
     int * lcl_ptr = (int *) data;
     alc = *lcl_ptr;
     fprintf(stderr,"RIGCTL: set_alc=%d\n",alc);
-    return 0;
+
   #endif // PIHPSDR
+    return 0;
 }
 
 int lookup_band(int val) {

@@ -58,7 +58,7 @@ static GtkWidget *random_b;
 static GtkWidget *preamp_b;
 static GtkWidget *attenuation_label;
 static GtkWidget *attenuation_b;
-static GtkWidget *enable_attenuation_b;
+//static GtkWidget *enable_attenuation_b;
 static GtkWidget *disable_fpgaclk_b;
 
 static GtkWidget *adc1_frame;
@@ -66,6 +66,7 @@ static GtkWidget *adc1_antenna_combo_box;
 static GtkWidget *adc1_filters_combo_box;
 static GtkWidget *adc1_hpf_combo_box;
 static GtkWidget *adc1_lpf_combo_box;
+
 static GtkWidget *cw_keyer_sidetone_frequency_b;
 static GtkWidget *cw_keyer_speed_b;
 static GtkWidget *cw_keyer_weight_b;
@@ -73,11 +74,14 @@ static GtkWidget *cw_keyer_sidetone_level_b;
 
 static GtkWidget *rigctl_base;
 
+#ifdef SOAPYSDR
 static GtkWidget *dac0_frame;
 static GtkWidget *dac0_antenna_combo_box;
+#endif
 
 static GtkWidget *audio_backend_combo_box;
 
+/* TO REMOVE
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   RADIO *radio=(RADIO *)data;
   radio->dialog=NULL;
@@ -89,6 +93,7 @@ static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) 
   radio->dialog=NULL;
   return FALSE;
 }
+*/
 
 static void update_controls() {
   switch(radio->model) {
@@ -251,17 +256,18 @@ static void adc1_antenna_cb(GtkComboBox *widget,gpointer data) {
   }
 }
 
+#ifdef SOAPYSDR
 static void dac0_antenna_cb(GtkComboBox *widget,gpointer data) {
   RADIO *radio=(RADIO *)data;
   radio->dac[0].antenna=gtk_combo_box_get_active(widget);
   if(radio->discovered->protocol==PROTOCOL_2) {
     protocol2_high_priority();
-#ifdef SOAPYSDR
+
   } else if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
     soapy_protocol_set_tx_antenna(radio->transmitter,radio->dac[0].antenna);
-#endif
   }
 }
+#endif
 
 static void adc0_filters_cb(GtkComboBox *widget,gpointer data) {
   RADIO *radio=(RADIO *)data;
@@ -318,6 +324,7 @@ static void adc1_hpf_cb(GtkComboBox *widget,gpointer data) {
   }
 }
 
+/* UNUSED - this may be a bug
 static void adc1_lpf_cb(GtkComboBox *widget,gpointer data) {
   RADIO *radio=(RADIO *)data;
   radio->adc[1].lpf=gtk_combo_box_get_active(widget);
@@ -325,6 +332,7 @@ static void adc1_lpf_cb(GtkComboBox *widget,gpointer data) {
     protocol2_high_priority();
   }
 }
+*/
 
 static void ptt_cb(GtkWidget *widget, gpointer data) {
   RADIO *radio=(RADIO *)data;
@@ -463,6 +471,7 @@ static void preamp_cb(GtkWidget *widget, gpointer data) {
   adc->preamp=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 }
 
+/* TO REMOVE
 static void lna_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   ADC *adc=(ADC *)data;
   adc->attenuation=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
@@ -470,6 +479,7 @@ static void lna_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
     protocol2_high_priority();
   }
 }
+*/ 
 
 #ifdef SOAPYSDR
 static void gain_value_changed_cb(GtkWidget *widget, gpointer data) {
@@ -529,6 +539,7 @@ static void attenuation_value_changed_cb(GtkWidget *widget, gpointer data) {
   }
 }
 
+/* TO REMOVE
 static void enable_step_attenuation_cb(GtkWidget *widget,gpointer data) {
   ADC *adc=(ADC *)data;
   adc->enable_step_attenuation=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
@@ -536,6 +547,7 @@ static void enable_step_attenuation_cb(GtkWidget *widget,gpointer data) {
     protocol2_high_priority();
   }
 }
+*/
 
 static void rigctl_cb(GtkWidget *widget, gpointer data) {
   int i;
@@ -604,9 +616,6 @@ static void cwdaemon_cb(GtkWidget *widget, gpointer data) {
 #endif
 
 GtkWidget *create_radio_dialog(RADIO *radio) {
-  int i;
-  char temp[16];
-
   GtkWidget *grid=gtk_grid_new();
   gtk_grid_set_row_homogeneous(GTK_GRID(grid),FALSE);
   gtk_grid_set_column_homogeneous(GTK_GRID(grid),FALSE);
@@ -707,9 +716,6 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   gtk_grid_set_column_homogeneous(GTK_GRID(adc0_grid),TRUE);
   gtk_container_add(GTK_CONTAINER(adc0_frame),adc0_grid);
   gtk_grid_attach(GTK_GRID(grid),adc0_frame,col,row++,1,1);
-
-  int r=0;
-
  
   switch(radio->discovered->device) {
 
@@ -773,7 +779,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       gtk_grid_attach(GTK_GRID(adc0_grid),disable_fpgaclk_b,0,1,1,1);
       g_signal_connect(disable_fpgaclk_b,"toggled",G_CALLBACK(psu_clk_cb),radio);
 
-      /*
+      /* TO REMOVE
       enable_attenuation_b=gtk_check_button_new_with_label("Enable 20dB Attenuation");
       gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (enable_attenuation_b), radio->adc[0].dither);
       gtk_grid_attach(GTK_GRID(adc0_grid),enable_attenuation_b,1,1,1,1);
@@ -894,6 +900,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc1_lpf_combo_box),NULL,"12/10m LPF");
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc1_lpf_combo_box),NULL,"6m LPF");
       gtk_combo_box_set_active(GTK_COMBO_BOX(adc1_lpf_combo_box),radio->adc[1].lpf);
+      // Should this be G_CALLBACK(adc1_lpf_cb)?
       g_signal_connect(adc1_lpf_combo_box,"changed",G_CALLBACK(adc0_lpf_cb),radio);
       gtk_grid_attach(GTK_GRID(adc1_grid),adc1_lpf_combo_box,3,0,1,1);
 

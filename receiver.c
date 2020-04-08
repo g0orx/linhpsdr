@@ -614,7 +614,6 @@ static void focus_in_event_cb(GtkWindow *window,GdkEventFocus *event,gpointer da
 
 gboolean receiver_button_press_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
-  int x=(int)event->x;
   switch(event->button) {
     case 1: // left button
       if(!rx->locked) {
@@ -913,7 +912,6 @@ static void process_rx_buffer(RECEIVER *rx) {
 }
 
 static void full_rx_buffer(RECEIVER *rx) {
-int j;
   int error;
 
   if(isTransmitting(radio)) return;
@@ -961,9 +959,6 @@ void add_iq_samples(RECEIVER *rx,double i_sample,double q_sample) {
 }
 
 static gboolean receiver_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
-  char name[80];
-  char *value;
-
   RECEIVER *rx=(RECEIVER *)data;
   gint width=gtk_widget_get_allocated_width(widget);
   gint height=gtk_widget_get_allocated_height(widget);
@@ -1100,8 +1095,6 @@ void receiver_init_analyzer(RECEIVER *rx) {
     int span_clip_h = 0;
     int pixels=rx->pixels;
     int stitches = 1;
-    int avm = 0;
-    double tau = 0.001 * 120.0;
     int calibration_data_set = 0;
     double span_min_freq = 0.0;
     double span_max_freq = 0.0;
@@ -1158,7 +1151,6 @@ RECEIVER *create_receiver(int channel,int sample_rate) {
   gint y=-1;
   gint width;
   gint height;
-  gint paned;
 
 g_print("create_receiver: channel=%d sample_rate=%d\n", channel, sample_rate);
   g_mutex_init(&rx->mutex);

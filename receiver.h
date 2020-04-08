@@ -225,7 +225,7 @@ typedef struct _receiver {
   GMutex rigctl_mutex;
   gint rigctl_client_socket;
   struct sockaddr_in rigctl_client_address;
-  gint rigctl_client_address_length;
+  guint rigctl_client_address_length;
   gint cat_control;
   gboolean rigctl_running;
 

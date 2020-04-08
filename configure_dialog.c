@@ -51,6 +51,7 @@
 
 int rx_base=3; // number of tabs before receivers
 
+/* TO REMOVE
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   RADIO *radio=(RADIO *)data;
   int i;
@@ -69,6 +70,7 @@ static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer dat
 
   return TRUE;
 }
+*/
 
 static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) {
   RADIO *radio=(RADIO *)data;
@@ -88,8 +90,8 @@ static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) 
   return FALSE;
 }
 
+// TO REMOVE?
 static gboolean switch_page_event(GtkNotebook *notebook,GtkWidget *page,guint page_num,gpointer data) {
-  RADIO *radio=(RADIO *)data;
   GtkWidget *label=gtk_notebook_get_tab_label(notebook,page);
   const char *text=gtk_label_get_text(GTK_LABEL(label));
   g_print("switch_page: %d %s\n",page_num,text);
@@ -101,6 +103,8 @@ static gboolean switch_page_event(GtkNotebook *notebook,GtkWidget *page,guint pa
   if(strncmp("TX",text,2)==0) {
     //update_transmitter_audio_choices(radio->transmitter);
   }
+  
+  return TRUE;
 }
 
 GtkWidget *create_configure_dialog(RADIO *radio,int tab) {

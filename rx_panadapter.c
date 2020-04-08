@@ -277,10 +277,7 @@ static gboolean first_time=TRUE;
 void update_rx_panadapter(RECEIVER *rx) {
   int i;
   int x1,x2;
-  int result;
   float *samples;
-  float saved_max;
-  float saved_min;
   cairo_text_extents_t extents;
   char temp[32];
 

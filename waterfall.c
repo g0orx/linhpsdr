@@ -34,10 +34,6 @@ static int colorLowR=0; // black
 static int colorLowG=0;
 static int colorLowB=0;
 
-static int colorMidR=255; // red
-static int colorMidG=0;
-static int colorMidB=0;
-
 static int colorHighR=255; // yellow
 static int colorHighG=255;
 static int colorHighB=0;
@@ -61,11 +57,6 @@ static gboolean resize_timeout(void *data) {
   return FALSE;
 }
 
-static gboolean waterfall_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
-  RECEIVER *rx=(RECEIVER *)data;
-  return TRUE;
-}
-
 static gboolean waterfall_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   gint width=gtk_widget_get_allocated_width (widget);
@@ -81,7 +72,6 @@ static gboolean waterfall_configure_event_cb(GtkWidget *widget,GdkEventConfigure
   return TRUE;
 }
 
-
 static gboolean waterfall_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   if(rx->waterfall_pixbuf) {
@@ -91,10 +81,6 @@ static gboolean waterfall_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
   return FALSE;
 }
 
-static gboolean waterfall_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
-  RECEIVER *rx=(RECEIVER *)data;
-  return TRUE;
-}
 
 GtkWidget *create_waterfall(RECEIVER *rx) {
   GtkWidget *waterfall;
@@ -136,12 +122,11 @@ void update_waterfall(RECEIVER *rx) {
     int width=gdk_pixbuf_get_width(rx->waterfall_pixbuf);
     int height=gdk_pixbuf_get_height(rx->waterfall_pixbuf);
     int rowstride=gdk_pixbuf_get_rowstride(rx->waterfall_pixbuf);
-    int channels=gdk_pixbuf_get_n_channels(rx->waterfall_pixbuf);
-
+    
     if(rx->waterfall_frequency!=0 && (rx->sample_rate==rx->waterfall_sample_rate)) {
       if(rx->waterfall_frequency!=rx->frequency_a) {
         // scrolled or band change
-        long long half=(long long)(rx->sample_rate/2);
+        long long half=((long long)(rx->sample_rate/2))/(rx->zoom);      
         if(rx->waterfall_frequency<(rx->frequency_a-half) || rx->waterfall_frequency>(rx->frequency_a+half)) {
           // outside of the range - blank waterfall
           memset(pixels, 0, width*height*3);

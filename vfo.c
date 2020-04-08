@@ -107,6 +107,7 @@ static gboolean vfo_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
   return FALSE;
 }
 
+/* TO REMOVE
 static int next_step(int current_step) {
   int next=100;
   switch(current_step) {
@@ -210,6 +211,7 @@ static int previous_step(int current_step) {
   }
   return previous;
 }
+*/
 
 static int which_button(int x,int y) {
   int button=BUTTON_NONE;
@@ -763,7 +765,6 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
   int i;
   CHOICE *choice;
   FILTER *mode_filters;
-  FILTER *filter;
   BAND *band;
   int x=(int)event->x;
   int y=(int)event->y;
@@ -1817,7 +1818,6 @@ void update_vfo(RECEIVER *rx) {
     cairo_show_text(cr, temp);
 
     FILTER* band_filters=filters[rx->mode_a];
-    FILTER* band_filter=&band_filters[rx->filter_a];
     cairo_set_font_size(cr, 12);
 
     int x=5;

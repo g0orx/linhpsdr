@@ -69,8 +69,6 @@
 #include "cwdaemon.h"
 #endif
 
-static int last_level=-1;
-
 #define min(x,y) (x<y?x:y)
 
 #define SYNC0 0
@@ -120,28 +118,6 @@ static int last_level=-1;
 #define LT2208_RANDOM_OFF         0x00
 #define LT2208_RANDOM_ON          0x10
 
-// for Hermes-Lite FPGA FW version < 41 only
-static gboolean lna_dither[] = {TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE,
-            TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE,
-            TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE,
-            TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE,
-            FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,
-            FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,
-            FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,
-            FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE};
-// for Hermes-Lite FPGA FW version < 41 only
-static guchar lna_att[] = {31, 30, 29, 28, 27, 26, 25, 24,
-            23, 22, 21, 20, 19, 18, 17, 16,
-            15, 14, 13, 12, 11, 10, 9, 8,
-            7, 6, 5, 4, 3, 2, 1, 0,
-            31, 30, 29, 28, 27, 26, 25, 24,
-            23, 22, 21, 20, 19, 18, 17, 16,
-            15, 14, 13, 12, 11, 10, 9, 8,
-            7, 6, 5, 4, 3, 2, 1, 0};
-
-static int dsp_rate=48000;
-static int output_rate=48000;
-
 static int data_socket;
 static struct sockaddr_in data_addr;
 static int data_addr_length;
@@ -150,15 +126,11 @@ static int output_buffer_size;
 
 static unsigned char control_in[5]={0x00,0x00,0x00,0x00,0x00};
 
-static double tuning_phase;
-static double phase=0.0;
-
 static gboolean running;
 static long ep4_sequence;
 
 static int current_rx=0;
 
-static int samples=0;
 static int mic_samples=0;
 static int mic_sample_divisor=1;
 #ifdef FREEDV
@@ -168,13 +140,6 @@ static int freedv_divisor=6;
 static int psk_samples=0;
 static int psk_divisor=6;
 #endif
-
-static double micinputbuffer[MAX_BUFFER_SIZE*2];
-
-static int left_rx_sample;
-static int right_rx_sample;
-static int left_tx_sample;
-static int right_tx_sample;
 
 static unsigned char output_buffer[OZY_BUFFER_SIZE];
 static int output_buffer_index=8;
@@ -264,7 +229,6 @@ void protocol1_set_mic_sample_rate(int rate) {
 }
 
 void protocol1_init(RADIO *r) {
-  int i;
   QueueInit();
   fprintf(stderr,"protocol1_init\n");
 
@@ -361,10 +325,6 @@ static gpointer ozy_ep6_rx_thread(gpointer arg) {
 #endif
 
 static void start_protocol1_thread() {
-  int i;
-  int rc;
-  struct hostent *h;
-
   fprintf(stderr,"protocol1 starting receive thread: buffer_size=%d output_buffer_size=%d\n",radio->buffer_size,output_buffer_size);
 
   switch(radio->discovered->device) {
@@ -387,15 +347,6 @@ static void start_protocol1_thread() {
         perror("data_socket: SO_REUSEPORT");
       }
 
-/*
-      // set a timeout for receive
-      struct timeval tv;
-      tv.tv_sec=1;
-      tv.tv_usec=0;
-      if(setsockopt(data_socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv))<0) {
-        perror("data_socket: SO_RCVTIMEO");
-      }
-*/
       // bind to the interface
       if(bind(data_socket,(struct sockaddr*)&radio->discovered->info.network.interface_address,radio->discovered->info.network.interface_length)<0) {
         perror("protocol1: bind socket failed for data_socket\n");
@@ -471,7 +422,7 @@ static gpointer receive_thread(gpointer arg) {
                   if(sequence!=ep4_sequence) {
                     ep4_sequence=sequence;
                   } else {
-                    int seq=(int)(sequence%32L);
+                    //int seq=(int)(sequence%32L);
                     if((sequence%32L)==0L) {
                       reset_wideband_buffer_index(radio->wideband);
                     }
@@ -505,8 +456,9 @@ static gpointer receive_thread(gpointer arg) {
 
 static void process_control_bytes() {
   gboolean previous_ptt;
-  gboolean previous_dot;
-  gboolean previous_dash;
+  // Unused - commented in case used in future
+  //gboolean previous_dot;
+  //gboolean previous_dash;
 
   gint tx_mode=USB;
 
@@ -520,11 +472,11 @@ static void process_control_bytes() {
   }
 
   previous_ptt=radio->local_ptt;
-  previous_dot=radio->dot;
-  previous_dash=radio->dash;
+  //previous_dot=radio->dot;
+  //previous_dash=radio->dash;
   radio->ptt=(control_in[0]&0x01)==0x01;
-  radio->dash=(control_in[0]&0x02)==0x02;
-  radio->dot=(control_in[0]&0x04)==0x04;
+  //radio->dash=(control_in[0]&0x02)==0x02;
+  //radio->dot=(control_in[0]&0x04)==0x04;
 
   radio->local_ptt=radio->ptt;
   if(tx_mode==CWL || tx_mode==CWU) {
@@ -589,7 +541,6 @@ static int right_sample;
 static short mic_sample;
 static double left_sample_double;
 static double right_sample_double;
-static double mic_sample_double;
 static int nsamples;
 static int iq_samples;
 
@@ -1043,13 +994,9 @@ void protocol1_eer_iq_samples(int isample,int qsample,int lasample,int rasample)
 
 // Microphone buffer dump called from audio.c
 void protocol1_process_local_mic(RADIO *r) {
-  int b;
   int i;
   short sample;
 
-// always 48000 samples per second
-  //g_print("process_local_mic size=%d buffer=%p\n",r->local_microphone_buffer_size,r->local_microphone_buffer);
-  b=0;
   for(i=0;i<r->local_microphone_buffer_size;i++) {
     sample=(short)(r->local_microphone_buffer[i]*32767.0);
 #ifdef FREEDV
@@ -1078,8 +1025,6 @@ static void process_wideband_buffer(unsigned char  *buffer) {
 }
 
 void ozy_send_buffer() {
-
-  int mode;
   int i,j;
   int count;
   BAND *band;
@@ -1169,20 +1114,9 @@ void ozy_send_buffer() {
         output_buffer[C3]|=LT2208_RANDOM_ON;
       }
     }
-/*
-    if(radio->discovered->device==DEVICE_HERMES_LITE) {
-      if(radio->ozy_software_version<41) {
-        // old LNA gain control method, see HL2 wiki for details
-        output_buffer[C3]|=lna_dither[radio->adc[0].attenuation+12];
-      }
-    } else {
-*/
       if(radio->adc[0].dither) {
         output_buffer[C3]|=LT2208_DITHER_ON;
       }
-/*
-    }
-*/
     if(radio->adc[0].preamp) {
       output_buffer[C3]|=LT2208_GAIN_ON;
     }
@@ -1401,10 +1335,6 @@ void ozy_send_buffer() {
           level=(int)(actual_volts*255.0);
         }
 
-//        if(level!=last_level) {
-//g_print("protocol1: drive level changed from=%d to=%d\n",last_level,level);
-//          last_level=level;
-//        }
         output_buffer[C0]=0x12;
         output_buffer[C1]=level&0xFF;
         output_buffer[C2]=0x00;
@@ -1523,21 +1453,13 @@ void ozy_send_buffer() {
         output_buffer[C4]=0x00;
         if(radio->discovered->device==DEVICE_HERMES_LITE) {
           output_buffer[C4]=0x40;
-          output_buffer[C4]|=((int)radio->adc[0].attenuation&0x1F) + 12;
+          // HL2 extends into [5:0] of this buffer          
+          output_buffer[C4]|=(((int)radio->adc[0].attenuation + 12)&0x3F);
         } else if(radio->discovered->device==DEVICE_HERMES || radio->discovered->device==DEVICE_ANGELIA || radio->discovered->device==DEVICE_ORION || radio->discovered->device==DEVICE_ORION2) {
           if(radio->adc[0].enable_step_attenuation) {
             output_buffer[C4]=0x20;
           }
           output_buffer[C4]|=(int)radio->adc[0].attenuation&0x1F;
-/*
-        } else if(radio->discovered->device==DEVICE_HERMES_LITE) {
-          if(radio->ozy_software_version>=41) {
-            // different LNA gain setting method, see HL2 wiki for details
-            output_buffer[C4]=0x40|(radio->adc[0].attenuation+12);
-          } else {
-            output_buffer[C4]=lna_att[radio->adc[0].attenuation+12];
-          }
-*/
         } else {
           output_buffer[C4]=0x00;
         }

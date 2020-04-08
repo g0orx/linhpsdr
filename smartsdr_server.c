@@ -101,7 +101,6 @@ g_print("process_xmit_command: token=%s\n",token);
   return response;
 }
 
-
 unsigned long process_command() {
   char *token; 
   unsigned long response=0xE2000000;

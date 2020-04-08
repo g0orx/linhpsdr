@@ -53,9 +53,9 @@ typedef struct _SELECT {
   gint choice;
 } SELECT;
 
-static void update_mode(RECEIVER *rx,int mode);
 static void update_filters(RECEIVER *rx);
 
+/* TO REMOVE
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   rx->dialog=NULL;
@@ -75,6 +75,7 @@ static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) 
   rx->filter_grid=NULL;
   return FALSE;
 }
+*/
 
 static void sample_rate_cb(GtkWidget *widget,gpointer data) {
   SELECT *select=(SELECT *)data;
@@ -90,6 +91,7 @@ static void adc_cb(GtkWidget *widget,gpointer data) {
   receiver_update_title(rx);
 }
 
+/* TO REMOVE
 static gboolean band_select_cb(GtkWidget *widget,gpointer data) {
   SELECT *select=(SELECT *)data;
   RECEIVER *rx=select->rx;
@@ -526,6 +528,7 @@ static gboolean band_select_cb(GtkWidget *widget,gpointer data) {
   }
   return TRUE;
 }
+*/
 
 static gboolean filter_select_cb(GtkWidget *widget,gpointer data) {
   SELECT *select=(SELECT *)data;
@@ -603,12 +606,9 @@ static void var_spin_high_cb (GtkWidget *widget, gpointer data) {
 
 static void update_filters(RECEIVER *rx) {
   int i;
-  BAND *band;
   SELECT *select;
 
-  band=band_get_band(rx->band_a);
   FILTER* band_filters=filters[rx->mode_a];
-  FILTER* band_filter=&band_filters[rx->filter_a];
 
   if(rx->filter_frame!=NULL && rx->filter_grid!=NULL) {
     gtk_container_remove(GTK_CONTAINER(rx->filter_frame),rx->filter_grid);
@@ -732,6 +732,7 @@ g_print("update_filters: new filter grid %p\n",rx->filter_grid);
   }
 }
 
+/* TO REMOVE
 static void update_mode(RECEIVER *rx,int mode) {
   int x=rx->mode_a%MODE_COLUMNS;
   int y=rx->mode_a/MODE_COLUMNS;
@@ -752,6 +753,7 @@ static void update_mode(RECEIVER *rx,int mode) {
   }
 }
 
+
 static gboolean mode_select_cb(GtkWidget *widget,gpointer data) {
   SELECT *select=(SELECT *)data;
   RECEIVER *rx=select->rx;
@@ -759,6 +761,7 @@ static gboolean mode_select_cb(GtkWidget *widget,gpointer data) {
   update_mode(rx,m);
   return TRUE;
 }
+*/
 
 static void tx_cb(GtkWidget *widget, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
@@ -890,6 +893,7 @@ static void audio_choice_cb(GtkComboBox *widget,gpointer data) {
   }
 }
 
+/* TO REMOVE
 static void buffer_size_spin_cb(GtkWidget *widget,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   rx->local_audio_buffer_size=gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
@@ -899,6 +903,7 @@ static void latency_spin_cb(GtkWidget *widget,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   rx->local_audio_latency=gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
 }
+*/
 
 static void enable_cb(GtkWidget *widget, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
@@ -949,7 +954,6 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   int i;
   int col=0;
   int row=0;
-  BAND *band;
   SELECT *select;
 
   GtkWidget *grid=gtk_grid_new();
@@ -1061,64 +1065,6 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     break;
   }
 
-/*
-  GtkWidget *band_frame=gtk_frame_new("Band");
-  rx->band_grid=gtk_grid_new();
-  gtk_grid_set_row_homogeneous(GTK_GRID(rx->band_grid),TRUE);
-  gtk_grid_set_column_homogeneous(GTK_GRID(rx->band_grid),TRUE);
-  gtk_container_add(GTK_CONTAINER(band_frame),rx->band_grid);
-  gtk_grid_attach(GTK_GRID(grid),band_frame,col,row++,1,2);
-  row++;
-
-  for(i=0;i<BANDS+XVTRS;i++) {
-#ifdef SOAPYSDR
-    if(radio->discovered->protocol!=PROTOCOL_SOAPYSDR) {
-      if(i>=band70 && i<=band3400) {
-        continue;
-      }
-    }
-#endif
-    band=(BAND*)band_get_band(i);
-    if(strlen(band->title)>0) {
-      GtkWidget *b=gtk_button_new_with_label(band->title);
-      set_button_text_color(b,"black");
-      if(i==rx->band_a) {
-        set_button_text_color(b,"orange");
-      }
-      gtk_grid_attach(GTK_GRID(rx->band_grid),b,i%BAND_COLUMNS,i/BAND_COLUMNS,1,1);
-      select=g_new0(SELECT,1);
-      select->rx=rx;
-      select->choice=i;
-      g_signal_connect(b,"clicked",G_CALLBACK(band_select_cb),(gpointer)select);
-    }
-  }
-
-  GtkWidget *mode_frame=gtk_frame_new("Mode");
-  rx->mode_grid=gtk_grid_new();
-  gtk_grid_set_row_homogeneous(GTK_GRID(rx->mode_grid),TRUE);
-  gtk_grid_set_column_homogeneous(GTK_GRID(rx->mode_grid),TRUE);
-  gtk_container_add(GTK_CONTAINER(mode_frame),rx->mode_grid);
-  gtk_grid_attach(GTK_GRID(grid),mode_frame,col,row++,1,1);
-
-  for(i=0;i<MODES;i++) {
-    GtkWidget *b=gtk_button_new_with_label(mode_string[i]);
-    if(i==rx->mode_a) {
-      set_button_text_color(b,"orange");
-      //last_mode=b;
-    } else {
-      set_button_text_color(b,"black");
-    }
-    gtk_grid_attach(GTK_GRID(rx->mode_grid),b,i%MODE_COLUMNS,i/MODE_COLUMNS,1,1);
-      select=g_new0(SELECT,1);
-      select->rx=rx;
-      select->choice=i;
-    g_signal_connect(b,"pressed",G_CALLBACK(mode_select_cb),(gpointer)select);
-  }
-*/
-
-  band=band_get_band(rx->band_a);
-  FILTER* band_filters=filters[rx->mode_a];
-  FILTER* band_filter=&band_filters[rx->filter_a];
   rx->filter_frame=gtk_frame_new("Filter");
   gtk_grid_attach(GTK_GRID(grid),rx->filter_frame,col,row++,1,1);
 

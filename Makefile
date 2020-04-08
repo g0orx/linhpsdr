@@ -59,9 +59,22 @@ CWDAEMON_OBJS= \
 cwdaemon.o
 endif
 
+# SmartSDR server API basic functionality?
+
+#SMARTSDR_INCLUDE=SMARTSDR
+
+ifeq ($(SMARTSDR_INCLUDE),SMARTSDR)
+SMARTSDR_OPTIONS=-D SMARTSDR
+SMARTSDR_SOURCES= \
+smartsdr_server.c
+SMARTSDR_HEADERS= \
+smartsdr_server.h 
+SMARTSDR_OBJS= \
+smartsdr_server.o
+endif
 
 OPTIONS=-Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) \
-         $(CWDAEMON_OPTIONS)  $(OPENGL_OPTIONS) -O3 -g
+         $(CWDAEMON_OPTIONS)  $(OPENGL_OPTIONS) $(SMARTSDR_OPTIONS) -O3 -g
 #OPTIONS=-g -Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
 LIBS=-lrt -lm -lpthread -lwdsp
@@ -109,7 +122,6 @@ button_text.c\
 wideband.c\
 vox.c\
 ext.c\
-smartsdr_server.c\
 configure_dialog.c\
 bookmark_dialog.c\
 puresignal_dialog.c\
@@ -159,7 +171,6 @@ button_text.h\
 wideband.h\
 vox.h\
 ext.h\
-smartsdr_server.h\
 configure_dialog.h\
 bookmark_dialog.h\
 puresignal_dialog.h\
@@ -208,7 +219,6 @@ button_text.o\
 wideband.o\
 vox.o\
 ext.o\
-smartsdr_server.o\
 configure_dialog.o\
 bookmark_dialog.o\
 puresignal_dialog.o\
@@ -219,13 +229,13 @@ rigctl.o\
 error_handler.o\
 bpsk.o
 
-all: prebuild  $(PROGRAM) $(HEADERS) $(SOURCES) $(SOAPYSDR_SOURCES) $(CWDAEMON_SOURCES)
+all: prebuild  $(PROGRAM) $(HEADERS) $(SOURCES) $(SOAPYSDR_SOURCES) $(CWDAEMON_SOURCES) $(SMARTSDR_SOURCES)
 
 prebuild:
 	rm -f version.o
 
-$(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS)
-	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(GTKLIBS) $(LIBS) $(AUDIO_LIBS) $(SOAPYSDR_LIBS) $(CWDAEMON_LIBS) $(OPENGL_LIBS)
+$(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(SMARTSDR_OBJS)
+	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(SMARTSDR_OBJS) $(GTKLIBS) $(LIBS) $(AUDIO_LIBS) $(SOAPYSDR_LIBS) $(CWDAEMON_LIBS) $(OPENGL_LIBS)
 
 .c.o:
 	$(COMPILE) -c -o $@ $<

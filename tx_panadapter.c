@@ -35,7 +35,6 @@
 #include "main.h"
 
 static gboolean transmitter_button_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
-  TRANSMITTER *tx=(TRANSMITTER *)data;
   switch(event->button) {
     case 1: // left
       break;

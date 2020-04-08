@@ -27,10 +27,6 @@ static int colorLowR=0; // black
 static int colorLowG=0;
 static int colorLowB=0;
 
-static int colorMidR=255; // red
-static int colorMidG=0;
-static int colorMidB=0;
-
 static int colorHighR=255; // yellow
 static int colorHighG=255;
 static int colorHighB=0;
@@ -57,11 +53,6 @@ static gboolean resize_timeout(void *data) {
   return FALSE;
 }
 
-static gboolean waterfall_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
-  WIDEBAND *w=(WIDEBAND *)data;
-  return TRUE;
-}
-
 static gboolean waterfall_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
   WIDEBAND *w=(WIDEBAND *)data;
   gint width=gtk_widget_get_allocated_width (widget);
@@ -85,11 +76,6 @@ static gboolean waterfall_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
     cairo_paint (cr);
   }
   return FALSE;
-}
-
-static gboolean waterfall_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
-  WIDEBAND *w=(WIDEBAND *)data;
-  return TRUE;
 }
 
 GtkWidget *create_wideband_waterfall(WIDEBAND *w) {
@@ -132,7 +118,6 @@ void update_wideband_waterfall(WIDEBAND *w) {
     int width=gdk_pixbuf_get_width(w->waterfall_pixbuf);
     int height=gdk_pixbuf_get_height(w->waterfall_pixbuf);
     int rowstride=gdk_pixbuf_get_rowstride(w->waterfall_pixbuf);
-    int channels=gdk_pixbuf_get_n_channels(w->waterfall_pixbuf);
 
     //memset(pixels, 0, width*height*3);
 

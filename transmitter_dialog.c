@@ -49,20 +49,23 @@ static GtkWidget *tx_spin_low;
 static GtkWidget *tx_spin_high;
 
 
-
+/*
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
 g_print("tx->dialog: close_cb");
   tx->dialog=NULL;
   return TRUE;
 }
+*/
 
+/*
 static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
 g_print("tx->dialog: delete_cb: %p\n",tx->dialog);
   tx->dialog=NULL;
   return FALSE;
 }
+*/
 
 static void microphone_audio_cb(GtkWidget *widget,gpointer data) {
   RADIO *radio=(RADIO *)data;
@@ -112,11 +115,13 @@ static void microphone_choice_cb(GtkComboBox *widget,gpointer data) {
   g_print("Input device changed: %d: %s (%s)\n",i,input_devices[i].name,output_devices[i].description);
 }
 
+/*
 static void mic_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
   tx->mic_gain=gtk_range_get_value(GTK_RANGE(widget));
   SetTXAPanelGain1(tx->channel,pow(10.0, tx->mic_gain / 20.0));
 }
+*/
 
 static void tune_value_changed_cb(GtkWidget *widget, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;

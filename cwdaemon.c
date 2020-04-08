@@ -118,8 +118,6 @@ static int default_morse_volume = CWDAEMON_MORSE_VOLUME_DEFAULT;
 static int default_ptt_delay    = CWDAEMON_PTT_DELAY_DEFAULT;
 static int default_audio_system = CWDAEMON_AUDIO_SYSTEM_DEFAULT;
 static int default_weighting    = CWDAEMON_MORSE_WEIGHTING_DEFAULT;
-static int default_verbosity    = CWDAEMON_VERBOSITY_DEFAULT;
-
 
 /* Actual values of parameters, used to control ongoing operation of
    cwdaemon+libcw. These values can be modified through requests
@@ -1562,7 +1560,7 @@ extern gpointer cwdaemon_thread(gpointer data)
 	/* The main loop of cwdaemon. */
 	request_queue[0] = '\0';
 	//do {
-  while (radio->cwdaemon_running = TRUE) {
+  while (radio->cwdaemon_running == TRUE) {
 		fd_set readfd;
 		struct timeval udptime;
 

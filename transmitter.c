@@ -616,7 +616,7 @@ void full_tx_buffer(TRANSMITTER *tx) {
     g_mutex_lock((&tx->queue_mutex));
     QueueGet(&isample);
     QueueGet(&qsample);    
-    g_mutex_unlock((&tx->queue_mutex));         
+    g_mutex_unlock((&tx->queue_mutex));
     protocol1_iq_samples(isample, qsample);
   }
   //}
@@ -641,7 +641,6 @@ void full_tx_buffer_process(TRANSMITTER *tx) {
   double gain;
   int j;
   int error;
-  int mode;
   
   // round half towards zero  
   #define ROUNDHTZ(x) ((x)>=0.0?(long)floor((x)*gain+0.5):(long)ceil((x)*gain-0.5))  
@@ -746,9 +745,7 @@ void full_tx_buffer_process(TRANSMITTER *tx) {
 
 void add_mic_sample(TRANSMITTER *tx,short mic_sample) {
   int mode;
-  double sample;
   double mic_sample_double;
-  int i,s;
  
   if(tx->rx!=NULL) {
     mode=tx->rx->mode_a;
@@ -887,6 +884,7 @@ void transmitter_set_pre_emphasize(TRANSMITTER *tx,int state) {
   SetTXAFMEmphPosition(tx->channel,state);
 }
 
+/* TO REMOVE
 static gboolean transmitter_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
   tx->window_width=gtk_widget_get_allocated_width(widget);
@@ -894,6 +892,7 @@ static gboolean transmitter_configure_event_cb(GtkWidget *widget,GdkEventConfigu
   g_print("transmitter_configure_event_cb: wid=%d height=%d\n",tx->window_width,tx->window_height);
   return TRUE;
 }
+*/
 
 static void create_visual(TRANSMITTER *tx) {
   gchar title[32];
@@ -948,8 +947,6 @@ void transmitter_init_analyzer(TRANSMITTER *tx) {
     int span_clip_h = 0;
     int pixels=tx->pixels;
     int stitches = 1;
-    int avm = 0;
-    double tau = 0.001 * 120.0;
     int calibration_data_set = 0;
     double span_min_freq = 0.0;
     double span_max_freq = 0.0;

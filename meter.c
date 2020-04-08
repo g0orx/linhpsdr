@@ -36,9 +36,6 @@
 //static int meter_width;
 //static int meter_height;
 
-static int max_level=-200;
-static int max_count=0;
-static int max_reverse=0;
 static gdouble m=0.0;
 
 typedef struct _choice {

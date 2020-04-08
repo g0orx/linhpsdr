@@ -38,11 +38,9 @@
 static char interface_name[64];
 static struct sockaddr_in interface_addr={0};
 static struct sockaddr_in interface_netmask={0};
-static int interface_length;
 
 #define DISCOVERY_PORT 1024
 static int discovery_socket;
-static struct sockaddr_in discovery_addr;
 
 static GThread *discover_thread_id;
 static gpointer discover_receive_thread(gpointer data);
