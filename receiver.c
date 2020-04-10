@@ -675,32 +675,22 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
           // move to this frequency
           // Split mode and CWU or CWL leaves VFO A "locked" and moves VFO B (red line)
           
-          printf("*********************\n");
           double offset = 0;
           if (rx->split) {
             if (rx->mode_a==CWU) {
-              printf("CWU\n");
               offset = ((rx->frequency_b - rx->frequency_a) / rx->hz_per_pixel) + ((radio->cw_keyer_sidetone_frequency)/rx->hz_per_pixel);            
             }
-            else if (rx->mode_a==CWL) {
-              printf("CWL\n");              
+            else if (rx->mode_a==CWL) {             
               offset = ((rx->frequency_b - rx->frequency_a) / rx->hz_per_pixel) - ((radio->cw_keyer_sidetone_frequency)/rx->hz_per_pixel);            
             }
           }
           
           
-          printf("offset %f\n", offset);
-          printf("hz per pixel %f\n", rx->hz_per_pixel);
-          printf("width %ld\n", rx->panadapter_width);
           
           // Pandapter midpoint, may be offset by other parts of the code
           int mid_point = (rx->panadapter_width/2)+(int)offset;
-          printf("part a %d\n", mid_point);
-          
           hz=(gint64)((double)(x-mid_point)*rx->hz_per_pixel);
-    
-          printf("X=%d\n", x);
-          printf("hz=%d\n", hz);
+  
           
           if(rx->ctun) {                
             rx->ctun_offset=hz/rx->step*rx->step;
