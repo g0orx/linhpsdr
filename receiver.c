@@ -226,6 +226,10 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].local_audio_latency",rx->channel);
   sprintf(value,"%d",rx->local_audio_latency);
   setProperty(name,value);
+  sprintf(name,"receiver[%d].audio_channels",rx->channel);
+  sprintf(value,"%d",rx->audio_channels);
+  setProperty(name,value);  
+  
 
   sprintf(name,"receiver[%d].step",rx->channel);
   sprintf(value,"%ld",rx->step);
@@ -435,6 +439,9 @@ void receiver_restore_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].local_audio_latency",rx->channel);
   value=getProperty(name);
   if(value) rx->local_audio_latency=atoi(value);
+  sprintf(name,"receiver[%d].audio_channels",rx->channel);
+  value=getProperty(name);  
+  if(value) rx->audio_channels=atoi(value);  
 
   sprintf(name,"receiver[%d].step",rx->channel);
   value=getProperty(name);
@@ -657,20 +664,58 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
           hz=(gint64)((double)(x-rx->last_x)*rx->hz_per_pixel);
           if(rx->ctun) {
             rx->ctun_offset=(rx->ctun_offset-hz)/rx->step*rx->step;
-          } else {
+          }
+          else if ((rx->split) && (rx->mode_a==CWU || rx->mode_a==CWL)) {            
+            rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step; 
+          }
+          else {
             rx->frequency_a=(rx->frequency_a+hz)/rx->step*rx->step;
           }
         } else {
           // move to this frequency
-          hz=(gint64)((double)(x-(rx->panadapter_width/2))*rx->hz_per_pixel);
-          if(rx->ctun) {
+          // Split mode and CWU or CWL leaves VFO A "locked" and moves VFO B (red line)
+          
+          printf("*********************\n");
+          double offset = 0;
+          if (rx->split) {
+            if (rx->mode_a==CWU) {
+              printf("CWU\n");
+              offset = ((rx->frequency_b - rx->frequency_a) / rx->hz_per_pixel) + ((radio->cw_keyer_sidetone_frequency)/rx->hz_per_pixel);            
+            }
+            else if (rx->mode_a==CWL) {
+              printf("CWL\n");              
+              offset = ((rx->frequency_b - rx->frequency_a) / rx->hz_per_pixel) - ((radio->cw_keyer_sidetone_frequency)/rx->hz_per_pixel);            
+            }
+          }
+          
+          
+          printf("offset %f\n", offset);
+          printf("hz per pixel %f\n", rx->hz_per_pixel);
+          printf("width %ld\n", rx->panadapter_width);
+          
+          // Pandapter midpoint, may be offset by other parts of the code
+          int mid_point = (rx->panadapter_width/2)+(int)offset;
+          printf("part a %d\n", mid_point);
+          
+          hz=(gint64)((double)(x-mid_point)*rx->hz_per_pixel);
+    
+          printf("X=%d\n", x);
+          printf("hz=%d\n", hz);
+          
+          if(rx->ctun) {                
             rx->ctun_offset=hz/rx->step*rx->step;
           } else {
-            rx->frequency_a=(rx->frequency_a+hz)/rx->step*rx->step;
-            if(rx->mode_a==CWL) {
+            if ((rx->split) && ((rx->mode_a==CWU) || (rx->mode_a==CWL))) {                      
+              rx->frequency_b = (rx->frequency_b + hz) / rx->step*rx->step; 
+            }
+            else {             
+              rx->frequency_a=(rx->frequency_a+hz)/rx->step*rx->step;
+            }
+            
+            if ((rx->mode_a==CWL) && (!rx->split)) {
               rx->frequency_a+=radio->cw_keyer_sidetone_frequency;
-            } else if(rx->mode_a==CWU) {
-              rx->frequency_a-=radio->cw_keyer_sidetone_frequency;
+            } else if ((rx->mode_a==CWU) && (!rx->split)) {
+              rx->frequency_a-=radio->cw_keyer_sidetone_frequency;            
             }
           }
         }
@@ -680,8 +725,10 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
         }
         rx->last_x=x;
         rx->has_moved=FALSE;
-        frequency_changed(rx);
-        update_frequency(rx);
+        //if ((!rx->split) && ((rx->mode_a==CWU) || (rx->mode_a==CWL))) {
+          frequency_changed(rx);
+          update_frequency(rx);
+        //}
       }
       break;
     case 3: // right button
@@ -724,13 +771,21 @@ gboolean receiver_scroll_event_cb(GtkWidget *widget, GdkEventScroll *event, gpoi
     if(event->direction==GDK_SCROLL_UP) {
       if(rx->ctun) {
         rx->ctun_offset+=rx->step;
-      } else {
+      }
+      else if ((rx->split) && (rx->mode_a==CWU || rx->mode_a==CWL)) {
+        rx->frequency_b=rx->frequency_b+rx->step;      
+      }
+      else {
         rx->frequency_a=rx->frequency_a+rx->step;
       }
     } else {
       if(rx->ctun) {
         rx->ctun_offset-=rx->step;
-      } else {
+      } 
+      else if ((rx->split) && (rx->mode_a==CWU || rx->mode_a==CWL)) {
+        rx->frequency_b=rx->frequency_b-rx->step;        
+      }
+      else {
         rx->frequency_a=rx->frequency_a-rx->step;
       }
     }
@@ -879,10 +934,27 @@ void receiver_band_changed(RECEIVER *rx,int band) {
 static void process_rx_buffer(RECEIVER *rx) {
   gdouble left_sample,right_sample;
   short left_audio_sample, right_audio_sample;
-  int i;
-  for(i=0;i<rx->output_samples;i++) {
-    left_sample=rx->audio_output_buffer[i*2];
-    right_sample=rx->audio_output_buffer[(i*2)+1];
+
+  for (int i=0;i<rx->output_samples;i++) {
+    // Rx option for left channel only, right only, or both channels
+    
+    switch (rx->audio_channels) {
+      case AUDIO_STEREO: {
+        left_sample = rx->audio_output_buffer[i*2];
+        right_sample = rx->audio_output_buffer[(i*2)+1];     
+        break;
+      }      
+      case AUDIO_LEFT_ONLY: {
+        left_sample = rx->audio_output_buffer[i*2];
+        right_sample = 0;
+        break;
+      }
+      case AUDIO_RIGHT_ONLY: {
+        left_sample = 0;
+        right_sample = rx->audio_output_buffer[(i*2)+1];
+        break;
+      }
+    }
     left_audio_sample=(short)(left_sample*32767.0);
     right_audio_sample=(short)(right_sample*32767.0);
 
@@ -1346,7 +1418,9 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   rx->local_audio_buffer_offset=0;
   rx->local_audio_buffer=NULL;
   rx->local_audio_latency=50;
+  rx->audio_channels = 0;
   g_mutex_init(&rx->local_audio_mutex);
+
 
   rx->audio_name=NULL;
   rx->mute_when_not_active=FALSE;

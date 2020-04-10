@@ -400,6 +400,19 @@ void update_rx_panadapter(RECEIVER *rx) {
       cairo_line_to(cr,cw_frequency,(double)display_height-20);
       cairo_stroke(cr);
     }
+    
+    // Show VFO B (tx) for split mode
+    if(rx->split) {    
+      if(rx->mode_a==CWU || rx->mode_a==CWL) {
+        long long diff = (rx->frequency_b - rx->frequency_a);       
+        SetColour(cr, WARNING);
+        double cw_frequency=filter_left+((filter_right-filter_left)/2.0);
+        cairo_move_to(cr, (cw_frequency + diff / rx->hz_per_pixel),10.0);
+        cairo_line_to(cr, (cw_frequency + diff / rx->hz_per_pixel),(double)display_height-20);
+        cairo_stroke(cr);
+      }
+  }
+    
 
     // plot the levels
     SetColour(cr, DARK_LINES);
@@ -640,7 +653,6 @@ void update_rx_panadapter(RECEIVER *rx) {
 
 
     // cursor
-    
     if(rx->mode_a!=CWU && rx->mode_a!=CWL) {    
       SetColour(cr, TEXT_A);
       cairo_move_to(cr,(double)(display_width/2.0)+(rx->ctun_offset/rx->hz_per_pixel),0.0);

@@ -851,6 +851,11 @@ static void local_audio_cb(GtkWidget *widget,gpointer data) {
   }
 }
 
+static void audio_channels_cb(GtkWidget *widget, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  rx->audio_channels = gtk_combo_box_get_active(GTK_COMBO_BOX (widget));
+}
+
 static void audio_choice_cb(GtkComboBox *widget,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   int i;
@@ -934,6 +939,8 @@ static void high_value_changed_cb (GtkWidget *widget, gpointer data) {
   rx->equalizer[3]=(int)gtk_range_get_value(GTK_RANGE(widget));
   SetRXAGrphEQ(rx->channel, rx->equalizer);
 }
+
+
 
 void update_audio_choices(RECEIVER *rx) {
   int i;
@@ -1100,6 +1107,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     audio_choice=gtk_combo_box_text_new();
     //update_audio_choices(rx);
     
+    // Audio output device options
     audio_choice=gtk_combo_box_text_new();
     for(i=0;i<n_output_devices;i++) {
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_choice),NULL,output_devices[i].description);
@@ -1108,13 +1116,22 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
           gtk_combo_box_set_active(GTK_COMBO_BOX(audio_choice),i);
         }
       }
-    }    
+    }
     
-    gtk_grid_attach(GTK_GRID(audio_grid),audio_choice,0,1,2,1);
+    gtk_grid_attach(GTK_GRID(audio_grid),audio_choice,0,2,2,1);
     g_signal_connect(audio_choice,"changed",G_CALLBACK(audio_choice_cb),rx);
     if(gtk_combo_box_get_active(GTK_COMBO_BOX(audio_choice))==-1) {
       gtk_widget_set_sensitive(local_audio, FALSE);
     }
+    
+    // Stereo, left, right audio
+    GtkWidget *audio_channels_combo=gtk_combo_box_text_new();
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_channels_combo),NULL,"Stereo");
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_channels_combo),NULL,"Left");
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_channels_combo),NULL,"Right");    
+    gtk_combo_box_set_active(GTK_COMBO_BOX(audio_channels_combo),rx->audio_channels);
+    gtk_grid_attach(GTK_GRID(audio_grid),audio_channels_combo,0,1,2,1);
+    g_signal_connect(audio_channels_combo,"changed",G_CALLBACK(audio_channels_cb),rx);
   }
 
   GtkWidget *equalizer_frame=gtk_frame_new("Equalizer");

@@ -229,7 +229,7 @@ static int which_button(int x,int y) {
     }
   } else if(y>=48) {; 
     int click_loc = (x-5)/35;
-    if (click_loc < 15) button = click_loc;
+    if (click_loc < BUTTON_ATOB) button = click_loc;
   } else if(x>=560) {
     if(y<=35) {
       button=SLIDER_AF;
@@ -1127,7 +1127,14 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           frequency_changed(rx);
           if(radio->transmitter->rx==rx) {
             if(rx->split) {
-              transmitter_set_mode(radio->transmitter,rx->mode_b);
+              // Split mode in CW, RX on VFO A, TX on VFO B.
+              // When mode turned on, default to VFO A +1 kHz
+              if (rx->mode_a == CWL || rx->mode_a ==CWU) {
+                // Most pile-ups start with UP 1
+                rx->frequency_b = rx->frequency_a + 1000;
+                rx->mode_b=rx->mode_a;
+              }
+              transmitter_set_mode(radio->transmitter,rx->mode_b);              
             } else {
               transmitter_set_mode(radio->transmitter,rx->mode_a);
             }
