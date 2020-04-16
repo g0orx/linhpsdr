@@ -678,7 +678,7 @@ int cwdaemon_recvfrom(char *request, int n)
 			return 0;
 		} else {
 			/* Some other error. May be a serious error. */
-			printf("Recvfrom");
+			g_print("Close thread\n");
 			return -1;
 		}
 	} else if (recv_rc == 0) {
@@ -723,11 +723,11 @@ int cwdaemon_receive(void)
 
 	if (recv_rc == -2) {
 		/* Sender has closed connection. */
-		return 0;
+		return -1;
 	} else if (recv_rc == -1) {
 		/* TODO: should we really exit?
 		   Shouldn't we recover from the error? */
-		exit(EXIT_FAILURE);
+		return -1;
 	} else if (recv_rc == 0) {
 		//printf("...recv_from (no data)\n");
 		return 0;
@@ -779,17 +779,18 @@ void cwdaemon_handle_escaped_request(char *request)
 	switch ((int) request[1]) {
 	case '0':
 		/* Reset all values. */
+    /*
 		printf("requested resetting of parameters");
 		request_queue[0] = '\0';
 		cwdaemon_reset_almost_all();
 		wordmode = 0;
 		async_abort = 0;
-		global_cwdevice->reset(global_cwdevice);
+		//global_cwdevice->reset(global_cwdevice);
 
 		ptt_flag = 0;
 		printf("PTT flag = 0 (0x%02x/%s)", ptt_flag, cwdaemon_debug_ptt_flags());
 		printf("resetting completed");
-
+    */
 		break;
 	case '2':
 		/* Set speed of Morse code, in words per minute. */
@@ -798,6 +799,7 @@ void cwdaemon_handle_escaped_request(char *request)
 		}
 		break;
 	case '3':
+    break;
 		/* Set tone (frequency) of morse code, in Hz.
 		   The code assumes that minimal valid frequency is zero. */
 		assert (CW_FREQUENCY_MIN == 0);
@@ -847,12 +849,14 @@ void cwdaemon_handle_escaped_request(char *request)
 
 	case '6':
 		/* Set uninterruptable (word mode). */
+    break;
 		request[0] = '\0';
 		request_queue[0] = '\0';
 		wordmode = 1;
 		printf("wordmode set");
 		break;
 	case '7':
+    break;
 		/* Set weighting of morse code dits and dashes.
 		   Remember that cwdaemon uses values in range
 		   -50/+50, but libcw accepts values in range
@@ -891,6 +895,7 @@ void cwdaemon_handle_escaped_request(char *request)
 		}
 	case 'd':
 		{
+      break;
 			/* Set PTT delay (TOD, Turn On Delay).
 			   The value is milliseconds. */
 
@@ -931,6 +936,7 @@ void cwdaemon_handle_escaped_request(char *request)
 		/* Set band switch output on parport bits 9 (MSB), 8, 7, 2 (LSB). */
 		break;
 	case 'f': {
+      break;
 		/* Change sound system used by libcw. */
 		/* FIXME: if "request+2" describes unavailable sound system,
 		   cwdaemon fails to open the new sound system. Since
@@ -1525,7 +1531,7 @@ extern gpointer cwdaemon_thread(gpointer data)
 		//exit(EXIT_FAILURE);
 	}
   
-  radio->cwdaemon_running = TRUE;
+
 	// Initialize libcw 
 	cwdaemon_reset_almost_all();
   
@@ -1535,7 +1541,7 @@ extern gpointer cwdaemon_thread(gpointer data)
   printf("\n");
 	current_morse_speed  = radio->cw_keyer_speed;
 	current_morse_tone   = radio->cw_keyer_sidetone_frequency;
-	current_morse_volume = (int)((((float)(radio->cw_keyer_sidetone_volume)/127)) * 100);
+	current_morse_volume = (int)((((float)(radio->cw_keyer_sidetone_volume)/300)) * 100);
 	current_weighting    = (radio->cw_keyer_weight)-50;  
   
   printf("Speed %d\n", current_morse_speed);
@@ -1549,48 +1555,46 @@ extern gpointer cwdaemon_thread(gpointer data)
 	cw_set_gap(0);
 	cw_set_weighting(current_weighting * 0.6 + CWDAEMON_MORSE_WEIGHTING_MAX);
   
-	if (!has_audio_output) {
-		/* Failed to open libcw output. */
-		exit(EXIT_FAILURE);
-	}
-
 	cw_register_keying_callback(cwdaemon_keyingevent, NULL);
 
 
 	/* The main loop of cwdaemon. */
 	request_queue[0] = '\0';
-	//do {
-  while (radio->cwdaemon_running == TRUE) {
+	
+  radio->cwdaemon_running = TRUE;  
+  while (radio->cwdaemon_running) {   
+    
 		fd_set readfd;
 		struct timeval udptime;
-
 		FD_ZERO(&readfd);
 		FD_SET(radio->socket_descriptor, &readfd);
-
-		if (inactivity_seconds < 30) {
+    
+		if (inactivity_seconds < 10) {
 			udptime.tv_sec = 1;
 			inactivity_seconds++;
 		} else {
-			udptime.tv_sec = 86400;
+			udptime.tv_sec = 5;
 		}
 
 		udptime.tv_usec = 0;
 		/* udptime.tv_usec = 999000; */	/* 1s is more than enough */
 		int fd_count = select(radio->socket_descriptor + 1, &readfd, NULL, NULL, &udptime);
-		/* int fd_count = select(socket_descriptor + 1, &readfd, NULL, NULL, NULL); */
+		//int fd_count = select(radio->socket_descriptor + 1, &readfd, NULL, NULL, NULL); 
 		if (fd_count == -1 && errno != EINTR) {
 			printf("Select");
 		} else {
-			cwdaemon_receive();
+			int rv = cwdaemon_receive();
+      if (rv == -1) {
+        radio->cwdaemon_running = FALSE;         
+      }
 		}
 
-	//} while (radio->cwdaemon_running = TRUE);
   } 
   g_print("Close cwdaemon thread\n");
-  
-
+  cwdaemon_close_libcw_output();
   cwdaemon_close_socket();
-  //g_thread_exit(NULL);
+  
+  g_thread_exit(NULL);
   return NULL;
   //return;
 }
@@ -1644,16 +1648,20 @@ bool cwdaemon_initialize_socket(void)
 }
 
 void cwdaemon_stop(void) {
+  
+  g_mutex_lock(&cwdaemon_mutex); 
+  radio->cwdaemon_running = FALSE;
+  g_mutex_unlock(&cwdaemon_mutex);   
+  
   g_print("Stop cwdaemon\n");
   g_print("cwd run %d\n", radio->cwdaemon_running);
-  cwdaemon_close_libcw_output();
-  cwdaemon_close_socket();
+  //cwdaemon_close_libcw_output();
+  //cwdaemon_close_socket();
   g_print("cwd run %d\n", radio->cwdaemon_running);  
 }
 
 void cwdaemon_close_socket(void)
 {
-  radio->cwdaemon_running = FALSE;
   g_print("Close cwdaemon socket\n");
 	if (radio->socket_descriptor) {
 		if (close(radio->socket_descriptor) == -1) {

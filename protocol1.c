@@ -416,6 +416,7 @@ static gpointer receive_thread(gpointer arg) {
                   // process the data
                   process_ozy_input_buffer(&buffer[8]);
                   process_ozy_input_buffer(&buffer[520]);
+                  full_tx_buffer(radio->transmitter);
                   break;
                 case 4: // EP4
                   ep4_sequence++;
@@ -447,7 +448,7 @@ static gpointer receive_thread(gpointer arg) {
         }
         break;
     }
-      full_tx_buffer(radio->transmitter);
+
   }
 
   fprintf(stderr,"EXIT: protocol1: receive_thread\n");
@@ -1334,7 +1335,7 @@ void ozy_send_buffer() {
   
           level=(int)(actual_volts*255.0);
         }
-
+        
         output_buffer[C0]=0x12;
         output_buffer[C1]=level&0xFF;
         output_buffer[C2]=0x00;
@@ -1727,7 +1728,7 @@ fprintf(stderr,"metis_restart\n");
   usleep(20000);
 
   // start the data flowing
-  metis_start_stop(1); // IQ data (wideband data disabled)
+  metis_start_stop(3); // IQ data (wideband data disabled)
 }
 
 static void metis_start_stop(int command) {
