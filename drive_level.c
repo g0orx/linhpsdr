@@ -39,14 +39,10 @@
 static char *title="Drive";
 
 static gboolean drive_level_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
-  TRANSMITTER *tx=(TRANSMITTER *)data;
-  int width=gtk_widget_get_allocated_width (widget);
-  int height=gtk_widget_get_allocated_height (widget);
   return TRUE;
 }
 
 static gboolean drive_level_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
-  TRANSMITTER *tx=(TRANSMITTER *)data;
   double x;
   cairo_text_extents_t extents;
   char t[32];

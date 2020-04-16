@@ -39,11 +39,9 @@
 static char interface_name[64];
 static struct sockaddr_in interface_addr={0};
 static struct sockaddr_in interface_netmask={0};
-static int interface_length;
 
 #define DISCOVERY_PORT 1024
 static int discovery_socket;
-static struct sockaddr_in discovery_addr;
 
 void protocol2_discover(struct ifaddrs* iface);
 

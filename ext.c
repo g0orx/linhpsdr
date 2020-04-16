@@ -59,15 +59,32 @@ int ext_set_mox(void *data) {
 
 int ext_set_frequency_a(void *data) {
   RX_FREQUENCY *f=(RX_FREQUENCY *)data;
+  
+  g_mutex_lock(&f->rx->mutex);  
+  
   if(f->rx!=NULL) {
     f->rx->frequency_a=f->frequency;
     f->rx->band_a=get_band_from_frequency(f->frequency);
   }
   frequency_changed(f->rx);
   update_vfo(f->rx);
+  g_mutex_unlock(&f->rx->mutex);
+  
   g_free(f);
   return 0;
 }
+
+int ext_set_mode(void *data) {
+  MODE *m=(MODE *)data;
+  if (m->rx != NULL) {
+    m->rx->mode_a = m->mode_a;
+  }
+  receiver_mode_changed(m->rx, m->rx->mode_a);    
+  update_vfo(m->rx);
+  g_free(m);
+  return 0;
+}
+
 
 int ext_tx_set_ps(void *data) {
   transmitter_set_ps(radio->transmitter,(uintptr_t)data);

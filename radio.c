@@ -57,7 +57,9 @@
 #include "frequency.h"
 #include "property.h"
 #include "rigctl.h"
+#ifdef SMARTSDR
 #include "smartsdr_server.h"
+#endif 
 #include "receiver_dialog.h"
 
 static GtkWidget *add_receiver_b;
@@ -77,7 +79,9 @@ fprintf(stderr,"radio_start\n");
 }
 
 void radio_save_state(RADIO *radio) {
+#ifdef SOAPYSDR
   char name[80];
+#endif
   char value[80];
   int i;
   gint x,y;
@@ -287,7 +291,9 @@ g_print("radio_save_state: %s\n",filename);
 }
 
 void radio_restore_state(RADIO *radio) {
+  #ifdef SOAPYSDR
   char name[80];
+  #endif
   char *value;
   char filename[128];
   switch(radio->discovered->protocol) {
@@ -458,8 +464,6 @@ void radio_restore_state(RADIO *radio) {
 }
 
 gboolean radio_button_press_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-  TRANSMITTER *rx=(TRANSMITTER *)data;
-  int x=(int)event->x;
   switch(event->button) {
     case 1: // left button
       break;
@@ -552,7 +556,6 @@ void frequency_changed(RECEIVER *rx) {
     }
 #endif
   } else {
-    double f=(double)(rx->frequency_a-rx->lo_a+rx->error_a);
     if(radio->discovered->protocol==PROTOCOL_2) {
       protocol2_high_priority();
 #ifdef SOAPYSDR
@@ -738,6 +741,12 @@ static gboolean tune_cb(GtkWidget *widget,gpointer data) {
   r->tune=!r->tune;
   set_button_text_color(widget,r->tune?"red":"black");
   if(r->tune) {
+    //SM4VEY
+    struct timeval te;
+    gettimeofday(&te,NULL);
+    long long now=te.tv_sec*1000LL+te.tv_usec/1000 + radio->OCfull_tune_time;
+    radio->tune_timeout = now;
+    
     switch(radio->transmitter->rx->mode_a) {
       case CWL:
         SetTXAMode(radio->transmitter->channel, LSB);
@@ -892,13 +901,13 @@ int add_wideband(void *data) {
 
 static gboolean add_receiver_cb(GtkWidget *widget,gpointer data) {
   RADIO *r=(RADIO *)data;
-  int rc=add_receiver(r);
+  add_receiver(r);
   return TRUE;
 }
 
 static gboolean add_wideband_cb(GtkWidget *widget,gpointer data) {
   RADIO *r=(RADIO *)data;
-  int rc=add_wideband(r);
+  add_wideband(r);
   if(r->wideband !=NULL) {
     gtk_widget_set_sensitive(add_wideband_b,FALSE);
   }
@@ -1083,7 +1092,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   r->cw_keyer_internal=TRUE;
   r->cw_keyer_sidetone_frequency=650;
-  r->cw_keyer_sidetone_volume=127;
+  r->cw_keyer_sidetone_volume=20;
   r->cw_keyer_speed=12;
   r->cw_keyer_mode=KEYER_STRAIGHT;
   r->cw_keyer_weight=30;
@@ -1093,7 +1102,14 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->cw_keys_reversed=FALSE;
   r->cw_keys_reversed=FALSE;
   r->cw_breakin=FALSE;
+  
+  r->cwdaemon=FALSE;
 
+  #ifdef CWDAEMON
+  r->cwdaemon_running=FALSE;
+  r->cwd_port = 6789;
+  #endif
+  
   r->display_filled=TRUE;
 
   r->mic_boost=FALSE;
@@ -1250,8 +1266,9 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 #endif
   }
 
-
+#ifdef SMARTSDR
   create_smartsdr_server();
+#endif
 
 #ifdef SOAPYSDR
   soapy_protocol_set_mic_sample_rate(r->sample_rate);

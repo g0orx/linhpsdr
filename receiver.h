@@ -187,6 +187,7 @@ typedef struct _receiver {
   float *local_audio_buffer;
   GMutex local_audio_mutex;
   gint local_audio_latency;
+  gint audio_channels;
   
   gchar *audio_name;
   int output_index;
@@ -225,7 +226,7 @@ typedef struct _receiver {
   GMutex rigctl_mutex;
   gint rigctl_client_socket;
   struct sockaddr_in rigctl_client_address;
-  gint rigctl_client_address_length;
+  guint rigctl_client_address_length;
   gint cat_control;
   gboolean rigctl_running;
 
@@ -239,6 +240,13 @@ typedef struct _receiver {
   int resample_step;
 
 } RECEIVER;
+
+
+enum {
+  AUDIO_STEREO = 0,
+  AUDIO_LEFT_ONLY = 1,
+  AUDIO_RIGHT_ONLY = 2
+};
 
 extern RECEIVER *create_receiver(int channel,int sample_rate);
 extern void receiver_update_title(RECEIVER *rx);

@@ -79,13 +79,13 @@ void process_bpsk(RECEIVER *rx) {
       }
       float threshold=5.0;
       int gap=(int)(800.0/rx->hz_per_pixel);
-      float last=-140;
+      //float last=-140;
       int last_index=-1;
       for(int i=my_pixels-3;i>gap;i--) {
         if((my_pixel_samples[i]>=(my_pixel_samples[i-1]+threshold)) &&
            (my_pixel_samples[i-gap]>=(my_pixel_samples[i-1]+threshold))) {
           last_index=i;
-          last=my_pixel_samples[last_index];
+          //last=my_pixel_samples[last_index];
           break;
         }
       }

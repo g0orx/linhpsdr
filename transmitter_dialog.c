@@ -49,20 +49,23 @@ static GtkWidget *tx_spin_low;
 static GtkWidget *tx_spin_high;
 
 
-
+/*
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
 g_print("tx->dialog: close_cb");
   tx->dialog=NULL;
   return TRUE;
 }
+*/
 
+/*
 static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
 g_print("tx->dialog: delete_cb: %p\n",tx->dialog);
   tx->dialog=NULL;
   return FALSE;
 }
+*/
 
 static void microphone_audio_cb(GtkWidget *widget,gpointer data) {
   RADIO *radio=(RADIO *)data;
@@ -112,11 +115,13 @@ static void microphone_choice_cb(GtkComboBox *widget,gpointer data) {
   g_print("Input device changed: %d: %s (%s)\n",i,input_devices[i].name,output_devices[i].description);
 }
 
+/*
 static void mic_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
   tx->mic_gain=gtk_range_get_value(GTK_RANGE(widget));
   SetTXAPanelGain1(tx->channel,pow(10.0, tx->mic_gain / 20.0));
 }
+*/
 
 static void tune_value_changed_cb(GtkWidget *widget, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
@@ -261,7 +266,16 @@ GtkWidget *create_transmitter_dialog(TRANSMITTER *tx) {
     g_signal_connect(local_microphone,"toggled",G_CALLBACK(microphone_audio_cb),radio);
 
     microphone_choice=gtk_combo_box_text_new();
-    update_transmitter_audio_choices(tx);
+    //update_transmitter_audio_choices(tx);
+    for(i=0;i<n_input_devices;i++) {
+      g_print("adding: %s\n",input_devices[i].description);
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(microphone_choice),NULL,input_devices[i].description);
+      if(radio->microphone_name!=NULL) {
+        if(strcmp(input_devices[i].name,radio->microphone_name)==0) {
+          gtk_combo_box_set_active(GTK_COMBO_BOX(microphone_choice),i);
+        }
+      }
+    }
     if(gtk_combo_box_get_active(GTK_COMBO_BOX(microphone_choice))==-1) {
       gtk_widget_set_sensitive(local_microphone, FALSE);
     } else {

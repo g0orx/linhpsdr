@@ -37,10 +37,18 @@ typedef struct _MOX {
   gboolean state;
 } MOX;
 
+typedef struct _MODE {
+  RECEIVER *rx;
+  int mode_a;
+  gboolean state;
+} MODE;
+
+
 extern int ext_vox_changed(void *data);
 extern int ext_ptt_changed(void *data);
 extern int ext_set_mox(void *data);
 extern int ext_set_frequency_a(void *data);
+extern int ext_set_mode(void *data);
 extern int ext_tx_set_ps(void *data);
 //extern int ext_ps_twotone(void *data);
 extern int ext_vfo_update(void *data);

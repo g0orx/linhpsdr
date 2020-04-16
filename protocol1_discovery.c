@@ -38,11 +38,9 @@
 static char interface_name[64];
 static struct sockaddr_in interface_addr={0};
 static struct sockaddr_in interface_netmask={0};
-static int interface_length;
 
 #define DISCOVERY_PORT 1024
 static int discovery_socket;
-static struct sockaddr_in discovery_addr;
 
 static GThread *discover_thread_id;
 static gpointer discover_receive_thread(gpointer data);
@@ -203,7 +201,8 @@ g_print("discover_receive_thread\n");
                         case OLD_DEVICE_HERMES_LITE:
                             discovered[devices].device=DEVICE_HERMES_LITE;
                             strcpy(discovered[devices].name,"Hermes Lite");
-                            discovered[devices].supported_receivers=7;
+                            // HL2 send max supported receveirs in discovery response.
+                            discovered[devices].supported_receivers=buffer[0x13];;
                             discovered[devices].supported_transmitters=1;
                             discovered[devices].adcs=1;
                             discovered[devices].frequency_min=0.0;

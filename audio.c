@@ -71,7 +71,7 @@ static void *mic_read_thread(void *arg);
 struct SoundIo *soundio;
 
 #ifndef __APPLE__
-static pa_buffer_attr bufattr;
+//static pa_buffer_attr bufattr;
 static pa_glib_mainloop *main_loop;
 static pa_mainloop_api *main_loop_api;
 static pa_operation *op;
@@ -79,9 +79,6 @@ static pa_context *pa_ctx;
 #endif
 
 static int ready=0;
-
-static int triggered=0;
-
 static int sample_rate=48000;
 
 
@@ -335,7 +332,7 @@ g_print("audio_open_output: %s\n",rx->audio_name);
       {
       int err;
       snd_pcm_hw_params_t *hw_params;
-      int rate=48000;
+      unsigned int rate = 48000;
       int dir=0;
 
       int i;
@@ -520,6 +517,16 @@ int audio_open_input(RADIO *r) {
       }
 
       g_mutex_lock(&r->local_microphone_mutex);
+      
+      
+      pa_buffer_attr attr;
+      attr.maxlength = (uint32_t) -1;
+      attr.tlength = (uint32_t) -1;
+      attr.prebuf = (uint32_t) -1;
+      attr.minreq = (uint32_t) -1;
+      attr.fragsize = 512;    
+      
+      
       sample_spec.rate=48000;
       sample_spec.channels=1;
       sample_spec.format=PA_SAMPLE_FLOAT32NE;
@@ -531,7 +538,8 @@ int audio_open_input(RADIO *r) {
                       "TX",            // Description of our stream.
                       &sample_spec,                // Our sample format.
                       NULL,               // Use default channel map
-                      NULL,               // Use default buffering attributes.
+                      //NULL,
+                      &attr,               // Use default buffering attributes.
                       NULL               // Ignore error code.
                       );
 
@@ -556,7 +564,7 @@ int audio_open_input(RADIO *r) {
     case USE_ALSA:
       {
       int err;
-      int rate=48000;
+      unsigned int rate=48000;
       int dir=0;
 
       if ((err = snd_pcm_hw_params_malloc (&hw_params)) < 0) {
@@ -814,7 +822,7 @@ int audio_write(RECEIVER *rx,float left_sample,float right_sample) {
       break;
     case USE_ALSA:
       {
-      snd_pcm_sframes_t delay;
+      //snd_pcm_sframes_t delay;
       long trim;
       int error;
 
@@ -1055,11 +1063,9 @@ g_print("audio: state_cb: PA_CONTEXT_READY\n");
 
 void create_audio(int backend_index,const char *backend) {
   int rc;
-  int i;
-  char text[1024];
 
-  n_output_devices=0;
-  n_input_devices=0;
+  //n_output_devices=0;
+  //n_input_devices=0;
 
   switch(radio->which_audio) {
     case USE_SOUNDIO:
@@ -1163,7 +1169,7 @@ g_print("audio: create_audio: USE_PULSEAUDIO\n");
                 strncpy(input_devices[n_input_devices].name,device_id,strlen(device_id));
                 input_devices[n_input_devices].description=g_new0(char,strlen(device_id)+1);
                 strncpy(input_devices[n_input_devices].description,device_id,strlen(device_id));
-                input_devices[n_input_devices].index=i;
+                input_devices[n_input_devices].index=0; // not used
                 n_input_devices++;
               }
 fprintf(stderr,"input_device: %s\n",device_id);
@@ -1179,7 +1185,7 @@ fprintf(stderr,"input_device: %s\n",device_id);
                 strncpy(output_devices[n_output_devices].name,device_id,strlen(device_id));
                 output_devices[n_output_devices].description=g_new0(char,strlen(device_id)+1);
                 strncpy(output_devices[n_output_devices].description,device_id,strlen(device_id));
-                input_devices[n_output_devices].index=i;
+                input_devices[n_output_devices].index=0; // not used
                 n_output_devices++;
               }
 fprintf(stderr,"output_device: %s\n",device_id);
@@ -1209,7 +1215,7 @@ fprintf(stderr,"output_device: %s\n",device_id);
               strncpy(output_devices[n_output_devices].name,device_id,strlen(device_id));
               output_devices[n_output_devices].description=g_new0(char,strlen(device_id)+1);
               strncpy(output_devices[n_output_devices].description,device_id,strlen(device_id));
-              input_devices[n_output_devices].index=i;
+              input_devices[n_output_devices].index=0; // not used
               n_output_devices++;
             }
 fprintf(stderr,"output_device: %s\n",device_id);
@@ -1228,6 +1234,7 @@ fprintf(stderr,"output_device: %s\n",device_id);
       break;
 #endif
   }
+  g_print("n_input_devices=%d\n", n_input_devices);
 }
 
 int audio_get_backends(RADIO *r) {

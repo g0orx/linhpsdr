@@ -277,10 +277,7 @@ static gboolean first_time=TRUE;
 void update_rx_panadapter(RECEIVER *rx) {
   int i;
   int x1,x2;
-  int result;
   float *samples;
-  float saved_max;
-  float saved_min;
   cairo_text_extents_t extents;
   char temp[32];
 
@@ -291,12 +288,12 @@ void update_rx_panadapter(RECEIVER *rx) {
   samples[display_width-1+offset]=-200;
   double dbm_per_line=(double)display_height/((double)rx->panadapter_high-(double)rx->panadapter_low);
   double attenuation=radio->adc[rx->adc].attenuation;
+  
+  
   if(radio->discovered->device==DEVICE_HERMES_LITE) {
-    if(!radio->adc[rx->adc].dither) {
-      attenuation-=20;
-    }
+      attenuation = attenuation * -1;
   }
-            
+  
 
   if(display_height<=1) return;
 
@@ -403,6 +400,19 @@ void update_rx_panadapter(RECEIVER *rx) {
       cairo_line_to(cr,cw_frequency,(double)display_height-20);
       cairo_stroke(cr);
     }
+    
+    // Show VFO B (tx) for split mode
+    if(rx->split) {    
+      if(rx->mode_a==CWU || rx->mode_a==CWL) {
+        long long diff = (rx->frequency_b - rx->frequency_a);       
+        SetColour(cr, WARNING);
+        double cw_frequency=filter_left+((filter_right-filter_left)/2.0);
+        cairo_move_to(cr, (cw_frequency + diff / rx->hz_per_pixel),10.0);
+        cairo_line_to(cr, (cw_frequency + diff / rx->hz_per_pixel),(double)display_height-20);
+        cairo_stroke(cr);
+      }
+  }
+    
 
     // plot the levels
     SetColour(cr, DARK_LINES);
@@ -542,6 +552,12 @@ void update_rx_panadapter(RECEIVER *rx) {
     cairo_set_line_width(cr, 1.0);
 
     f1=frequency-half+(long long)(rx->hz_per_pixel*offset);
+    if (rx->mode_a==CWU) {
+      f1 -= radio->cw_keyer_sidetone_frequency;
+    }
+    else if (rx->mode_a==CWL) {
+      f1 += radio->cw_keyer_sidetone_frequency;
+    }    
     f2=(f1/divisor2)*divisor2;
 
     int x=0;
@@ -605,10 +621,10 @@ void update_rx_panadapter(RECEIVER *rx) {
       GetRXAAGCThresh(rx->channel, &thresh, 4096.0, (double)rx->sample_rate);
     
       if(rx->panadapter_agc_line) {
-        double knee_y=thresh+attenuation+radio->panadapter_calibration;
+        double knee_y=thresh+attenuation+radio->panadapter_calibration;      
         knee_y = floor((rx->panadapter_high - knee_y)*dbm_per_line);
   
-        double hang_y=hang+attenuation+radio->panadapter_calibration;
+        double hang_y=hang+attenuation+radio->panadapter_calibration;    
         hang_y = floor((rx->panadapter_high - hang_y)*dbm_per_line);
   
         if(rx->agc!=AGC_MEDIUM && rx->agc!=AGC_FAST) {
@@ -637,7 +653,6 @@ void update_rx_panadapter(RECEIVER *rx) {
 
 
     // cursor
-    
     if(rx->mode_a!=CWU && rx->mode_a!=CWL) {    
       SetColour(cr, TEXT_A);
       cairo_move_to(cr,(double)(display_width/2.0)+(rx->ctun_offset/rx->hz_per_pixel),0.0);
@@ -649,6 +664,7 @@ void update_rx_panadapter(RECEIVER *rx) {
     double s2;
     
     samples[display_width-1+offset]=-200;
+    
     cairo_move_to(cr, 0.0, display_height-20);
 
     for(i=1;i<display_width;i++) {

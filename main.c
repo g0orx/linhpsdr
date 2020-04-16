@@ -57,8 +57,6 @@ static sem_t *wisdom_sem;
 static GThread *wisdom_thread_id;
 
 static GtkListStore *store;
-static GtkWidget *list;
-static GtkTreeModel *model;
 static GtkWidget *view;
 static gulong selection_signal_id;
 static GtkWidget *none_found;
@@ -321,7 +319,6 @@ static gboolean wisdom_delete(GtkWidget *widget) {
 }
 
 static int check_wisdom(void *data) {
-  char *res;
   char wisdom_directory[1024];
   char wisdom_file[1024];
   GtkWidget *dialog;
@@ -334,7 +331,7 @@ static int check_wisdom(void *data) {
       wisdom_sem=sem_open("wisdomsem",O_CREAT,0700,0);
 #else
       wisdom_sem=malloc(sizeof(sem_t));
-      int rc=sem_init(wisdom_sem, 0, 0);
+      sem_init(wisdom_sem, 0, 0);
 #endif
       wisdom_thread_id = g_thread_new( "Wisdom", wisdom_thread, (gpointer)wisdom_directory);
       if( ! wisdom_thread_id ) {
@@ -395,8 +392,6 @@ gboolean start_cb(GtkWidget *widget,gpointer data) {
   char *value;
   gint x=-1;
   gint y=-1;
-  gint width;
-  gint height;
 
   if(d!=NULL && d->status==STATE_AVAILABLE) {
     switch(d->device) {
@@ -462,13 +457,6 @@ g_print("x=%d y=%d\n",x,y);
     if(x!=-1 && y!=-1) {
 g_print("moving main_window to x=%d y=%d\n",x,y);
       gtk_window_move(GTK_WINDOW(main_window),x,y);
-/*
-      value=getProperty("radio.width");
-      if(value!=NULL) width=atoi(value);
-      value=getProperty("radio.height");
-      if(value!=NULL) height=atoi(value);
-      gtk_window_resize(GTK_WINDOW(main_window),width,height);
-*/
     }
     gdk_window_set_cursor(gtk_widget_get_window(main_window),gdk_cursor_new(GDK_ARROW));
   }

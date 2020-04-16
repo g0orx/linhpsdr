@@ -107,6 +107,7 @@ static gboolean vfo_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
   return FALSE;
 }
 
+/* TO REMOVE
 static int next_step(int current_step) {
   int next=100;
   switch(current_step) {
@@ -210,6 +211,7 @@ static int previous_step(int current_step) {
   }
   return previous;
 }
+*/
 
 static int which_button(int x,int y) {
   int button=BUTTON_NONE;
@@ -225,8 +227,9 @@ static int which_button(int x,int y) {
         button=(x/35)-2+BUTTON_ATOB;
       }
     }
-  } else if(y>=48) {
-    button=(x-5)/35;
+  } else if(y>=48) {; 
+    int click_loc = (x-5)/35;
+    if (click_loc < BUTTON_ATOB) button = click_loc;
   } else if(x>=560) {
     if(y<=35) {
       button=SLIDER_AF;
@@ -763,7 +766,6 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
   int i;
   CHOICE *choice;
   FILTER *mode_filters;
-  FILTER *filter;
   BAND *band;
   int x=(int)event->x;
   int y=(int)event->y;
@@ -1125,7 +1127,14 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           frequency_changed(rx);
           if(radio->transmitter->rx==rx) {
             if(rx->split) {
-              transmitter_set_mode(radio->transmitter,rx->mode_b);
+              // Split mode in CW, RX on VFO A, TX on VFO B.
+              // When mode turned on, default to VFO A +1 kHz
+              if (rx->mode_a == CWL || rx->mode_a ==CWU) {
+                // Most pile-ups start with UP 1
+                rx->frequency_b = rx->frequency_a + 1000;
+                rx->mode_b=rx->mode_a;
+              }
+              transmitter_set_mode(radio->transmitter,rx->mode_b);              
             } else {
               transmitter_set_mode(radio->transmitter,rx->mode_a);
             }
@@ -1457,7 +1466,7 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
     case BUTTON_VFO:
       if(x>4 && x<230) {
         if(!rx->locked) {
-          int digit=(x-5)/17;
+          int digit=(x-5)/16;
           long long step=0LL;
           switch(digit) {
             case 0:
@@ -1511,12 +1520,16 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
             }
           } else {
             rx->frequency_a+=step;
+            if (rx->frequency_a < 0) {
+              rx->frequency_a = 0;
+            }            
           }
+
           frequency_changed(rx);
         }
       } else if(x>240 && x<400) {
         if(!rx->locked) {
-          int digit=(x-240)/12;
+          int digit=(x-240)/11;
           long long step=0LL;
           switch(digit) {
             case 0:
@@ -1563,6 +1576,9 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
             rx->frequency_b+=step;
           } else {
             rx->frequency_b-=step;
+            if (rx->frequency_b < 0) {
+              rx->frequency_b = 0;
+            }
           }
           frequency_changed(rx);
         }
@@ -1713,11 +1729,20 @@ void update_vfo(RECEIVER *rx) {
     }
     // RIT
     if(rx->rit_enabled) {    
-      RoundedRectangle(cr, 390.0, 51.0, 18.0, 6.0, TRUE);   
+      RoundedRectangle(cr, 391.0, 51.0, 18.0, 6.0, TRUE);   
     }
     else {
-      RoundedRectangle(cr, 390.0, 51.0, 18.0, 6.0, FALSE);       
+      RoundedRectangle(cr, 391.0, 51.0, 18.0, 6.0, FALSE);       
     }
+    #ifdef CWDAEMON 
+    // CWX
+    if(radio->cwdaemon) {    
+      RoundedRectangle(cr, 463.0, 51.0, 23.0, 6.0, TRUE);   
+    }
+    else {
+      RoundedRectangle(cr, 463.0, 51.0, 23.0, 6.0, FALSE);       
+    }    
+    #endif
     if(rx->split) {
       RoundedRectangle(cr, 203.0, 6.0, 22.0, 5.0, TRUE);    
     }  
@@ -1731,6 +1756,7 @@ void update_vfo(RECEIVER *rx) {
     } else {
       SetColour(cr, TEXT_C);
     }
+
     cairo_move_to(cr, 5, 12);
     cairo_set_font_size(cr, 12);
     cairo_show_text(cr, "VFO A");
@@ -1741,7 +1767,24 @@ void update_vfo(RECEIVER *rx) {
       SetColour(cr, TEXT_C);
     }
     sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
-    cairo_move_to(cr, 5, 38);
+    
+
+    
+    int vfo_start_idx;
+    if ((af/1000000) < 10) {
+      vfo_start_idx = 32;
+    }
+    else if ((af/1000000) < 100) {
+      vfo_start_idx = 23;
+    }
+    else if ((af/1000000) < 1000) {    
+      vfo_start_idx = 14;
+    }
+    else { 
+      vfo_start_idx = 5;
+    }
+        
+    cairo_move_to(cr, vfo_start_idx, 38);
     cairo_set_font_size(cr, 28);
     cairo_show_text(cr, temp);
 
@@ -1760,12 +1803,29 @@ void update_vfo(RECEIVER *rx) {
       SetColour(cr, TEXT_B);
     }
     sprintf(temp,"%5lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
-    cairo_move_to(cr, 240, 38);
+    
+    
+    if ((bf/1000000) < 10) {
+      vfo_start_idx = 240 + (7*3);
+    }
+    else if ((bf/1000000) < 100) {
+      vfo_start_idx = 240 + (7*2);
+    }
+    else if ((bf/1000000) < 1000) {    
+      vfo_start_idx = 240 + (7*1);
+    }
+    else { 
+      vfo_start_idx = 240;
+    }
+    
+    
+    
+    
+    cairo_move_to(cr, vfo_start_idx, 38);
     cairo_set_font_size(cr, 20);
     cairo_show_text(cr, temp);
 
     FILTER* band_filters=filters[rx->mode_a];
-    FILTER* band_filter=&band_filters[rx->filter_a];
     cairo_set_font_size(cr, 12);
 
     int x=5;
@@ -1874,7 +1934,7 @@ void update_vfo(RECEIVER *rx) {
 
     cairo_move_to(cr, x, 58);
     if(rx->cat_control>-1) {
-      SetColour(cr, DARK_TEXT);       
+      SetColour(cr, OFF_WHITE);       
     } 
     else {
       SetColour(cr, DARK_TEXT);
@@ -1900,21 +1960,36 @@ void update_vfo(RECEIVER *rx) {
     x+=35;
 
     cairo_move_to(cr,x,58);
-    if(rx->ctun) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+    
+    if(radio->discovered->device==DEVICE_HERMES_LITE) {  
+      if(radio->cwdaemon) {
+        SetColour(cr, OFF_WHITE);
+      } else {
+        SetColour(cr, DARK_TEXT);
+      }   
+      cairo_show_text(cr, "CWX");      
     }
-    cairo_show_text(cr, "CTUN");
+    else {
+    
+      if(rx->ctun) {
+        SetColour(cr, OFF_WHITE);
+      } else {
+        SetColour(cr, DARK_TEXT);
+      }
+      cairo_show_text(cr, "CTUN");
+    }
     x+=35;
 
     cairo_move_to(cr,x,58);
-    if(rx->bpsk) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+    
+    if(radio->discovered->device!=DEVICE_HERMES_LITE) {      
+      if(rx->bpsk) {
+        cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+      } else {
+        cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      }
+      cairo_show_text(cr, "BPSK");
     }
-    cairo_show_text(cr, "BPSK");
     x+=35;
 
     x=70;

@@ -24,6 +24,8 @@ typedef struct _transmitter {
   gint channel; // WDSP channel
 
   gint dac;
+  
+  GMutex queue_mutex;  
 
   gint alex_antenna;
   gdouble mic_gain;
@@ -74,13 +76,17 @@ typedef struct _transmitter {
   gint mic_samples;
   gdouble *mic_input_buffer;
   gdouble *iq_output_buffer;
+  //
+  guint packet_counter;
+  
   gfloat *inI, *inQ, *outMI, *outMQ; // for EER
   gint mic_sample_rate;
   gint mic_dsp_rate;
   gint iq_output_rate;
-
+  gint p1_packet_size;
   gint output_samples;
   
+  gdouble temperature;
 
   gboolean pre_emphasize;
   gboolean enable_equalizer;
@@ -139,6 +145,9 @@ extern void transmitter_set_ctcss(TRANSMITTER *tx,gboolean run,gdouble frequency
 extern void transmitter_set_ps(TRANSMITTER *tx,gboolean state);
 extern void transmitter_set_twotone(TRANSMITTER *tx,gboolean state);
 extern void transmitter_set_ps_sample_rate(TRANSMITTER *tx,int rate);
+
+extern void QueueInit(void);
+extern void full_tx_buffer(TRANSMITTER *tx);
 
 extern void transmitter_enable_eer(TRANSMITTER *tx,gboolean state);
 extern void transmitter_set_eer_mode_amiq(TRANSMITTER *tx,gboolean state);

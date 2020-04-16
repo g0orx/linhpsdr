@@ -378,7 +378,6 @@ BAND *band_set_current(int b) {
 void bandSaveState() {
     char name[128];
     char value[128];
-    int current;
     BANDSTACK_ENTRY* entry;
 
     int b;
@@ -496,10 +495,7 @@ void bandSaveState() {
 void bandRestoreState() {
     char* value;
     int b;
-    int stack;
     char name[128];
-    BANDSTACK_ENTRY* entry;
-    int current;
 
     for(b=0;b<BANDS+XVTRS;b++) {
         sprintf(name,"band.%d.title",b);
@@ -577,42 +573,6 @@ void bandRestoreState() {
         sprintf(name,"band.%d.disablePA",b);
         value=getProperty(name);
         if(value) bands[b].disablePA=atoi(value);
-
-/*
-        for(stack=0;stack<bands[b].bandstack->entries;stack++) {
-            entry=bands[b].bandstack->entry;
-            entry+=stack;
-
-            sprintf(name,"band.%d.stack.%d.a",b,stack);
-            value=getProperty(name);
-            if(value) entry->frequency=atoll(value);
-
-            sprintf(name,"band.%d.stack.%d.mode",b,stack);
-            value=getProperty(name);
-            if(value) entry->mode=atoi(value);
-
-            sprintf(name,"band.%d.stack.%d.filter",b,stack);
-            value=getProperty(name);
-            if(value) entry->filter=atoi(value);
-
-            sprintf(name,"band.%d.stack.%d.var1Low",b,stack);
-            value=getProperty(name);
-            if(value) entry->var1Low=atoi(value);
-
-            sprintf(name,"band.%d.stack.%d.var1High",b,stack);
-            value=getProperty(name);
-            if(value) entry->var1High=atoi(value);
-
-            sprintf(name,"band.%d.stack.%d.var2Low",b,stack);
-            value=getProperty(name);
-            if(value) entry->var2Low=atoi(value);
-
-            sprintf(name,"band.%d.stack.%d.var2High",b,stack);
-            value=getProperty(name);
-            if(value) entry->var2High=atoi(value);
-
-        }
-*/
     }
 
     value=getProperty("band");
