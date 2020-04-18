@@ -67,7 +67,7 @@ If this CWX/cwdaemon is not wanted/required. You must disable in the Makefile. C
 ### To download, compile and install linHPSDR from here
 
 ```
-  git clone https://github.com/m5evt/linhpsdr.git
+  git clone https://github.com/g0orx/linhpsdr.git
   cd linhpsdr
   make
   sudo make install

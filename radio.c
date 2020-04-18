@@ -57,9 +57,6 @@
 #include "frequency.h"
 #include "property.h"
 #include "rigctl.h"
-#ifdef SMARTSDR
-#include "smartsdr_server.h"
-#endif 
 #include "receiver_dialog.h"
 
 static GtkWidget *add_receiver_b;
@@ -1265,10 +1262,6 @@ g_print("create_radio for %s %d\n",d->name,d->device);
       break;
 #endif
   }
-
-#ifdef SMARTSDR
-  create_smartsdr_server();
-#endif
 
 #ifdef SOAPYSDR
   soapy_protocol_set_mic_sample_rate(r->sample_rate);
