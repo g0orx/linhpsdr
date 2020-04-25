@@ -128,7 +128,8 @@ void update_meter(RECEIVER *rx,gdouble value) {
   SetColour(cr, BACKGROUND);
   cairo_paint (cr);
   cairo_set_font_size(cr, 12);
-
+  cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+  
   double attenuation = radio->adc[rx->adc].attenuation;
 
   if(radio->discovered->device==DEVICE_HERMES_LITE) {

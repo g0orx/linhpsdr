@@ -1116,9 +1116,10 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   r->microphone_name=NULL;
   r->local_microphone=FALSE;
-  r->local_microphone_buffer_size=720;
+  r->local_microphone_buffer_size=256;
   r->local_microphone_buffer_offset=0;
   r->local_microphone_buffer=NULL;
+  r->record_handle=NULL;
 
   g_mutex_init(&r->local_microphone_mutex);
 
@@ -1139,6 +1140,8 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->adc[0].random=FALSE;
   r->adc[0].preamp=FALSE;
   r->adc[0].attenuation=0;
+  r->adc_overload = 0;
+  
 #ifdef SOAPYSDR
   if(r->discovered->device==DEVICE_SOAPYSDR_USB) {
     r->adc[0].rx_gain=malloc(r->discovered->info.soapy.rx_gains*sizeof(gint));
@@ -1266,13 +1269,15 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 #ifdef SOAPYSDR
   soapy_protocol_set_mic_sample_rate(r->sample_rate);
 #endif
+  /*
   if(radio->local_microphone) {
     if(audio_open_input(r)!=0) {
       radio->local_microphone=FALSE;
     }
   }
- 
+  */
   g_idle_add(radio_start,(gpointer)r);
+
 
   return r;
 }

@@ -28,6 +28,7 @@
 #endif
 
 typedef struct _receiver {
+  
   gint channel; // WDSP channel
 
   gint adc;
@@ -128,6 +129,9 @@ typedef struct _receiver {
   cairo_surface_t *vfo_surface;
   GtkWidget *meter;
   cairo_surface_t *meter_surface;
+  GtkWidget *radio_info;
+  cairo_surface_t *radio_info_surface;  
+  
 
   GtkWidget *bookmark_dialog;
 
@@ -184,7 +188,7 @@ typedef struct _receiver {
   gboolean local_audio;
   gint local_audio_buffer_size;
   gint local_audio_buffer_offset;
-  float *local_audio_buffer;
+  void *local_audio_buffer;
   GMutex local_audio_mutex;
   gint local_audio_latency;
   gint audio_channels;
@@ -201,6 +205,7 @@ typedef struct _receiver {
 #ifndef __APPLE__
   pa_simple* playstream;
   snd_pcm_t *playback_handle;
+  snd_pcm_format_t local_audio_format;  
 #endif
 
   GtkWidget *toolbar;

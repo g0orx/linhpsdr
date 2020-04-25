@@ -1008,6 +1008,7 @@ g_print("create_transmitter: channel=%d\n",channel);
   tx->exciter_power=0;
   tx->alex_forward_power=0;
   tx->alex_reverse_power=0;
+  tx->swr = 1.0;
 
   tx->eer_amiq=1;
   tx->eer_pgain=0.5;

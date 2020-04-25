@@ -95,6 +95,8 @@ static gboolean main_delete (GtkWidget *widget) {
         break;
 #endif
     }
+    audio_close_input(radio);
+    //audio_close_output(radio);
   }    
   _exit(0);
 }

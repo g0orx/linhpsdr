@@ -117,6 +117,7 @@ xvtr_dialog.c\
 frequency.c\
 rigctl.c\
 error_handler.c\
+radio_info.c\
 bpsk.c
 
 HEADERS=\
@@ -166,6 +167,7 @@ xvtr_dialog.h\
 frequency.h\
 rigctl.h\
 error_handler.h\
+radio_info.h\
 bpsk.h
 
 OBJS=\
@@ -214,6 +216,7 @@ xvtr_dialog.o\
 frequency.o\
 rigctl.o\
 error_handler.o\
+radio_info.o\
 bpsk.o
 
 all: prebuild  $(PROGRAM) $(HEADERS) $(SOURCES) $(SOAPYSDR_SOURCES) $(CWDAEMON_SOURCES) 

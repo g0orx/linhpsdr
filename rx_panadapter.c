@@ -72,9 +72,9 @@ g_print("rx_panadapter: resize_timeout\n");
     cr = cairo_create (rx->panadapter_surface);
 
     if(rx->panadapter_gradient) {
-      cairo_pattern_t *pat=cairo_pattern_create_linear(0.0,0.0,0.0,rx->panadapter_height);
-      cairo_pattern_add_color_stop_rgba(pat,1.0,0.1,0.1,0.1,0.5);
-      cairo_pattern_add_color_stop_rgba(pat,0.0,0.5,0.5,0.5,0.5);
+      cairo_pattern_t *pat=cairo_pattern_create_linear(0.2, 0.2, 0.2, rx->panadapter_height);
+      cairo_pattern_add_color_stop_rgba(pat,0.0, (48/255), (48/255), (48/255), 1);
+      cairo_pattern_add_color_stop_rgba(pat,0.0, (80/255), (80/255), (80/255), 1);
       cairo_rectangle(cr, 0,0,rx->panadapter_width,rx->panadapter_height);
       cairo_set_source (cr, pat);
       cairo_fill(cr);
@@ -337,16 +337,32 @@ void update_rx_panadapter(RECEIVER *rx) {
     //clear_panadater_surface();
     cairo_t *cr;
     cr = cairo_create (rx->panadapter_surface);
-    cairo_select_font_face(cr, "Overpass", CAIRO_FONT_SLANT_NORMAL,CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL,CAIRO_FONT_WEIGHT_NORMAL);
     cairo_set_font_size(cr, 12);
     cairo_set_line_width(cr, 1.0);
 
     if(rx->panadapter_gradient) {
       // Set fill      
-      //cairo_pattern_t *pat=cairo_pattern_create_linear(0.04, 0.15, 0.01,rx->panadapter_height);
-      cairo_pattern_t *pat=cairo_pattern_create_linear(232/255, 190/255, 226/255,rx->panadapter_height);
-      cairo_pattern_add_color_stop_rgba(pat,1.0,0.04, 0.15, 0.01,0.5);
-      cairo_pattern_add_color_stop_rgba(pat,0.0,0.5,0.5,0.5,0.5);
+ 
+      //cairo_pattern_t *pat=cairo_pattern_create_linear(127/255, 127/255, 127/255,rx->panadapter_height);
+      
+      
+      cairo_pattern_t *pat = cairo_pattern_create_radial((rx->panadapter_width / 2),
+                             rx->panadapter_height + 300,
+                             5,
+                             (rx->panadapter_width / 2),
+                             rx->panadapter_height + 300,
+                             rx->panadapter_width/2);
+      
+      cairo_pattern_add_color_stop_rgba(pat, 1, 0.1, 0.1, 0.1, 1);
+      cairo_pattern_add_color_stop_rgba(pat, 0, 0.25, 0.25, 0.25, 1);      
+      
+      /*
+      cairo_pattern_t *pat=cairo_pattern_create_linear((136/255), (136/255), (136/255), rx->panadapter_height);
+      cairo_pattern_add_color_stop_rgba(pat,1.0, (48/255), (48/255), (48/255), 0.5);
+      cairo_pattern_add_color_stop_rgba(pat,0.0, (80/255), (80/255), (80/255), 0.5);      
+      */
+      
       cairo_rectangle(cr, 0,0,rx->panadapter_width,rx->panadapter_height);
       cairo_set_source (cr, pat);
       cairo_fill(cr);
@@ -413,15 +429,27 @@ void update_rx_panadapter(RECEIVER *rx) {
       }
   }
     
-
+    cairo_set_line_width (cr, 1);
     // plot the levels
-    SetColour(cr, DARK_LINES);
+    
+      cairo_set_source_rgb (cr, 0.1, 0.1, 0.1);
+      //cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
+      cairo_rectangle(cr,0,0,40,display_height);
+      cairo_fill(cr);    
+    
     for(i=rx->panadapter_high;i>=rx->panadapter_low;i--) {
+      SetColour(cr, DARK_LINES);
       int mod=abs(i)%20;
       if(mod==0) {
         double y = (double)(rx->panadapter_high-i)*dbm_per_line;
         cairo_move_to(cr,0.0,y);
+        
+        static const double dashed2[] = {2.0, 2.0};
+        static int len2  = sizeof(dashed2) / sizeof(dashed2[0]);        
+        cairo_set_dash(cr, dashed2, len2, 0);
+
         cairo_line_to(cr,(double)display_width,y);
+        if(rx->panadapter_gradient) SetColour(cr, TEXT_B);
         sprintf(temp," %d",i);
         cairo_move_to(cr, 5, y-1);  
         cairo_show_text(cr, temp);
@@ -429,7 +457,14 @@ void update_rx_panadapter(RECEIVER *rx) {
     }
     cairo_stroke(cr);
 
+
+
     // plot frequency markers
+    
+    cairo_set_source_rgb (cr, 0.1, 0.1, 0.1);
+    cairo_rectangle(cr,0, (rx->panadapter_height-20), display_width, (rx->panadapter_height));
+    cairo_fill(cr);        
+    
     long long f1;
     long long f2;
     long long divisor1=20000;
@@ -570,7 +605,7 @@ void update_rx_panadapter(RECEIVER *rx) {
           cairo_line_to(cr,(double)x,(double)display_height-20);
           cairo_stroke(cr);
           SetColour(cr, TEXT_B);
-          cairo_select_font_face(cr, "Overpass",
+          cairo_select_font_face(cr, "Noto Sans",
                               CAIRO_FONT_SLANT_NORMAL,
                               CAIRO_FONT_WEIGHT_NORMAL);
           cairo_set_font_size(cr, 12);
@@ -610,7 +645,8 @@ void update_rx_panadapter(RECEIVER *rx) {
         cairo_set_line_width(cr, 1.0);
       }
     }
-  
+    
+    cairo_set_dash(cr, 0, 0, 0);
     // agc
     if(rx->agc!=AGC_OFF) {
       double hang=0.0;

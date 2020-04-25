@@ -488,12 +488,30 @@ g_print("process_control_bytes: ppt=%d dot=%d dash=%d\n",radio->ptt,radio->dot,r
     g_idle_add(ext_ptt_changed,(gpointer)radio);
   }
 
+
+  
   switch((control_in[0]>>3)&0x1F) {
     case 0:
       radio->adc_overload=(control_in[1]&0x01)==0x01;
       radio->IO1=(control_in[1]&0x02)==0x02;
       radio->IO2=(control_in[1]&0x04)==0x04;
       radio->IO3=(control_in[1]&0x08)==0x08;
+      
+      /*
+      //HL2 Buffer over/underflow
+      g_print("C[3] = %#02x ", control_in[3]);
+      
+      
+          int recov = (control_in[3]&0x40) == 0x40;
+          int msb = (control_in[3]&0x80) == 0x80;
+          if (msb == 1) {
+            g_print("Buffer recovery %d %d", recov, msb);
+          }   
+      
+      
+      //}
+          g_print("\n");
+      */
       if(radio->mercury_software_version!=control_in[2]) {
         radio->mercury_software_version=control_in[2];
         fprintf(stderr,"  Mercury Software version: %d (0x%0X)\n",radio->mercury_software_version,radio->mercury_software_version);
@@ -501,12 +519,15 @@ g_print("process_control_bytes: ppt=%d dot=%d dash=%d\n",radio->ptt,radio->dot,r
       if(radio->penelope_software_version!=control_in[3]) {
         radio->penelope_software_version=control_in[3];
 
+        
         if(radio->discovered->device==DEVICE_HERMES_LITE) {        
+          /*
           int recov = (control_in[3]&0x40) == 0x40;
           int msb = (control_in[3]&0x80) == 0x80;
           if (msb == 1) {
             g_print("Buffer recovery %d %d \n", recov, msb);
           }
+          */
         }
         else {
           fprintf(stderr,"  Penelope Software version: %d (0x%0X)\n",radio->penelope_software_version,radio->penelope_software_version);          
@@ -521,7 +542,12 @@ g_print("process_control_bytes: ppt=%d dot=%d dash=%d\n",radio->ptt,radio->dot,r
       radio->transmitter->exciter_power=((control_in[1]&0xFF)<<8)|(control_in[2]&0xFF); // from Penelope or Hermes
       
       int adc = ((control_in[1]&0xFF)<<8)|(control_in[2]&0xFF);
-      radio->transmitter->temperature = (3.26 * ((double)adc/4096.0) - 0.5) / 0.01;
+
+      double this_temperature = (3.26 * ((double)adc/4096.0) - 0.5) / 0.01;    
+      // Exponential moving average filter
+      double alpha = 0.7;
+      radio->transmitter->temperature = (alpha * this_temperature) + (1 - alpha) * radio->transmitter->temperature;
+      
       
       radio->transmitter->alex_forward_power=((control_in[3]&0xFF)<<8)|(control_in[4]&0xFF); // from Alex or Apollo
       break;
@@ -1335,7 +1361,7 @@ void ozy_send_buffer() {
   
           level=(int)(actual_volts*255.0);
         }
-        
+
         output_buffer[C0]=0x12;
         output_buffer[C1]=level&0xFF;
         output_buffer[C2]=0x00;
@@ -1594,7 +1620,7 @@ void ozy_send_buffer() {
         output_buffer[C1]=0x0;        
         output_buffer[C2]=0x0;        
         output_buffer[C3]=0x4;        
-        output_buffer[C4]=0x10;
+        output_buffer[C4]=0x15;
         break;
     }
 

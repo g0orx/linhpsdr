@@ -133,7 +133,7 @@ void update_tx_panadapter(RADIO *r) {
 
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0);
     cairo_set_line_width(cr, 1.0);
-    cairo_select_font_face(cr, "Overpass", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
     cairo_set_font_size(cr, 10);
     char v[32];
 
@@ -222,12 +222,20 @@ void update_tx_panadapter(RADIO *r) {
       cairo_move_to(cr, 206, 34);
       cairo_show_text(cr, text);
   
-      double swr = (1+ sqrt(tx->rev/tx->fwd)) / (1 - sqrt(tx->rev/tx->fwd));
-      
-      if(swr<0.0) swr=1.0;
-      sprintf(text,"SWR: %1.1f:1",swr);
-      cairo_move_to(cr, 206, 56);
-      cairo_show_text(cr, text);
+      // Won't show SWR if power out is less than
+      // 100 mW, potentially improve this in the future?
+      if (tx->fwd > 1E-1) {
+        double this_swr = (1+ sqrt(tx->rev/tx->fwd)) / (1 - sqrt(tx->rev/tx->fwd));
+        if (this_swr < 0.0) this_swr=1.0;
+        
+        // Exponential moving average filter
+        double alpha = 0.7;
+        tx->swr = (alpha * this_swr) + (1 - alpha) * tx->swr;
+        
+        sprintf(text,"SWR: %1.1f:1", tx->swr);
+        cairo_move_to(cr, 206, 56);
+        cairo_show_text(cr, text);
+      }
   
       sprintf(text,"ALC: %2.1f dB",tx->alc);
       cairo_move_to(cr, 206, 80);
@@ -254,7 +262,7 @@ void update_tx_panadapter(RADIO *r) {
 
     cairo_set_font_size(cr, 12);       
     SetColour(cr, TEXT_C);
-    sprintf(text,"%2.1f degC",tx->temperature);
+    sprintf(text,"%2.0f degC",tx->temperature);
     cairo_move_to(cr, 206, 157);
     cairo_show_text(cr, text);
     cairo_stroke(cr);
