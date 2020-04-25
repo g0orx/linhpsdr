@@ -1509,7 +1509,10 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
             rx->frequency_a+=step;
             if (rx->frequency_a < 0) {
               rx->frequency_a = 0;
-            }            
+            }      
+            else if (rx->frequency_a > 99999999999) {
+              rx->frequency_a = 99999999999;
+            }                    
           }
 
           frequency_changed(rx);
@@ -1537,8 +1540,13 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
           long long step=0LL;         
           step = ll_step[step_idx][digit];
        
-          if(event->direction==GDK_SCROLL_UP) {
-            rx->frequency_b+=step;
+          if (event->direction==GDK_SCROLL_UP) {
+            if ((rx->frequency_b + step) < 99999999999) {
+              rx->frequency_b += step;
+            }
+            else {
+              rx->frequency_b = rx->frequency_b;
+            }
           } else {
             rx->frequency_b-=step;
             if (rx->frequency_b < 0) {
@@ -1732,10 +1740,10 @@ void update_vfo(RECEIVER *rx) {
     if ((af/1000000) < 100) {    
       sprintf(temp,"%2lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
     }
-    else if ((bf/1000000) < 1000) {
+    else if ((af/1000000) < 1000) {
       sprintf(temp,"%3lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);      
     }
-    else if ((bf/1000000) < 10000) {
+    else if ((af/1000000) < 10000) {
       sprintf(temp,"%4lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
     }
     else {
