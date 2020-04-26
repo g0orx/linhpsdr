@@ -1092,7 +1092,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     gtk_grid_attach(GTK_GRID(audio_grid),local_audio,0,0,1,1);
     g_signal_connect(local_audio,"toggled",G_CALLBACK(local_audio_cb),rx);
 
-    if(radio->discovered->device!=DEVICE_HERMES_LITE
+    if(radio->discovered->device!=DEVICE_HERMES_LITE2
 #ifdef SOAPYSDR
        && radio->discovered->device!=DEVICE_SOAPYSDR_USB
 #endif

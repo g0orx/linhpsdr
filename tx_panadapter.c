@@ -259,14 +259,16 @@ void update_tx_panadapter(RADIO *r) {
       cairo_move_to(cr,((double)width/2.0)+2.0,18.0);
       cairo_show_text(cr, temp);
     }
+    
+    if(radio->discovered->device==DEVICE_HERMES_LITE2) {   
+      cairo_set_font_size(cr, 12);       
+      SetColour(cr, TEXT_C);
+      sprintf(text,"%2.0f degC",tx->temperature);
+      cairo_move_to(cr, 206, 157);
+      cairo_show_text(cr, text);
 
-    cairo_set_font_size(cr, 12);       
-    SetColour(cr, TEXT_C);
-    sprintf(text,"%2.0f degC",tx->temperature);
-    cairo_move_to(cr, 206, 157);
-    cairo_show_text(cr, text);
-    cairo_stroke(cr);
-
+    }
+    cairo_stroke(cr);    
     cairo_destroy(cr);
     gtk_widget_queue_draw(tx->panadapter);
   }

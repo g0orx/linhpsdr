@@ -206,9 +206,8 @@ BANDSTACK bandstack2300={3,1,bandstack_entries2300};
 BANDSTACK bandstack3400={3,1,bandstack_entries3400};
 BANDSTACK bandstackAIR={6,1,bandstack_entriesAIR};
 #endif
-BANDSTACK bandstackGEN={3,1,bandstack_entriesGEN};
 BANDSTACK bandstackWWV={5,1,bandstack_entriesWWV};
-
+BANDSTACK bandstackGEN={3,1,bandstack_entriesGEN};
 /* --------------------------------------------------------------------------*/
 /**
 * @brief xvtr
@@ -592,5 +591,6 @@ int get_band_from_frequency(gint64 f) {
       }
     }
   }
-  return found;
+  if (found < 0) found=bandGen;
+  return found;  
 }

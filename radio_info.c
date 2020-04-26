@@ -163,13 +163,17 @@ void update_radio_info(RECEIVER *rx) {
     RoundedRectangle(cr, 5, top_y, 25.0, 6.0, INFO_FALSE);    
   }
   // Rigctl CAT control
-  if(rx->cat_control>-1) {  
+  if (rx->cat_control>-1) {  
     RoundedRectangle(cr, 45, top_y, 25.0, 6.0, INFO_TRUE);  
   } else {
     RoundedRectangle(cr, 45, top_y, 25.0, 6.0, INFO_FALSE);    
   }
   // Duplex mode 
-  RoundedRectangle(cr, 85, top_y, 25.0, 6.0, INFO_FALSE);    
+  if (radio->duplex) {
+    RoundedRectangle(cr, 85, top_y, 25.0, 6.0, INFO_TRUE);
+  } else {
+    RoundedRectangle(cr, 85, top_y, 25.0, 6.0, INFO_FALSE);    
+  }
   // Alsa MIDI server  
   RoundedRectangle(cr, 125, top_y, 25.0, 6.0, INFO_FALSE);  
 
@@ -207,7 +211,7 @@ void update_radio_info(RECEIVER *rx) {
   cairo_move_to(cr, 45, top_y + 7);    
   cairo_show_text(cr, "CAT");
   // Duplex mode    
-  SetColour(cr, DARK_TEXT);
+  SetColour(cr, OFF_WHITE);
   cairo_move_to(cr, 85, top_y + 7);    
   cairo_show_text(cr, "DUP");
   // Alsa MIDI server

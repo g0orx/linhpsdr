@@ -1954,7 +1954,7 @@ void update_vfo(RECEIVER *rx) {
 
     cairo_move_to(cr,x,58);
     
-    if(radio->discovered->device!=DEVICE_HERMES_LITE) {      
+    if(radio->discovered->device!=DEVICE_HERMES_LITE2) {      
       if(rx->ctun) {
         SetColour(cr, OFF_WHITE);
       } else {
@@ -1966,7 +1966,7 @@ void update_vfo(RECEIVER *rx) {
 
     cairo_move_to(cr,x,58);
     
-    if(radio->discovered->device!=DEVICE_HERMES_LITE) {      
+    if(radio->discovered->device!=DEVICE_HERMES_LITE2) {      
       if(rx->bpsk) {
         cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
       } else {

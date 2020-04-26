@@ -722,10 +722,12 @@ void audio_close_input(RADIO *r) {
 #ifndef __APPLE__
     case USE_PULSEAUDIO: {
       g_mutex_lock(&r->local_microphone_mutex);
-      pa_simple_free(r->microphone_stream);
-      r->microphone_stream=NULL;
-      g_free(r->local_microphone_buffer);
-      r->local_microphone_buffer=NULL;
+      if(r->microphone_stream!=NULL) {
+        pa_simple_free(r->microphone_stream);
+        r->microphone_stream=NULL;
+        g_free(r->local_microphone_buffer);
+        r->local_microphone_buffer=NULL;
+      }
       g_mutex_unlock(&r->local_microphone_mutex);
       break;
     }

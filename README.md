@@ -36,7 +36,7 @@ Development and testing has been run on Ubuntu 17.10 and Ubuntu 18.04. If run on
 ```
 ### CW support
 
-HL2 CWX/cwdaemon support added. Requires the following to be installed (tested on Ubuntu 19.10, Kubuntu 18.04 LTS):
+Hermes and HL2 CWX/cwdaemon support added. If you do not wish to use this, please ignore. This features requires the following to be installed (tested on Ubuntu 19.10, Kubuntu 18.04 LTS):
 
 ```
   sudo apt install libtool
@@ -48,7 +48,7 @@ HL2 CWX/cwdaemon support added. Requires the following to be installed (tested o
   sudo make install
   sudo ldconfig
 ```
-If this CWX/cwdaemon is not wanted/required. You must disable in the Makefile. Comment the following lines as follows
+If CWX/cwdaemon is wanted/required. You must enable it in the Makefile. Uncomment the following lines:
 ```
 #CWDAEMON_INCLUDE=CWDAEMON
 

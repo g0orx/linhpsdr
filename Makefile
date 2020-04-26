@@ -46,18 +46,18 @@ endif
 # needs :
 #			https://github.com/m5evt/unixcw-3.5.1.git
 
-CWDAEMON_INCLUDE=CWDAEMON
+#CWDAEMON_INCLUDE=CWDAEMON
 
-ifeq ($(CWDAEMON_INCLUDE),CWDAEMON)
-CWDAEMON_OPTIONS=-D CWDAEMON
-CWDAEMON_LIBS=-lcw
-CWDAEMON_SOURCES= \
-cwdaemon.c
-CWDAEMON_HEADERS= \
-cwdaemon.h
-CWDAEMON_OBJS= \
-cwdaemon.o
-endif
+#ifeq ($(CWDAEMON_INCLUDE),CWDAEMON)
+#CWDAEMON_OPTIONS=-D CWDAEMON
+#CWDAEMON_LIBS=-lcw
+#CWDAEMON_SOURCES= \
+#cwdaemon.c
+#CWDAEMON_HEADERS= \
+#cwdaemon.h
+#CWDAEMON_OBJS= \
+#cwdaemon.o
+#endif
 
 
 OPTIONS=-Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) \

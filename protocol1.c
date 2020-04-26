@@ -497,21 +497,19 @@ g_print("process_control_bytes: ppt=%d dot=%d dash=%d\n",radio->ptt,radio->dot,r
       radio->IO2=(control_in[1]&0x04)==0x04;
       radio->IO3=(control_in[1]&0x08)==0x08;
       
-      /*
+      
       //HL2 Buffer over/underflow
-      g_print("C[3] = %#02x ", control_in[3]);
-      
-      
+      #ifdef CWDAEMON
+      if ((radio->ptt) || keytx) {
           int recov = (control_in[3]&0x40) == 0x40;
           int msb = (control_in[3]&0x80) == 0x80;
           if (msb == 1) {
-            g_print("Buffer recovery %d %d", recov, msb);
+            g_print("Buffer recovery %d %d\n", recov, msb);
           }   
-      
-      
+      }    
+      #endif
       //}
-          g_print("\n");
-      */
+      
       if(radio->mercury_software_version!=control_in[2]) {
         radio->mercury_software_version=control_in[2];
         fprintf(stderr,"  Mercury Software version: %d (0x%0X)\n",radio->mercury_software_version,radio->mercury_software_version);
@@ -520,16 +518,7 @@ g_print("process_control_bytes: ppt=%d dot=%d dash=%d\n",radio->ptt,radio->dot,r
         radio->penelope_software_version=control_in[3];
 
         
-        if(radio->discovered->device==DEVICE_HERMES_LITE) {        
-          /*
-          int recov = (control_in[3]&0x40) == 0x40;
-          int msb = (control_in[3]&0x80) == 0x80;
-          if (msb == 1) {
-            g_print("Buffer recovery %d %d \n", recov, msb);
-          }
-          */
-        }
-        else {
+        if(radio->discovered->device!=DEVICE_HERMES_LITE2) {        
           fprintf(stderr,"  Penelope Software version: %d (0x%0X)\n",radio->penelope_software_version,radio->penelope_software_version);          
         }
       }
@@ -1131,7 +1120,7 @@ void ozy_send_buffer() {
 
 // TODO - add Alex Attenuation and Alex Antenna
     output_buffer[C3]=0x00;
-    if(radio->discovered->device==DEVICE_HERMES_LITE) {
+    if(radio->discovered->device==DEVICE_HERMES_LITE2) {
       if (radio->psu_clk == FALSE) { 
         output_buffer[C3]|=LT2208_RANDOM_ON;    
       }
@@ -1478,10 +1467,14 @@ void ozy_send_buffer() {
         output_buffer[C3]=0x00;
   
         output_buffer[C4]=0x00;
-        if(radio->discovered->device==DEVICE_HERMES_LITE) {
+        if(radio->discovered->device==DEVICE_HERMES_LITE2) {
           output_buffer[C4]=0x40;
           // HL2 extends into [5:0] of this buffer          
           output_buffer[C4]|=(((int)radio->adc[0].attenuation + 12)&0x3F);
+        } else if(radio->discovered->device==DEVICE_HERMES_LITE) {
+          if(!radio->adc[0].enable_step_attenuation) {
+            output_buffer[C4]=0x20;
+          }        
         } else if(radio->discovered->device==DEVICE_HERMES || radio->discovered->device==DEVICE_ANGELIA || radio->discovered->device==DEVICE_ORION || radio->discovered->device==DEVICE_ORION2) {
           if(radio->adc[0].enable_step_attenuation) {
             output_buffer[C4]=0x20;
@@ -1545,7 +1538,7 @@ void ozy_send_buffer() {
 #endif
         output_buffer[C3]=0x00;
         output_buffer[C3]|=radio->transmitter->attenuation;
-        if(radio->discovered->device==DEVICE_HERMES_LITE) output_buffer[C3]|=0x80;
+        if(radio->discovered->device==DEVICE_HERMES_LITE2) output_buffer[C3]|=0x80;
         output_buffer[C4]=0x00;
         break;
       case 7:
@@ -1575,7 +1568,7 @@ void ozy_send_buffer() {
         
         //CWX enable/disable
 	#ifdef CWDAEMON 
-        if(radio->discovered->device==DEVICE_HERMES_LITE) {
+        if(radio->discovered->device==DEVICE_HERMES_LITE2) {
           if(radio->cwdaemon) {
             radio->cw_keyer_ptt_delay = 0x1;
           }

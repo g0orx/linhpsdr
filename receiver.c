@@ -795,7 +795,7 @@ static gboolean update_timer_cb(void *data) {
   RECEIVER *rx=(RECEIVER *)data;
 
   g_mutex_lock(&rx->mutex);
-  if(!isTransmitting(radio)) {
+  if(!isTransmitting(radio) || (radio->duplex)) {
     if(rx->panadapter_resize_timer==-1) {
       GetPixels(rx->channel,0,rx->pixel_samples,&rc);
       if(rc) {
@@ -850,7 +850,7 @@ void set_filter(RECEIVER *rx,int low,int high) {
 }
 
 void set_deviation(RECEIVER *rx) {
-//fprintf(stderr,"set_deviation: %d\n",rx->deviation);
+fprintf(stderr,"set_deviation: %d\n",rx->deviation);
   SetRXAFMDeviation(rx->channel, (double)rx->deviation);
 }
 
@@ -959,7 +959,7 @@ static void process_rx_buffer(RECEIVER *rx) {
 
     if(radio->active_receiver==rx) {
 
-      if(isTransmitting(radio) || rx->remote_audio==FALSE) {
+      if ((isTransmitting(radio) || rx->remote_audio==FALSE) &&(!radio->duplex)) {
         left_audio_sample=0;
         right_audio_sample=0;
       }
@@ -981,7 +981,7 @@ static void process_rx_buffer(RECEIVER *rx) {
 static void full_rx_buffer(RECEIVER *rx) {
   int error;
 
-  if(isTransmitting(radio)) return;
+  if(isTransmitting(radio) && (!radio->duplex)) return;
 
   // noise blanker works on origianl IQ samples
   if(rx->nb) {
@@ -1397,7 +1397,7 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   rx->panadapter_surface=NULL;
   
   rx->panadapter_filled=TRUE;
-  rx->panadapter_gradient=FALSE;
+  rx->panadapter_gradient=TRUE;
   rx->panadapter_agc_line=TRUE;
 
   rx->waterfall_automatic=TRUE;
