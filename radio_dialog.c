@@ -53,12 +53,13 @@ static GtkWidget *adc0_antenna_combo_box;
 static GtkWidget *adc0_filters_combo_box;
 static GtkWidget *adc0_hpf_combo_box;
 static GtkWidget *adc0_lpf_combo_box;
+static GtkWidget *duplex_b;
 static GtkWidget *dither_b;
 static GtkWidget *random_b;
 static GtkWidget *preamp_b;
 static GtkWidget *attenuation_label;
 static GtkWidget *attenuation_b;
-//static GtkWidget *enable_attenuation_b;
+static GtkWidget *enable_attenuation_b;
 static GtkWidget *disable_fpgaclk_b;
 
 static GtkWidget *adc1_frame;
@@ -108,7 +109,7 @@ static void update_controls() {
     case ANAN_8000DLE:
       radio->filter_board=ALEX;
       break;
-    case HERMES_LITE:
+    case HERMES_LITE_2:
       radio->filter_board=N2ADR;
       break;
     case ATLAS:
@@ -163,7 +164,7 @@ static void update_controls() {
       gtk_widget_set_sensitive(adc0_lpf_combo_box, FALSE);
       gtk_widget_set_sensitive(adc0_hpf_combo_box, FALSE);
       break;
-    case HERMES_LITE:
+    case HERMES_LITE_2:
       break;
 #ifdef SOAPYSDR
     case SOAPYSDR_USB:
@@ -471,6 +472,11 @@ static void preamp_cb(GtkWidget *widget, gpointer data) {
   adc->preamp=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 }
 
+static void duplex_cb(GtkWidget *widget, gpointer data) {
+  RADIO *radio=(RADIO *)data;
+  radio->duplex = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+}
+
 /* TO REMOVE
 static void lna_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   ADC *adc=(ADC *)data;
@@ -539,7 +545,6 @@ static void attenuation_value_changed_cb(GtkWidget *widget, gpointer data) {
   }
 }
 
-/* TO REMOVE
 static void enable_step_attenuation_cb(GtkWidget *widget,gpointer data) {
   ADC *adc=(ADC *)data;
   adc->enable_step_attenuation=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
@@ -547,7 +552,6 @@ static void enable_step_attenuation_cb(GtkWidget *widget,gpointer data) {
     protocol2_high_priority();
   }
 }
-*/
 
 static void rigctl_cb(GtkWidget *widget, gpointer data) {
   int i;
@@ -656,7 +660,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   g_signal_connect(model_combo_box,"changed",G_CALLBACK(model_cb),radio);
   gtk_grid_attach(GTK_GRID(model_grid),model_combo_box,x,0,1,1);
   x++;
-  if (radio->discovered->device == DEVICE_HERMES_LITE) {
+  if ((radio->discovered->device == DEVICE_HERMES_LITE2) || (radio->discovered->device == DEVICE_HERMES_LITE)) {
     GtkWidget *paswap=gtk_check_button_new_with_label("Enable PA");
     gtk_grid_attach(GTK_GRID(model_grid),paswap,x,0,1,1);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(paswap),radio->enable_pa);
@@ -766,30 +770,52 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       }
       break;
 #endif
-    case DEVICE_HERMES_LITE:
+    case DEVICE_HERMES_LITE2:
       attenuation_label=gtk_label_new("LNA gain (dB):");
       gtk_grid_attach(GTK_GRID(adc0_grid),attenuation_label,0,0,1,1);
       attenuation_b=gtk_spin_button_new_with_range(-12.0,48.0,1.0);
       gtk_spin_button_set_value(GTK_SPIN_BUTTON(attenuation_b),(double)radio->adc[0].attenuation);
-      gtk_grid_attach(GTK_GRID(adc0_grid),attenuation_b,1,0,1,1);
+      gtk_grid_attach(GTK_GRID(adc0_grid),attenuation_b,2,0,1,1);
       g_signal_connect(attenuation_b,"value_changed",G_CALLBACK(attenuation_value_changed_cb),&radio->adc[0]);
 
       disable_fpgaclk_b=gtk_check_button_new_with_label("FPGA PSU clock");
       gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (disable_fpgaclk_b), radio->psu_clk);
       gtk_grid_attach(GTK_GRID(adc0_grid),disable_fpgaclk_b,0,1,1,1);
       g_signal_connect(disable_fpgaclk_b,"toggled",G_CALLBACK(psu_clk_cb),radio);
+      
+      duplex_b=gtk_check_button_new_with_label("Duplex");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (duplex_b), radio->duplex);
+      gtk_grid_attach(GTK_GRID(adc0_grid),duplex_b,1,1,1,1);
+      g_signal_connect(duplex_b,"toggled",G_CALLBACK(duplex_cb),radio);  
 
-      /* TO REMOVE
+      break;    
+
+    case DEVICE_HERMES_LITE:
+      attenuation_label=gtk_label_new("LNA gain (dB):");
+      gtk_grid_attach(GTK_GRID(adc0_grid),attenuation_label,0,0,1,1);
+      attenuation_b=gtk_spin_button_new_with_range(-12.0,48.0,1.0);
+      gtk_spin_button_set_value(GTK_SPIN_BUTTON(attenuation_b),(double)radio->adc[0].attenuation);
+      gtk_grid_attach(GTK_GRID(adc0_grid),attenuation_b,2,0,1,1);
+      g_signal_connect(attenuation_b,"value_changed",G_CALLBACK(attenuation_value_changed_cb),&radio->adc[0]);
+      
+      /*
+      duplex_b=gtk_check_button_new_with_label("Duplex");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (duplex_b), radio->duplex);
+      gtk_grid_attach(GTK_GRID(adc0_grid),duplex_b,1,1,1,1);
+      g_signal_connect(duplex_b,"toggled",G_CALLBACK(duplex_cb),radio);      
+      */
+      
       enable_attenuation_b=gtk_check_button_new_with_label("Enable 20dB Attenuation");
       gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (enable_attenuation_b), radio->adc[0].dither);
-      gtk_grid_attach(GTK_GRID(adc0_grid),enable_attenuation_b,1,1,1,1);
+      gtk_grid_attach(GTK_GRID(adc0_grid),enable_attenuation_b,0,1,1,1);
       //g_signal_connect(enable_attenuation_b,"toggled",G_CALLBACK(enable_step_attenuation_cb),&radio->adc[0]);
       g_signal_connect(enable_attenuation_b,"toggled",G_CALLBACK(dither_cb),&radio->adc[0]);
-      */
+      
       break;
     
     default:
       adc0_antenna_combo_box=gtk_combo_box_text_new();
+      // Row 1
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"ANT_1");
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"ANT_2");
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc0_antenna_combo_box),NULL,"ANT_3");
@@ -830,6 +856,12 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       g_signal_connect(adc0_lpf_combo_box,"changed",G_CALLBACK(adc0_lpf_cb),radio);
       gtk_grid_attach(GTK_GRID(adc0_grid),adc0_lpf_combo_box,3,0,1,1);
 
+      duplex_b=gtk_check_button_new_with_label("Duplex");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (duplex_b), radio->duplex);
+      gtk_grid_attach(GTK_GRID(adc0_grid),duplex_b,4,0,1,1);
+      g_signal_connect(duplex_b,"toggled",G_CALLBACK(duplex_cb),&radio->duplex);
+
+      // Row 2
       dither_b=gtk_check_button_new_with_label("Dither");
       gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (dither_b), radio->adc[0].dither);
       gtk_grid_attach(GTK_GRID(adc0_grid),dither_b,0,1,1,1);
@@ -1091,7 +1123,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   x=0;
   y=0;
 
-  if (radio->discovered->device != DEVICE_HERMES_LITE) {
+  if (radio->discovered->device != DEVICE_HERMES_LITE2) {
     GtkWidget *cw_keyer_mode_label=gtk_label_new("Keyer Mode:");
     gtk_widget_show(cw_keyer_mode_label);
     gtk_grid_attach(GTK_GRID(cw_grid),cw_keyer_mode_label,x++,y,1,1);
@@ -1105,7 +1137,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     gtk_grid_attach(GTK_GRID(cw_grid),cw_keyer_combo_box,x++,y,1,1);
   }
 
-  if (radio->discovered->device == DEVICE_HERMES_LITE) {
+  if ((radio->discovered->device == DEVICE_HERMES_LITE2) || (radio->discovered->device == DEVICE_HERMES)) {
     #ifdef CWDAEMON    
     GtkWidget *cwdaemon_label=gtk_label_new("CWdaemon enabled:");
     gtk_widget_show(cwdaemon_label);
