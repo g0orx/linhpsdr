@@ -161,6 +161,7 @@ g_print("discover_receive_thread\n");
             if (status == 2 || status == 3) {
                 if(devices<MAX_DEVICES) {
                     discovered[devices].protocol=PROTOCOL_1;
+                    discovered[devices].software_version=buffer[9]&0xFF;                    
                     switch(buffer[10]&0xFF) {
                         case OLD_DEVICE_METIS:
                             discovered[devices].device=DEVICE_METIS;
@@ -200,9 +201,16 @@ g_print("discover_receive_thread\n");
                             break;
                         case OLD_DEVICE_HERMES_LITE:
                             discovered[devices].device=DEVICE_HERMES_LITE;
-                            strcpy(discovered[devices].name,"Hermes Lite");
-                            // HL2 send max supported receveirs in discovery response.
-                            discovered[devices].supported_receivers=buffer[0x13];;
+                            g_print("%d", discovered[devices].software_version);
+			                      if (discovered[devices].software_version < 40) {
+                              strcpy(discovered[devices].name,"Hermes Lite V1");
+                              discovered[devices].supported_receivers = 2;                                
+			                      } else {
+                              strcpy(discovered[devices].name,"Hermes Lite V2");
+			                        discovered[devices].device = DEVICE_HERMES_LITE2;
+                              // HL2 send max supported receveirs in discovery response.
+                              discovered[devices].supported_receivers=buffer[0x13];                    
+			                      }                            
                             discovered[devices].supported_transmitters=1;
                             discovered[devices].adcs=1;
                             discovered[devices].frequency_min=0.0;
@@ -227,7 +235,7 @@ g_print("discover_receive_thread\n");
                             discovered[devices].frequency_max=61440000.0;
                             break;
                     }
-                    discovered[devices].software_version=buffer[9]&0xFF;
+
                     for(i=0;i<6;i++) {
                         discovered[devices].info.network.mac_address[i]=buffer[i+3];
                     }

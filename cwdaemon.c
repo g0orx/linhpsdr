@@ -95,7 +95,7 @@
 #define CWDAEMON_MORSE_WEIGHTING_MAX           50
 
 #define CWDAEMON_NETWORK_PORT_DEFAULT                  6789
-#define CWDAEMON_AUDIO_SYSTEM_DEFAULT      CW_AUDIO_PA /* Console buzzer, from libcw.h. */
+#define CWDAEMON_AUDIO_SYSTEM_DEFAULT      CW_AUDIO_NULL /* Console buzzer, from libcw.h. */
 #define CWDAEMON_VERBOSITY_DEFAULT     CWDAEMON_VERBOSITY_W /* Threshold of verbosity of debug strings. */
 
 #define CWDAEMON_USECS_PER_MSEC         1000 /* Just to avoid magic numbers. */
@@ -194,7 +194,6 @@ static const char *cwdaemon_verbosity_labels[] = {
 
 /* Various variables. */
 static int wordmode = 0;               /* Start in character mode. */
-static int async_abort = 0;            /* Unused variable. It is used in patches/cwdaemon-mt.patch though. */
 static int inactivity_seconds = 9999;  /* Inactive since nnn seconds. */
 
 
@@ -1169,6 +1168,7 @@ void cwdaemon_keyingevent(__attribute__((unused)) void *arg, int keystate)
 */
 void cwdaemon_tone_queue_low_callback(__attribute__((unused)) void *arg)
 {
+  return;
 	int len = cw_get_tone_queue_length();
 	printf("low TQ callback: start, TQ len = %d, PTT flag = 0x%02x/%s",
 		       len, ptt_flag, cwdaemon_debug_ptt_flags());

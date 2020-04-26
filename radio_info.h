@@ -17,31 +17,5 @@
 *
 */
 
-extern GtkWidget *create_vfo(RECEIVER *rx);
-extern void update_vfo(RECEIVER *r);
-
-extern void RoundedRectangle(cairo_t *cr, double x, double y, double width, double height, int state);
-extern void SetColour(cairo_t *cr, const int colour);
-
-enum {
-  BACKGROUND=0,
-  OFF_WHITE=1,
-  BOX_ON = 2,
-  BOX_OFF = 3,
-  TEXT_A = 4,
-  TEXT_B = 5,
-  TEXT_C = 6,
-  WARNING = 7,
-  DARK_LINES = 8,
-  DARK_TEXT = 9,
-  INFO_ON = 10,
-  INFO_OFF = 11
-};
-
-enum {
-  CLICK_ON=0,
-  CLICK_OFF=1,
-  INFO_TRUE = 2,
-  INFO_FALSE = 3,
-  WARNING_ON = 4
-};
+extern GtkWidget *create_radio_info_visual(RECEIVER *rx);
+extern void update_info(RECEIVER *r,gdouble value);

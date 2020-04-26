@@ -245,6 +245,9 @@ g_print("radio_save_state: %s\n",filename);
   sprintf(value,"%d",radio->classE);
   setProperty("radio.classE",value);
 
+  sprintf(value,"%d",radio->duplex);
+  setProperty("radio.duplex",value);
+
   sprintf(value,"%d",rigctl_enable);
   setProperty("rigctl_enable",value);
   sprintf(value,"%d",rigctl_port_base);
@@ -442,6 +445,9 @@ void radio_restore_state(RADIO *radio) {
   value=getProperty("radio.classE");
   if(value!=NULL) radio->classE=atoi(value);
 
+  value=getProperty("radio.duplex");
+  if(value!=NULL) radio->duplex=atoi(value);
+
   value=getProperty("radio.iqswap");
   if(value) radio->iqswap=atoi(value);
 
@@ -635,13 +641,13 @@ g_print("delete_receiver: receivers now %d\n",radio->receivers);
 static void rxtx(RADIO *r) {
   int i;
   int nrx=0;
-
-  if(isTransmitting(r)) {
+  if(isTransmitting(r) && !r->duplex) {
 //g_print("rxtx: switch to tx: disable receivers\n");
     for(i=0;i<r->discovered->supported_receivers;i++) {
       if(r->receiver[i]!=NULL) {
         nrx++;
-        SetChannelState(r->receiver[i]->channel,0,nrx==r->receivers);
+        //SetChannelState(r->receiver[i]->channel,0,nrx==r->receivers);
+        SetChannelState(r->receiver[i]->channel,0,1);        
       }
     }
 //g_print("rxtx: switch to tx: enable transmitter\n");
@@ -1020,6 +1026,11 @@ g_print("create_radio for %s %d\n",d->name,d->device);
     case DEVICE_HERMES_LITE:
       r->model=HERMES_LITE;
       break;
+    case DEVICE_HERMES_LITE2:
+      r->model=HERMES_LITE_2;
+      break;      
+      
+      
 #ifdef SOAPYSDR
     case DEVICE_SOAPYSDR_USB:
       r->model=SOAPYSDR_USB;
@@ -1116,9 +1127,10 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   r->microphone_name=NULL;
   r->local_microphone=FALSE;
-  r->local_microphone_buffer_size=720;
+  r->local_microphone_buffer_size=256;
   r->local_microphone_buffer_offset=0;
   r->local_microphone_buffer=NULL;
+  r->record_handle=NULL;
 
   g_mutex_init(&r->local_microphone_mutex);
 
@@ -1139,6 +1151,8 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->adc[0].random=FALSE;
   r->adc[0].preamp=FALSE;
   r->adc[0].attenuation=0;
+  r->adc_overload = 0;
+  
 #ifdef SOAPYSDR
   if(r->discovered->device==DEVICE_SOAPYSDR_USB) {
     r->adc[0].rx_gain=malloc(r->discovered->info.soapy.rx_gains*sizeof(gint));
@@ -1189,6 +1203,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->region=REGION_OTHER;
 
   r->iqswap=FALSE;
+  r->duplex = FALSE;
 
   r->which_audio=USE_SOUNDIO;
   r->which_audio_backend=0;
@@ -1266,13 +1281,15 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 #ifdef SOAPYSDR
   soapy_protocol_set_mic_sample_rate(r->sample_rate);
 #endif
+  /*
   if(radio->local_microphone) {
     if(audio_open_input(r)!=0) {
       radio->local_microphone=FALSE;
     }
   }
- 
+  */
   g_idle_add(radio_start,(gpointer)r);
+
 
   return r;
 }

@@ -41,6 +41,7 @@
 #include "main.h"
 #include "vfo.h"
 #include "meter.h"
+#include "radio_info.h"
 #include "rx_panadapter.h"
 #include "tx_panadapter.h"
 #include "waterfall.h"
@@ -794,7 +795,7 @@ static gboolean update_timer_cb(void *data) {
   RECEIVER *rx=(RECEIVER *)data;
 
   g_mutex_lock(&rx->mutex);
-  if(!isTransmitting(radio)) {
+  if(!isTransmitting(radio) || (radio->duplex)) {
     if(rx->panadapter_resize_timer==-1) {
       GetPixels(rx->channel,0,rx->pixel_samples,&rc);
       if(rc) {
@@ -805,6 +806,9 @@ static gboolean update_timer_cb(void *data) {
     double m=GetRXAMeter(rx->channel,rx->smeter) + radio->meter_calibration;
     update_meter(rx,m);
   }
+  update_radio_info(rx);
+
+  
   if(rx->bpsk) {
     process_bpsk(rx);
   }
@@ -846,7 +850,7 @@ void set_filter(RECEIVER *rx,int low,int high) {
 }
 
 void set_deviation(RECEIVER *rx) {
-//fprintf(stderr,"set_deviation: %d\n",rx->deviation);
+fprintf(stderr,"set_deviation: %d\n",rx->deviation);
   SetRXAFMDeviation(rx->channel, (double)rx->deviation);
 }
 
@@ -955,7 +959,7 @@ static void process_rx_buffer(RECEIVER *rx) {
 
     if(radio->active_receiver==rx) {
 
-      if(isTransmitting(radio) || rx->remote_audio==FALSE) {
+      if ((isTransmitting(radio) || rx->remote_audio==FALSE) &&(!radio->duplex)) {
         left_audio_sample=0;
         right_audio_sample=0;
       }
@@ -977,7 +981,7 @@ static void process_rx_buffer(RECEIVER *rx) {
 static void full_rx_buffer(RECEIVER *rx) {
   int error;
 
-  if(isTransmitting(radio)) return;
+  if(isTransmitting(radio) && (!radio->duplex)) return;
 
   // noise blanker works on origianl IQ samples
   if(rx->nb) {
@@ -989,7 +993,8 @@ static void full_rx_buffer(RECEIVER *rx) {
 
   g_mutex_lock(&rx->mutex);
   fexchange0(rx->channel, rx->iq_input_buffer, rx->audio_output_buffer, &error);
-  if(error!=0 && error!=-2) {
+  //if(error!=0 && error!=-2) {
+  if(error!=0) {    
     fprintf(stderr,"full_rx_buffer: channel=%d fexchange0: error=%d\n",rx->channel,error);
   }
 
@@ -1103,15 +1108,22 @@ static void create_visual(RECEIVER *rx) {
 
   rx->vfo=create_vfo(rx);
   gtk_widget_set_size_request(rx->vfo,715,65);
-  gtk_table_attach(GTK_TABLE(rx->table), rx->vfo, 0, 4, 0, 1,
+  gtk_table_attach(GTK_TABLE(rx->table), rx->vfo, 0, 3, 0, 1,
       GTK_FILL, GTK_FILL, 0, 0);
+  
+  //GtkWidget *radio_info;
+  //cairo_surface_t *radio_info_surface;    
+  
+  
+  rx->radio_info=create_radio_info_visual(rx);
+  gtk_widget_set_size_request(rx->radio_info, 170, 60);        
+  gtk_table_attach(GTK_TABLE(rx->table), rx->radio_info, 3, 4, 0, 1,
+      GTK_FILL, GTK_FILL, 0, 0);  
 
   rx->meter=create_meter_visual(rx);
   gtk_widget_set_size_request(rx->meter,300,60);        // resize from 154 to 300 for custom s-meter
-
   gtk_table_attach(GTK_TABLE(rx->table), rx->meter, 4, 6, 0, 1,
       GTK_FILL, GTK_FILL, 0, 0);
-
 
   rx->vpaned = gtk_paned_new (GTK_ORIENTATION_VERTICAL);
   gtk_table_attach(GTK_TABLE(rx->table), rx->vpaned, 0, 6, 1, 3,
@@ -1385,7 +1397,7 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   rx->panadapter_surface=NULL;
   
   rx->panadapter_filled=TRUE;
-  rx->panadapter_gradient=FALSE;
+  rx->panadapter_gradient=TRUE;
   rx->panadapter_agc_line=TRUE;
 
   rx->waterfall_automatic=TRUE;
@@ -1393,6 +1405,7 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
 
   rx->vfo_surface=NULL;
   rx->meter_surface=NULL;
+  rx->radio_info_surface=NULL;
 
 #ifdef SOAPYSDR
   if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
@@ -1404,7 +1417,7 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   }
 #endif
   rx->local_audio=FALSE;
-  rx->local_audio_buffer_size=1024;
+  rx->local_audio_buffer_size=2048;
   //rx->local_audio_buffer_size=rx->output_samples;
   rx->local_audio_buffer_offset=0;
   rx->local_audio_buffer=NULL;

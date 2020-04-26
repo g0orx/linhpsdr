@@ -77,7 +77,17 @@ typedef struct _step {
   char *label;
 } STEP;
 
-  
+// VFO A scroll step changes depending on frequency.
+const long long  ll_step[4][13] = {
+// 0 = < 100 MHz
+{ 10000000LL, 1000000LL, 0LL, 100000LL, 10000LL, 1000LL, 0LL, 100LL, 10LL, 1LL, 0LL, 0LL, 0LL},
+// 1 = < 1000MHz
+{ 100000000LL, 10000000LL, 1000000LL, 0LL, 100000LL, 10000LL, 1000LL, 0LL, 100LL, 10LL, 1LL, 0LL, 0LL},
+// 2 = < 10000 MHz
+{ 1000000000LL, 100000000LL, 10000000LL, 1000000LL, 0LL, 100000LL, 10000LL, 1000LL, 0LL, 100LL, 10LL, 1LL, 0LL},
+// 3 > 10000 MHz
+{ 10000000000LL, 1000000000LL, 100000000LL, 10000000LL, 1000000LL, 0LL, 100000LL, 10000LL, 1000LL, 0LL, 100LL, 10LL, 1LL}
+};
 static gboolean vfo_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   gint width=gtk_widget_get_allocated_width(widget);
@@ -1465,53 +1475,30 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
       break;
     case BUTTON_VFO:
       if(x>4 && x<230) {
+        // VFO A 
         if(!rx->locked) {
-          int digit=(x-5)/16;
-          long long step=0LL;
-          switch(digit) {
-            case 0:
-              step=10000000000LL;
-              break;
-            case 1:
-              step=1000000000LL;
-              break;
-            case 2:
-              step=100000000LL;
-              break;
-            case 3:
-              step=10000000LL;
-              break;
-            case 4:
-              step=1000000LL;
-              break;
-            case 5:
-              step=0LL;
-              break;
-            case 6:
-              step=100000LL;
-              break;
-            case 7:
-              step=10000LL;
-              break;
-            case 8:
-              step=1000LL;
-              break;
-            case 9:
-              step=0LL;
-              break;
-            case 10:
-              step=100LL;
-              break;
-            case 11:
-              step=10LL;
-              break;
-            case 12:
-              step=1LL;
-              break;
+          int digit=(x-5)/17;
+          
+          int step_idx = 0;
+          if ((rx->frequency_a/1000000) < 100) {    
+            step_idx = 0;
           }
+          else if ((rx->frequency_a/1000000) < 1000) {
+            step_idx = 1;
+          }
+          else if ((rx->frequency_a/1000000) < 10000) {
+            step_idx = 2;
+          }
+          else {
+            step_idx = 3; 
+          }               
+          
+          long long step = 0LL;          
+          step = ll_step[step_idx][digit];
+               
           if(event->direction==GDK_SCROLL_DOWN) {
             step=-step;
-          }
+          }                    
           if(rx->ctun) {
             rx->ctun_offset=rx->ctun_offset+step;
             if(rx->ctun) {
@@ -1522,58 +1509,44 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
             rx->frequency_a+=step;
             if (rx->frequency_a < 0) {
               rx->frequency_a = 0;
-            }            
+            }      
+            else if (rx->frequency_a > 99999999999) {
+              rx->frequency_a = 99999999999;
+            }                    
           }
 
           frequency_changed(rx);
         }
       } else if(x>240 && x<400) {
+        // VFO B
         if(!rx->locked) {
-          int digit=(x-240)/11;
-          long long step=0LL;
-          switch(digit) {
-            case 0:
-              step=10000000000LL;
-              break;
-            case 1:
-              step=1000000000LL;
-              break;
-            case 2:
-              step=100000000LL;
-              break;
-            case 3:
-              step=10000000LL;
-              break;
-            case 4:
-              step=1000000LL;
-              break;
-            case 5:
-              step=0LL;
-              break;
-            case 6:
-              step=100000LL;
-              break;
-            case 7:
-              step=10000LL;
-              break;
-            case 8:
-              step=1000LL;
-              break;
-            case 9:
-              step=0LL;
-              break;
-            case 10:
-              step=100LL;
-              break;
-            case 11:
-              step=10LL;
-              break;
-            case 12:
-              step=1LL;
-              break;
+          int digit=(x-240)/13;
+          
+          
+          int step_idx = 0;
+          if ((rx->frequency_b/1000000) < 100) {    
+            step_idx = 0;
           }
-          if(event->direction==GDK_SCROLL_UP) {
-            rx->frequency_b+=step;
+          else if ((rx->frequency_b/1000000) < 1000) {
+            step_idx = 1;
+          }
+          else if ((rx->frequency_b/1000000) < 10000) {
+            step_idx = 2;
+          }
+          else {
+            step_idx = 3; 
+          }               
+          
+          long long step=0LL;         
+          step = ll_step[step_idx][digit];
+       
+          if (event->direction==GDK_SCROLL_UP) {
+            if ((rx->frequency_b + step) < 99999999999) {
+              rx->frequency_b += step;
+            }
+            else {
+              rx->frequency_b = rx->frequency_b;
+            }
           } else {
             rx->frequency_b-=step;
             if (rx->frequency_b < 0) {
@@ -1616,7 +1589,7 @@ static gboolean vfo_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *ev
             break;
         }
       } else if(x>240 && x<400) {
-        int digit=(x-240)/12;
+        int digit=(x-240)/11;
         switch(digit) {
           case 0:
           case 1:
@@ -1670,91 +1643,87 @@ void update_vfo(RECEIVER *rx) {
     long long af=rx->frequency_a+rx->ctun_offset;
     long long bf=rx->frequency_b;
 
-    cairo_select_font_face(cr, "Overpass", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 
+    // ************* Draw buttons ******************
     // Lock
     if(rx->locked) {
-      RoundedRectangle(cr, 8.0, 51.0, 22.0, 6.0, TRUE);
+      RoundedRectangle(cr, 8.0, 51.0, 22.0, 6.0, CLICK_ON);
     } 
     else {
-      RoundedRectangle(cr, 8.0, 51.0, 22.0, 6.0, FALSE);       
+      RoundedRectangle(cr, 8.0, 51.0, 22.0, 6.0, CLICK_OFF);       
     }
     // Mode
-    RoundedRectangle(cr, 43.0, 51.0, 22.0, 6.0, TRUE);    
+    RoundedRectangle(cr, 43.0, 51.0, 22.0, 6.0, CLICK_ON);    
     // Filter bandwidth
-    RoundedRectangle(cr, 78.0, 51.0, 20.0, 6.0, TRUE);
+    RoundedRectangle(cr, 78.0, 51.0, 20.0, 6.0, CLICK_ON);
     // NB    
     if((rx->nb) || (rx->nb2)) {
-      RoundedRectangle(cr, 110.0, 51.0, 22.0, 6.0, TRUE);  
+      RoundedRectangle(cr, 110.0, 51.0, 22.0, 6.0, CLICK_ON);  
     }
     else {
-      RoundedRectangle(cr, 110.0, 51.0, 22.0, 6.0, FALSE);      
+      RoundedRectangle(cr, 110.0, 51.0, 22.0, 6.0, CLICK_OFF);      
     }
     // NR
     if((rx->nr) || (rx->nr2)) {
-      RoundedRectangle(cr, 148.0, 51.0, 18.0, 6.0, TRUE);   
+      RoundedRectangle(cr, 148.0, 51.0, 18.0, 6.0, CLICK_ON);   
     }  
     else {
-      RoundedRectangle(cr, 148.0, 51.0, 18.0, 6.0, FALSE);
+      RoundedRectangle(cr, 148.0, 51.0, 18.0, 6.0, CLICK_OFF);
     }
     // SNB
     if(rx->snb) {
-      RoundedRectangle(cr, 184.0, 51.0, 18.0, 6.0, TRUE);
+      RoundedRectangle(cr, 184.0, 51.0, 18.0, 6.0, CLICK_ON);
     }
     else {
-      RoundedRectangle(cr, 184.0, 51.0, 18.0, 6.0, FALSE);      
+      RoundedRectangle(cr, 184.0, 51.0, 18.0, 6.0, CLICK_OFF);      
     }
     // ANF
     if(rx->anf) {
-      RoundedRectangle(cr, 218.0, 51.0, 18.0, 6.0, TRUE);       
+      RoundedRectangle(cr, 218.0, 51.0, 18.0, 6.0, CLICK_ON);       
     } 
     else {
-      RoundedRectangle(cr, 218.0, 51.0, 18.0, 6.0, FALSE); 
+      RoundedRectangle(cr, 218.0, 51.0, 18.0, 6.0, CLICK_OFF); 
     }
     // AGC
     if(rx->agc == AGC_OFF) {
-      RoundedRectangle(cr, 252.0, 51.0, 60.0, 6.0, FALSE);  
+      RoundedRectangle(cr, 252.0, 51.0, 60.0, 6.0, CLICK_OFF);  
     }
     else {   
-      RoundedRectangle(cr, 252.0, 51.0, 60.0, 6.0, TRUE);
+      RoundedRectangle(cr, 252.0, 51.0, 60.0, 6.0, CLICK_ON);
     }
     // BMK
-    RoundedRectangle(cr, 325.0, 51.0, 18.0, 6.0, FALSE);      
+    RoundedRectangle(cr, 325.0, 51.0, 18.0, 6.0, CLICK_OFF);      
+    
+    /*
     // CAT
     if(rx->cat_control>-1) {
-      RoundedRectangle(cr, 358.0, 51.0, 18.0, 6.0, TRUE); 
+      RoundedRectangle(cr, 358.0, 51.0, 18.0, 6.0, CLICK_ON); 
     }
     else {
-      RoundedRectangle(cr, 358.0, 51.0, 18.0, 6.0, FALSE); 
+      RoundedRectangle(cr, 358.0, 51.0, 18.0, 6.0, CLICK_OFF); 
     }
+    */
     // RIT
     if(rx->rit_enabled) {    
-      RoundedRectangle(cr, 391.0, 51.0, 18.0, 6.0, TRUE);   
+      RoundedRectangle(cr, 391.0, 51.0, 18.0, 6.0, CLICK_ON);   
     }
     else {
-      RoundedRectangle(cr, 391.0, 51.0, 18.0, 6.0, FALSE);       
-    }
-    #ifdef CWDAEMON 
-    // CWX
-    if(radio->cwdaemon) {    
-      RoundedRectangle(cr, 463.0, 51.0, 23.0, 6.0, TRUE);   
-    }
-    else {
-      RoundedRectangle(cr, 463.0, 51.0, 23.0, 6.0, FALSE);       
-    }    
-    #endif
+      RoundedRectangle(cr, 391.0, 51.0, 18.0, 6.0, CLICK_OFF);       
+    } 
     if(rx->split) {
-      RoundedRectangle(cr, 203.0, 6.0, 22.0, 5.0, TRUE);    
+      RoundedRectangle(cr, 200.0, 6.0, 30.0, 5.0, CLICK_ON);    
     }  
     else {
-      RoundedRectangle(cr, 203.0, 6.0, 22.0, 5.0, FALSE);
+      RoundedRectangle(cr, 200.0, 6.0, 30.0, 5.0, CLICK_OFF);
     }
 
 
+    //****************************** VFO A and B frequencies
     if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && !radio->transmitter->rx->split) {
-      SetColour(cr, TEXT_C);
+      SetColour(cr, TEXT_B);
     } else {
-      SetColour(cr, TEXT_C);
+      SetColour(cr, TEXT_B);
     }
 
     cairo_move_to(cr, 5, 12);
@@ -1764,34 +1733,38 @@ void update_vfo(RECEIVER *rx) {
     if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && !radio->transmitter->rx->split && isTransmitting(radio)) {
       SetColour(cr, WARNING);
     } else {
-      SetColour(cr, TEXT_C);
+      SetColour(cr, TEXT_B);
     }
-    sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
+
+
+    if ((af/1000000) < 100) {    
+      sprintf(temp,"%2lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
+    }
+    else if ((af/1000000) < 1000) {
+      sprintf(temp,"%3lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);      
+    }
+    else if ((af/1000000) < 10000) {
+      sprintf(temp,"%4lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
+    }
+    else {
+      sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);      
+    }
     
 
-    
-    int vfo_start_idx;
-    if ((af/1000000) < 10) {
-      vfo_start_idx = 32;
-    }
-    else if ((af/1000000) < 100) {
-      vfo_start_idx = 23;
-    }
-    else if ((af/1000000) < 1000) {    
-      vfo_start_idx = 14;
-    }
-    else { 
-      vfo_start_idx = 5;
-    }
+    cairo_select_font_face(cr, "Noto Mono", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+
+    int vfo_start_idx = 5;
         
     cairo_move_to(cr, vfo_start_idx, 38);
     cairo_set_font_size(cr, 28);
     cairo_show_text(cr, temp);
+    
+    cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 
     if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split) {
       SetColour(cr, WARNING);
     } else {
-      SetColour(cr, TEXT_B);
+      SetColour(cr, TEXT_C);
     }
     cairo_move_to(cr, 240, 12);
     cairo_set_font_size(cr, 12);
@@ -1800,11 +1773,25 @@ void update_vfo(RECEIVER *rx) {
     if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split && isTransmitting(radio)) {
       SetColour(cr, WARNING);
     } else {
-      SetColour(cr, TEXT_B);
+      SetColour(cr, TEXT_C);
     }
-    sprintf(temp,"%5lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
+    
+    if ((bf/1000000) < 100) {    
+      sprintf(temp,"%2lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
+    }
+    else if ((bf/1000000) < 1000) {
+      sprintf(temp,"%3lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);      
+    }
+    else if ((bf/1000000) < 10000) {
+      sprintf(temp,"%4lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
+    }
+    else {
+      sprintf(temp,"%5lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);      
+    }
     
     
+    cairo_select_font_face(cr, "Noto Mono", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+
     if ((bf/1000000) < 10) {
       vfo_start_idx = 240 + (7*3);
     }
@@ -1818,13 +1805,17 @@ void update_vfo(RECEIVER *rx) {
       vfo_start_idx = 240;
     }
     
+    vfo_start_idx = 240;
     
     
     
     cairo_move_to(cr, vfo_start_idx, 38);
-    cairo_set_font_size(cr, 20);
+    cairo_set_font_size(cr, 21);
     cairo_show_text(cr, temp);
 
+
+    //********************* Write text on buttons ***********************
+    cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
     FILTER* band_filters=filters[rx->mode_a];
     cairo_set_font_size(cr, 12);
 
@@ -1932,7 +1923,8 @@ void update_vfo(RECEIVER *rx) {
     cairo_show_text(cr, "BMK");
     x+=35;
 
-    cairo_move_to(cr, x, 58);
+    //cairo_move_to(cr, x, 58);
+    /*
     if(rx->cat_control>-1) {
       SetColour(cr, OFF_WHITE);       
     } 
@@ -1940,6 +1932,7 @@ void update_vfo(RECEIVER *rx) {
       SetColour(cr, DARK_TEXT);
     }
     cairo_show_text(cr, "CAT");
+    */
     x+=35;
 
     cairo_move_to(cr,x,58);
@@ -1961,16 +1954,7 @@ void update_vfo(RECEIVER *rx) {
 
     cairo_move_to(cr,x,58);
     
-    if(radio->discovered->device==DEVICE_HERMES_LITE) {  
-      if(radio->cwdaemon) {
-        SetColour(cr, OFF_WHITE);
-      } else {
-        SetColour(cr, DARK_TEXT);
-      }   
-      cairo_show_text(cr, "CWX");      
-    }
-    else {
-    
+    if(radio->discovered->device!=DEVICE_HERMES_LITE2) {      
       if(rx->ctun) {
         SetColour(cr, OFF_WHITE);
       } else {
@@ -1982,7 +1966,7 @@ void update_vfo(RECEIVER *rx) {
 
     cairo_move_to(cr,x,58);
     
-    if(radio->discovered->device!=DEVICE_HERMES_LITE) {      
+    if(radio->discovered->device!=DEVICE_HERMES_LITE2) {      
       if(rx->bpsk) {
         cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
       } else {
@@ -2004,7 +1988,7 @@ void update_vfo(RECEIVER *rx) {
 
     cairo_move_to(cr, x, 12);
     cairo_show_text(cr, "A<>B");
-    x+=60;
+    x+=57;
 
     cairo_move_to(cr, x, 12);
     if(rx->split) {
@@ -2012,26 +1996,35 @@ void update_vfo(RECEIVER *rx) {
     } else {
       SetColour(cr, DARK_TEXT); 
     }
-    cairo_show_text(cr, "Split");
+    cairo_show_text(cr, "SPLIT");
     //x+=10;
 
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_move_to(cr,285,12);
-    sprintf(temp,"Zoom x%d",rx->zoom);
+    sprintf(temp,"ZOOM x%d",rx->zoom);
     cairo_show_text(cr, temp);
 
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_move_to(cr,355,12);
-    sprintf(temp,"Step %ld Hz",rx->step);
+    sprintf(temp,"STEP %ld Hz",rx->step);
     cairo_show_text(cr, temp);
 
-
+    
+    if (radio!=NULL && radio->transmitter!=NULL) {
+      if (radio->transmitter->rx==rx) {
+        SetColour(cr, WARNING);
+        cairo_move_to(cr,450,12);
+        sprintf(temp,"ASSIGNED TX");
+        cairo_show_text(cr, temp);
+      }
+    }
+    
     x=500;
     // --------------------------------------- AF Gain control
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_set_font_size(cr,10);
     cairo_move_to(cr,x,30);
-    cairo_show_text(cr,"AF Gain");
+    cairo_show_text(cr,"AF GAIN");
     x+=60;
 
     SetColour(cr, TEXT_B);
@@ -2070,7 +2063,7 @@ void update_vfo(RECEIVER *rx) {
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_set_font_size(cr,10);
     cairo_move_to(cr,x,45);
-    cairo_show_text(cr,"AGC Gain");
+    cairo_show_text(cr,"AGC GAIN");
     x+=60;
 
     SetColour(cr, TEXT_C);
@@ -2120,7 +2113,7 @@ void update_vfo(RECEIVER *rx) {
   }
 }
 
-void RoundedRectangle(cairo_t *cr, double x, double y, double width, double height, bool state) {
+void RoundedRectangle(cairo_t *cr, double x, double y, double width, double height, int state) {
     double aspect        = 1.0;     
     double        corner_radius = height / 10.0;   
 
@@ -2134,23 +2127,30 @@ void RoundedRectangle(cairo_t *cr, double x, double y, double width, double heig
     cairo_arc (cr, x + radius, y + radius, radius, 180 * degrees, 270 * degrees);
     cairo_close_path (cr);
 
-    //cairo_set_source_rgb (cr, 0.2,	0.2,	0.2);
-    if (state == TRUE) {
-      SetColour(cr, BOX_ON);
+    switch(state) {
+      case CLICK_ON : SetColour(cr, BOX_ON);
+                      break;
+      
+      case CLICK_OFF : SetColour(cr, BOX_OFF);
+                       break;
+      
+      case INFO_TRUE : SetColour(cr, INFO_ON);
+                     break;      
+      
+      case INFO_FALSE : SetColour(cr, INFO_OFF);
+                      break;          
+            
+      case WARNING_ON : SetColour(cr, WARNING);
+                        break;                     
     }
-    else {
-      SetColour(cr, BOX_OFF);
-    }
+
     cairo_fill_preserve (cr);
     cairo_set_line_width (cr, 10.0);
     cairo_stroke (cr);    
 }
 
 void SetColour(cairo_t *cr, const int colour) {
-  
-  //rgb 237, 111, 118
-  //237, 161, 111
-  
+    
   switch(colour) {
     case BACKGROUND: {
       cairo_set_source_rgb (cr, 0.1, 0.1, 0.1); 
@@ -2194,7 +2194,16 @@ void SetColour(cairo_t *cr, const int colour) {
     }  
     case DARK_TEXT: {
       cairo_set_source_rgb(cr, 0.7, 0.7, 0.7);
+      break;
     }
+    case INFO_ON: {
+      cairo_set_source_rgb(cr, 0.15, 0.58, 0.6);
+      break;      
+    }
+    case INFO_OFF: {
+      cairo_set_source_rgb(cr, 0.2, 0.2, 0.2);
+      break;      
+    }    
   }
 }
   

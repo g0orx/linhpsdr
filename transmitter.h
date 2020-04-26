@@ -40,6 +40,7 @@ typedef struct _transmitter {
   gdouble exciter;
   gdouble rev;
   gdouble alc;
+  gdouble swr;
 
   GtkWidget *window;
   gint window_width;

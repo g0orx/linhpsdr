@@ -355,7 +355,7 @@ static gboolean update_timer_cb(void *data) {
 
     fwd_power=tx->alex_forward_power;
     rev_power=tx->alex_reverse_power;
-    if(radio->discovered->device==DEVICE_HERMES_LITE) {
+    if(radio->discovered->device==DEVICE_HERMES_LITE2) {
       ex_power=0;
     } else {
       ex_power=tx->exciter_power;
@@ -386,7 +386,7 @@ static gboolean update_timer_cb(void *data) {
         constant1=5.0;
         constant2=0.108;
         break;
-      case DEVICE_HERMES_LITE:
+      case DEVICE_HERMES_LITE2:
         if(rev_power>fwd_power) {
           fwd_power=tx->alex_reverse_power;
           rev_power=tx->alex_forward_power;
@@ -406,7 +406,7 @@ static gboolean update_timer_cb(void *data) {
     v1=((double)fwd_power/4095.0)*constant1;
     tx->fwd=(v1*v1)/constant2;    
     
-    if(radio->discovered->device==DEVICE_HERMES_LITE) {
+    if(radio->discovered->device==DEVICE_HERMES_LITE2) {
       tx->exciter=0.0;
     } else {
       ex_power=ex_power-fwd_cal_offset;
@@ -1008,6 +1008,7 @@ g_print("create_transmitter: channel=%d\n",channel);
   tx->exciter_power=0;
   tx->alex_forward_power=0;
   tx->alex_reverse_power=0;
+  tx->swr = 1.0;
 
   tx->eer_amiq=1;
   tx->eer_pgain=0.5;
