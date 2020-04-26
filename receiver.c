@@ -822,11 +822,13 @@ static void set_mode(RECEIVER *rx,int m) {
   previous_mode=rx->mode_a;
   rx->mode_a=m;
   SetRXAMode(rx->channel, m);
+/*
   if(rx->mode_a==FMN && previous_mode!=FMN) {
-    SetDSPSamplerate (rx->channel, 19200);
+    SetDSPSamplerate (rx->channel, 192000);
   } else if(rx->mode_a!=FMN && previous_mode==FMN) {
     SetDSPSamplerate (rx->channel, 48000);
   }
+*/
 }
 
 void set_filter(RECEIVER *rx,int low,int high) {
@@ -848,7 +850,7 @@ void set_filter(RECEIVER *rx,int low,int high) {
 }
 
 void set_deviation(RECEIVER *rx) {
-fprintf(stderr,"set_deviation: %d\n",rx->deviation);
+//fprintf(stderr,"set_deviation: %d\n",rx->deviation);
   SetRXAFMDeviation(rx->channel, (double)rx->deviation);
 }
 
@@ -871,15 +873,14 @@ void receiver_fps_changed(RECEIVER *rx) {
 }
 
 void receiver_filter_changed(RECEIVER *rx,int filter) {
+//fprintf(stderr,"receiver_filter_changed: %d\n",filter);
   rx->filter_a=filter;
   if(rx->mode_a==FMN) {
-    switch(filter) {
-      case 0:
-        rx->deviation=2500;
+    switch(rx->deviation) {
+      case 2500:
         set_filter(rx,-4000,4000);
         break;
-      case 1:
-        rx->deviation=5000;
+      case 5000:
         set_filter(rx,-8000,8000);
         break;
     }
