@@ -30,12 +30,14 @@
 #include "transmitter.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "band.h"
 #include "main.h"
 #include "vfo.h"
 #include "bookmark_dialog.h"
 #include "rigctl.h"
+#include "bpsk.h"
 
 enum {
   BUTTON_NONE=-1,
@@ -52,6 +54,8 @@ enum {
   BUTTON_CAT,
   BUTTON_RIT,
   VALUE_RIT,
+  BUTTON_CTUN,
+  BUTTON_BPSK,
   BUTTON_ATOB,
   BUTTON_BTOA,
   BUTTON_ASWAPB,
@@ -73,7 +77,17 @@ typedef struct _step {
   char *label;
 } STEP;
 
-  
+// VFO A scroll step changes depending on frequency.
+const long long  ll_step[4][13] = {
+// 0 = < 100 MHz
+{ 10000000LL, 1000000LL, 0LL, 100000LL, 10000LL, 1000LL, 0LL, 100LL, 10LL, 1LL, 0LL, 0LL, 0LL},
+// 1 = < 1000MHz
+{ 100000000LL, 10000000LL, 1000000LL, 0LL, 100000LL, 10000LL, 1000LL, 0LL, 100LL, 10LL, 1LL, 0LL, 0LL},
+// 2 = < 10000 MHz
+{ 1000000000LL, 100000000LL, 10000000LL, 1000000LL, 0LL, 100000LL, 10000LL, 1000LL, 0LL, 100LL, 10LL, 1LL, 0LL},
+// 3 > 10000 MHz
+{ 10000000000LL, 1000000000LL, 100000000LL, 10000000LL, 1000000LL, 0LL, 100000LL, 10000LL, 1000LL, 0LL, 100LL, 10LL, 1LL}
+};
 static gboolean vfo_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   gint width=gtk_widget_get_allocated_width(widget);
@@ -87,7 +101,7 @@ static gboolean vfo_configure_event_cb(GtkWidget *widget,GdkEventConfigure *even
   /* Initialize the surface to black */
   cairo_t *cr;
   cr = cairo_create (rx->vfo_surface);
-  cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
+  cairo_set_source_rgb (cr, 0.1, 0.1, 0.1);
   cairo_paint (cr);
   cairo_destroy(cr);
   return TRUE;
@@ -103,6 +117,7 @@ static gboolean vfo_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
   return FALSE;
 }
 
+/* TO REMOVE
 static int next_step(int current_step) {
   int next=100;
   switch(current_step) {
@@ -206,30 +221,34 @@ static int previous_step(int current_step) {
   }
   return previous;
 }
+*/
 
 static int which_button(int x,int y) {
-  int button=-1;
+  int button=BUTTON_NONE;
   if(y<=12) {
     if(x>=355 && x<430) {
       button=BUTTON_STEP;
     } else if(x>285 && x<355) {
       button=BUTTON_ZOOM;
+    } else if (x>195 && x<230) {
+      button=BUTTON_SPLIT;
     } else {
-      if(x>=70 && x<210) {
+      if(x>=70 && x<175) {
         button=(x/35)-2+BUTTON_ATOB;
       }
     }
-  } else if(y>=48) {
-    button=(x-5)/35;
-  } else if(x>=460) {
-    if(y<=30) {
+  } else if(y>=48) {; 
+    int click_loc = (x-5)/35;
+    if (click_loc < BUTTON_ATOB) button = click_loc;
+  } else if(x>=560) {
+    if(y<=35) {
       button=SLIDER_AF;
     } else {
       button=SLIDER_AGC;
     }
   }
   if(y>12 && y<48){
-    if(x>4 && x<364){
+    if(x>4 && x<400){
       button=BUTTON_VFO;
     }
   }
@@ -315,6 +334,7 @@ void band_cb(GtkWidget *menu_item,gpointer data) {
   int mode_a;
   long long frequency_a;
   long long lo_a=0LL;
+  long long error_a=0LL;
 
   switch(choice->selection) {
     case band2200:
@@ -663,22 +683,38 @@ void band_cb(GtkWidget *menu_item,gpointer data) {
           break;
       }
       break;
-#ifdef LIMESDR
+#ifdef SOAPYSDR
     case band70:
+      mode_a=USB;
+      frequency_a=70300000LL;
       break;
     case band220:
+      mode_a=USB;
+      frequency_a=430300000LL;
       break;
     case band430:
+      mode_a=USB;
+      frequency_a=430300000LL;
       break;
     case band902:
+      mode_a=USB;
+      frequency_a=430300000LL;
       break;
     case band1240:
+      mode_a=USB;
+      frequency_a=1240300000LL;
       break;
     case band2300:
+      mode_a=USB;
+      frequency_a=2300300000LL;
       break;
     case band3400:
+      mode_a=USB;
+      frequency_a=3400300000LL;
       break;
     case bandAIR:
+      mode_a=AM;
+      frequency_a=126825000LL;
       break;
 #endif
     case bandGen:
@@ -694,17 +730,24 @@ void band_cb(GtkWidget *menu_item,gpointer data) {
       mode_a=USB;
       frequency_a=b->frequencyMin;
       lo_a=b->frequencyLO;
+      error_a=b->errorLO;
       break;
   }
+  choice->rx->band_a=choice->selection;
   choice->rx->mode_a=mode_a;
   choice->rx->frequency_a=frequency_a;
   choice->rx->lo_a=lo_a;
+  choice->rx->error_a=error_a;
+  choice->rx->ctun=FALSE;
+  choice->rx->ctun_offset=0;
   receiver_band_changed(choice->rx,band);
-  if(radio->transmitter->rx==choice->rx) {
-    if(choice->rx->split) {
-      transmitter_set_mode(radio->transmitter,choice->rx->mode_b);
-    } else {
-      transmitter_set_mode(radio->transmitter,choice->rx->mode_a);
+  if(radio->transmitter) {
+    if(radio->transmitter->rx==choice->rx) {
+      if(choice->rx->split) {
+        transmitter_set_mode(radio->transmitter,choice->rx->mode_b);
+      } else {
+        transmitter_set_mode(radio->transmitter,choice->rx->mode_a);
+      }
     }
   }
 
@@ -733,11 +776,12 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
   int i;
   CHOICE *choice;
   FILTER *mode_filters;
-  FILTER *filter;
   BAND *band;
   int x=(int)event->x;
   int y=(int)event->y;
   char text[32];
+
+//fprintf(stderr,"vfo_press_event_cb: x=%d y=%d\n",x,y);
 
   switch(which_button(x,y)) {
     case BUTTON_LOCK:
@@ -777,20 +821,36 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
     case BUTTON_FILTER:
       switch(event->button) {
         case 1:  // LEFT
-          mode_filters=filters[rx->mode_a];
-          menu=gtk_menu_new();
-          for(i=0;i<FILTERS;i++) {
-            if(i>=FVar1) {
-              sprintf(text,"%s (%d..%d)",mode_filters[i].title,mode_filters[i].low,mode_filters[i].high);
-              menu_item=gtk_menu_item_new_with_label(text);
-            } else {
-              menu_item=gtk_menu_item_new_with_label(mode_filters[i].title);
-            }
+          if(rx->mode_a==FMN) {
+            menu=gtk_menu_new();
+            menu_item=gtk_menu_item_new_with_label("2.5k Dev");
             choice=g_new0(CHOICE,1);
             choice->rx=rx;
-            choice->selection=i;
+            choice->selection=0;
             g_signal_connect(menu_item,"activate",G_CALLBACK(filter_cb),choice);
             gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+            menu_item=gtk_menu_item_new_with_label("5.0k Dev");
+            choice=g_new0(CHOICE,1);
+            choice->rx=rx;
+            choice->selection=1;
+            g_signal_connect(menu_item,"activate",G_CALLBACK(filter_cb),choice);
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+          } else {
+            mode_filters=filters[rx->mode_a];
+            menu=gtk_menu_new();
+            for(i=0;i<FILTERS;i++) {
+              if(i>=FVar1) {
+                sprintf(text,"%s (%d..%d)",mode_filters[i].title,mode_filters[i].low,mode_filters[i].high);
+                menu_item=gtk_menu_item_new_with_label(text);
+              } else {
+                menu_item=gtk_menu_item_new_with_label(mode_filters[i].title);
+              }
+              choice=g_new0(CHOICE,1);
+              choice->rx=rx;
+              choice->selection=i;
+              g_signal_connect(menu_item,"activate",G_CALLBACK(filter_cb),choice);
+              gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+            }
           }
           gtk_widget_show_all(menu);
 #if GTK_CHECK_VERSION(3,22,0)
@@ -1006,6 +1066,26 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           break;
       }
       break;
+    case BUTTON_CTUN:
+      rx->ctun=!rx->ctun;
+      rx->ctun_offset=0;
+      rx->ctun_min=-rx->sample_rate/2;
+      rx->ctun_max=rx->sample_rate/2;
+      if(!rx->ctun) {
+        SetRXAShiftRun(rx->channel, 0);
+      } else {
+        SetRXAShiftRun(rx->channel, 1);
+      }
+      frequency_changed(rx);
+      update_frequency(rx);
+      break;
+    case BUTTON_BPSK:
+      if(rx->bpsk) {
+        destroy_bpsk(rx);
+      } else {
+        create_bpsk(rx);
+      }
+      break;
     case BUTTON_ATOB:
       switch(event->button) {
         case 1:  // LEFT
@@ -1057,7 +1137,14 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           frequency_changed(rx);
           if(radio->transmitter->rx==rx) {
             if(rx->split) {
-              transmitter_set_mode(radio->transmitter,rx->mode_b);
+              // Split mode in CW, RX on VFO A, TX on VFO B.
+              // When mode turned on, default to VFO A +1 kHz
+              if (rx->mode_a == CWL || rx->mode_a ==CWU) {
+                // Most pile-ups start with UP 1
+                rx->frequency_b = rx->frequency_a + 1000;
+                rx->mode_b=rx->mode_a;
+              }
+              transmitter_set_mode(radio->transmitter,rx->mode_b);              
             } else {
               transmitter_set_mode(radio->transmitter,rx->mode_a);
             }
@@ -1273,14 +1360,14 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
       break;
       
     case BUTTON_VFO:
-      if(x>4 && x<212) {
+      if(x>4 && x<230) {
         switch(event->button) {
           case 1: //LEFT
             if(!rx->locked) {
               menu=gtk_menu_new();
               for(i=0;i<BANDS+XVTRS;i++) {
-#ifdef LIMESDR
-                if(protocol!=LIMESDR_PROTOCOL) {
+#ifdef SOAPYSDR
+                if(radio->discovered->protocol!=PROTOCOL_SOAPYSDR) {
                   if(i>=band70 && i<=band3400) {
                     continue;
                   }
@@ -1310,14 +1397,19 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
       }
       break;
     case SLIDER_AF:
-      rx->volume=(double)(x-460)/100.0;
+      rx->volume=(double)(x-560)/100.0;
       if(rx->volume>1.0) rx->volume=1.0;
       if(rx->volume<0.0) rx->volume=0.0;
-      SetRXAPanelGain1(rx->channel,rx->volume);
+      if(rx->volume==0.0) {
+        SetRXAPanelRun(rx->channel,0);
+      } else {
+        SetRXAPanelRun(rx->channel,1);
+        SetRXAPanelGain1(rx->channel,rx->volume);
+      }
       update_vfo(rx);
       break;
     case SLIDER_AGC:
-      rx->agc_gain=(double)(x-460)-20.0;
+      rx->agc_gain=(double)(x-560)-20.0;
       if(rx->agc_gain>120.0) rx->agc_gain=120.0;
       if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
       SetRXAAGCTop(rx->channel, rx->agc_gain);
@@ -1364,7 +1456,12 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
         rx->volume=rx->volume-0.01;
         if(rx->volume<0.0) rx->volume=0.0;
       }
-      SetRXAPanelGain1(rx->channel,rx->volume);
+      if(rx->volume==0.0) {
+        SetRXAPanelRun(rx->channel,0);
+      } else {
+        SetRXAPanelRun(rx->channel,1);
+        SetRXAPanelGain1(rx->channel,rx->volume);
+      }
       break;
     case SLIDER_AGC:
       if(event->direction==GDK_SCROLL_UP) {
@@ -1377,101 +1474,84 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
       SetRXAAGCTop(rx->channel, rx->agc_gain);
       break;
     case BUTTON_VFO:
-      if(x>4 && x<212) {
+      if(x>4 && x<230) {
+        // VFO A 
         if(!rx->locked) {
           int digit=(x-5)/17;
-          long long step=0LL;
-          switch(digit) {
-            case 0:
-              //step=1000000000LL;
-              break;
-            case 1:
-              //step=100000000LL;
-              break;
-            case 2:
-              step=10000000LL;
-              break;
-            case 3:
-              step=1000000LL;
-              break;
-            case 4:
-              step=0LL;
-              break;
-            case 5:
-              step=100000LL;
-              break;
-            case 6:
-              step=10000LL;
-              break;
-            case 7:
-              step=1000LL;
-              break;
-            case 8:
-              step=0LL;
-              break;
-            case 9:
-              step=100LL;
-              break;
-            case 10:
-              step=10LL;
-              break;
-            case 11:
-              step=1LL;
-              break;
+          
+          int step_idx = 0;
+          if ((rx->frequency_a/1000000) < 100) {    
+            step_idx = 0;
           }
-          if(event->direction==GDK_SCROLL_UP) {
-            rx->frequency_a+=step;
+          else if ((rx->frequency_a/1000000) < 1000) {
+            step_idx = 1;
+          }
+          else if ((rx->frequency_a/1000000) < 10000) {
+            step_idx = 2;
+          }
+          else {
+            step_idx = 3; 
+          }               
+          
+          long long step = 0LL;          
+          step = ll_step[step_idx][digit];
+               
+          if(event->direction==GDK_SCROLL_DOWN) {
+            step=-step;
+          }                    
+          if(rx->ctun) {
+            rx->ctun_offset=rx->ctun_offset+step;
+            if(rx->ctun) {
+              if(rx->ctun_offset < rx->ctun_min) rx->ctun_offset=rx->ctun_offset-step;
+              if(rx->ctun_offset > rx->ctun_max) rx->ctun_offset=rx->ctun_offset-step;
+            }
           } else {
-            rx->frequency_a-=step;
+            rx->frequency_a+=step;
+            if (rx->frequency_a < 0) {
+              rx->frequency_a = 0;
+            }      
+            else if (rx->frequency_a > 99999999999) {
+              rx->frequency_a = 99999999999;
+            }                    
           }
+
           frequency_changed(rx);
         }
-      } else if(x>220 && x<364) {
+      } else if(x>240 && x<400) {
+        // VFO B
         if(!rx->locked) {
-          int digit=(x-220)/12;
-          long long step=0LL;
-          switch(digit) {
-            case 0:
-              //step=1000000000LL;
-              break;
-            case 1:
-              //step=100000000LL;
-              break;
-            case 2:
-              step=10000000LL;
-              break;
-            case 3:
-              step=1000000LL;
-              break;
-            case 4:
-              step=0LL;
-              break;
-            case 5:
-              step=100000LL;
-              break;
-            case 6:
-              step=10000LL;
-              break;
-            case 7:
-              step=1000LL;
-              break;
-            case 8:
-              step=0LL;
-              break;
-            case 9:
-              step=100LL;
-              break;
-            case 10:
-              step=10LL;
-              break;
-            case 11:
-              step=1LL;
-              break;
+          int digit=(x-240)/13;
+          
+          
+          int step_idx = 0;
+          if ((rx->frequency_b/1000000) < 100) {    
+            step_idx = 0;
           }
-          if(event->direction==GDK_SCROLL_UP) {
-            rx->frequency_b+=step;
+          else if ((rx->frequency_b/1000000) < 1000) {
+            step_idx = 1;
+          }
+          else if ((rx->frequency_b/1000000) < 10000) {
+            step_idx = 2;
+          }
+          else {
+            step_idx = 3; 
+          }               
+          
+          long long step=0LL;         
+          step = ll_step[step_idx][digit];
+       
+          if (event->direction==GDK_SCROLL_UP) {
+            if ((rx->frequency_b + step) < 99999999999) {
+              rx->frequency_b += step;
+            }
+            else {
+              rx->frequency_b = rx->frequency_b;
+            }
           } else {
             rx->frequency_b-=step;
+            if (rx->frequency_b < 0) {
+              rx->frequency_b = 0;
+            }
           }
           frequency_changed(rx);
         }
@@ -1489,38 +1569,38 @@ static gboolean vfo_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *ev
   if(!rx->locked) {
     gdk_window_get_device_position(event->window,event->device,&x,&y,&state);
     if(y>12 && y<48) {
-      if(x>4 && x<212) {
+      if(x>4 && x<230) {
         int digit=(x-5)/17;
         switch(digit) {
-          //case 0:
-          //case 1:
+          case 0:
+          case 1:
           case 2:
           case 3:
-          case 5:
           case 6:
           case 7:
-          case 9:
+          case 8:
           case 10:
           case 11:
+          case 12:
             gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_DOUBLE_ARROW));
             break;
           default:
             gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_ARROW));
             break;
         }
-      } else if(x>220 && x<364) {
-        int digit=(x-220)/12;
+      } else if(x>240 && x<400) {
+        int digit=(x-240)/11;
         switch(digit) {
-          //case 0:
-          //case 1:
+          case 0:
+          case 1:
           case 2:
           case 3:
-          case 5:
           case 6:
           case 7:
-          case 9:
+          case 8:
           case 10:
           case 11:
+          case 12:
             gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_DOUBLE_ARROW));
             break;
           default:
@@ -1558,115 +1638,255 @@ void update_vfo(RECEIVER *rx) {
 
   if(rx!=NULL && rx->vfo_surface!=NULL) {
     cr = cairo_create (rx->vfo_surface);
-    cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
-    cairo_paint (cr);
-    long long af=rx->frequency_a;
+    SetColour(cr, BACKGROUND);
+    cairo_paint(cr);
+    long long af=rx->frequency_a+rx->ctun_offset;
     long long bf=rx->frequency_b;
 
-    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 
-    if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && !radio->transmitter->rx->split) {
-      cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
-    } else {
-      cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
+    // ************* Draw buttons ******************
+    // Lock
+    if(rx->locked) {
+      RoundedRectangle(cr, 8.0, 51.0, 22.0, 6.0, CLICK_ON);
+    } 
+    else {
+      RoundedRectangle(cr, 8.0, 51.0, 22.0, 6.0, CLICK_OFF);       
     }
+    // Mode
+    RoundedRectangle(cr, 43.0, 51.0, 22.0, 6.0, CLICK_ON);    
+    // Filter bandwidth
+    RoundedRectangle(cr, 78.0, 51.0, 20.0, 6.0, CLICK_ON);
+    // NB    
+    if((rx->nb) || (rx->nb2)) {
+      RoundedRectangle(cr, 110.0, 51.0, 22.0, 6.0, CLICK_ON);  
+    }
+    else {
+      RoundedRectangle(cr, 110.0, 51.0, 22.0, 6.0, CLICK_OFF);      
+    }
+    // NR
+    if((rx->nr) || (rx->nr2)) {
+      RoundedRectangle(cr, 148.0, 51.0, 18.0, 6.0, CLICK_ON);   
+    }  
+    else {
+      RoundedRectangle(cr, 148.0, 51.0, 18.0, 6.0, CLICK_OFF);
+    }
+    // SNB
+    if(rx->snb) {
+      RoundedRectangle(cr, 184.0, 51.0, 18.0, 6.0, CLICK_ON);
+    }
+    else {
+      RoundedRectangle(cr, 184.0, 51.0, 18.0, 6.0, CLICK_OFF);      
+    }
+    // ANF
+    if(rx->anf) {
+      RoundedRectangle(cr, 218.0, 51.0, 18.0, 6.0, CLICK_ON);       
+    } 
+    else {
+      RoundedRectangle(cr, 218.0, 51.0, 18.0, 6.0, CLICK_OFF); 
+    }
+    // AGC
+    if(rx->agc == AGC_OFF) {
+      RoundedRectangle(cr, 252.0, 51.0, 60.0, 6.0, CLICK_OFF);  
+    }
+    else {   
+      RoundedRectangle(cr, 252.0, 51.0, 60.0, 6.0, CLICK_ON);
+    }
+    // BMK
+    RoundedRectangle(cr, 325.0, 51.0, 18.0, 6.0, CLICK_OFF);      
+    
+    /*
+    // CAT
+    if(rx->cat_control>-1) {
+      RoundedRectangle(cr, 358.0, 51.0, 18.0, 6.0, CLICK_ON); 
+    }
+    else {
+      RoundedRectangle(cr, 358.0, 51.0, 18.0, 6.0, CLICK_OFF); 
+    }
+    */
+    // RIT
+    if(rx->rit_enabled) {    
+      RoundedRectangle(cr, 391.0, 51.0, 18.0, 6.0, CLICK_ON);   
+    }
+    else {
+      RoundedRectangle(cr, 391.0, 51.0, 18.0, 6.0, CLICK_OFF);       
+    } 
+    if(rx->split) {
+      RoundedRectangle(cr, 200.0, 6.0, 30.0, 5.0, CLICK_ON);    
+    }  
+    else {
+      RoundedRectangle(cr, 200.0, 6.0, 30.0, 5.0, CLICK_OFF);
+    }
+
+
+    //****************************** VFO A and B frequencies
+    if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && !radio->transmitter->rx->split) {
+      SetColour(cr, TEXT_B);
+    } else {
+      SetColour(cr, TEXT_B);
+    }
+
     cairo_move_to(cr, 5, 12);
     cairo_set_font_size(cr, 12);
     cairo_show_text(cr, "VFO A");
 
     if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && !radio->transmitter->rx->split && isTransmitting(radio)) {
-      cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+      SetColour(cr, WARNING);
     } else {
-      cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
+      SetColour(cr, TEXT_B);
     }
-    sprintf(temp,"%4lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
-    cairo_move_to(cr, 5, 38);
+
+
+    if ((af/1000000) < 100) {    
+      sprintf(temp,"%2lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
+    }
+    else if ((af/1000000) < 1000) {
+      sprintf(temp,"%3lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);      
+    }
+    else if ((af/1000000) < 10000) {
+      sprintf(temp,"%4lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
+    }
+    else {
+      sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);      
+    }
+    
+
+    cairo_select_font_face(cr, "Noto Mono", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+
+    int vfo_start_idx = 5;
+        
+    cairo_move_to(cr, vfo_start_idx, 38);
     cairo_set_font_size(cr, 28);
     cairo_show_text(cr, temp);
+    
+    cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 
     if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split) {
-      cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+      SetColour(cr, WARNING);
     } else {
-      cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
+      SetColour(cr, TEXT_C);
     }
-    cairo_move_to(cr, 220, 12);
+    cairo_move_to(cr, 240, 12);
     cairo_set_font_size(cr, 12);
     cairo_show_text(cr, "VFO B");
 
     if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split && isTransmitting(radio)) {
-      cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+      SetColour(cr, WARNING);
     } else {
-      cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
+      SetColour(cr, TEXT_C);
     }
-    sprintf(temp,"%4lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
-    cairo_move_to(cr, 220, 38);
-    cairo_set_font_size(cr, 20);
+    
+    if ((bf/1000000) < 100) {    
+      sprintf(temp,"%2lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
+    }
+    else if ((bf/1000000) < 1000) {
+      sprintf(temp,"%3lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);      
+    }
+    else if ((bf/1000000) < 10000) {
+      sprintf(temp,"%4lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
+    }
+    else {
+      sprintf(temp,"%5lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);      
+    }
+    
+    
+    cairo_select_font_face(cr, "Noto Mono", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+
+    if ((bf/1000000) < 10) {
+      vfo_start_idx = 240 + (7*3);
+    }
+    else if ((bf/1000000) < 100) {
+      vfo_start_idx = 240 + (7*2);
+    }
+    else if ((bf/1000000) < 1000) {    
+      vfo_start_idx = 240 + (7*1);
+    }
+    else { 
+      vfo_start_idx = 240;
+    }
+    
+    vfo_start_idx = 240;
+    
+    
+    
+    cairo_move_to(cr, vfo_start_idx, 38);
+    cairo_set_font_size(cr, 21);
     cairo_show_text(cr, temp);
 
+
+    //********************* Write text on buttons ***********************
+    cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
     FILTER* band_filters=filters[rx->mode_a];
-    FILTER* band_filter=&band_filters[rx->filter_a];
     cairo_set_font_size(cr, 12);
 
     int x=5;
-
-    cairo_move_to(cr, x, 58);
+    // NB
+    cairo_move_to(cr, x, 58);  
     if(rx->locked) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
-    } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, OFF_WHITE);
+    } else {      
+      SetColour(cr, DARK_TEXT);
     }
     cairo_show_text(cr, "Lock");
     x+=35;
 
     cairo_move_to(cr, x, 58);
-    cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_show_text(cr, mode_string[rx->mode_a]);
     x+=35;
 
     cairo_move_to(cr, x, 58);
-    cairo_show_text(cr, band_filters[rx->filter_a].title);
+    if(rx->mode_a==FMN) {
+      if(rx->deviation==2500) {
+        cairo_show_text(cr, "8000");
+      } else {
+        cairo_show_text(cr, "16000");
+      }
+    } else {
+      cairo_show_text(cr, band_filters[rx->filter_a].title);
+    }
     x+=35;
 
     cairo_move_to(cr, x, 58);
     if(rx->nb) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+      SetColour(cr, OFF_WHITE);
       cairo_show_text(cr, "NB");
     } else if(rx->nb2) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+      SetColour(cr, OFF_WHITE);
       cairo_show_text(cr, "NB2");
     } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, DARK_TEXT);
       cairo_show_text(cr, "NB");
     }
     x+=35;
 
     cairo_move_to(cr, x, 58);
     if(rx->nr) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+      SetColour(cr, OFF_WHITE);
       cairo_show_text(cr, "NR");
     } else if(rx->nr2) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+      SetColour(cr, OFF_WHITE);
       cairo_show_text(cr, "NR2");
     } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, DARK_TEXT);
       cairo_show_text(cr, "NR");
     }
     x+=35;
 
 
     if(rx->snb) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+      SetColour(cr, OFF_WHITE);
     } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, DARK_TEXT);
     }
     cairo_move_to(cr, x, 58);
     cairo_show_text(cr, "SNB");
     x+=35;
 
     if(rx->anf) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+      SetColour(cr, OFF_WHITE);
     } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, DARK_TEXT);
     }
     cairo_move_to(cr, x, 58);
     cairo_show_text(cr, "ANF");
@@ -1675,23 +1895,23 @@ void update_vfo(RECEIVER *rx) {
     cairo_move_to(cr, x, 58);
     switch(rx->agc) {
       case AGC_OFF:
-        cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+        SetColour(cr, DARK_TEXT);
         cairo_show_text(cr, "AGC OFF");
         break;
       case AGC_LONG:
-        cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+        SetColour(cr, OFF_WHITE);
         cairo_show_text(cr, "AGC LONG");
         break;
       case AGC_SLOW:
-        cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+        SetColour(cr, OFF_WHITE);
         cairo_show_text(cr, "AGC SLOW");
         break;
       case AGC_MEDIUM:
-        cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+        SetColour(cr, OFF_WHITE);
         cairo_show_text(cr, "AGC MED");
         break;
       case AGC_FAST:
-        cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+        SetColour(cr, OFF_WHITE);
         cairo_show_text(cr, "AGC FAST");
         break;
     }
@@ -1699,38 +1919,65 @@ void update_vfo(RECEIVER *rx) {
     x+=35;
     
     cairo_move_to(cr, x, 58);
-    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+    SetColour(cr, DARK_TEXT); 
     cairo_show_text(cr, "BMK");
     x+=35;
 
-    cairo_move_to(cr, x, 58);
+    //cairo_move_to(cr, x, 58);
+    /*
     if(rx->cat_control>-1) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, OFF_WHITE);       
+    } 
+    else {
+      SetColour(cr, DARK_TEXT);
     }
     cairo_show_text(cr, "CAT");
+    */
     x+=35;
 
     cairo_move_to(cr,x,58);
     if(rx->rit_enabled) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+      SetColour(cr, OFF_WHITE);
     } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, DARK_TEXT); 
     }
     cairo_show_text(cr, "RIT");
     x+=35;
  
     if(rx->rit_enabled) {
       cairo_move_to(cr,x,58);
-      cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+      SetColour(cr, OFF_WHITE);
       sprintf(temp,"%ld",rx->rit);
       cairo_show_text(cr, temp);
-      x+=35;
     }
+    x+=35;
+
+    cairo_move_to(cr,x,58);
+    
+    if(radio->discovered->device!=DEVICE_HERMES_LITE2) {      
+      if(rx->ctun) {
+        SetColour(cr, OFF_WHITE);
+      } else {
+        SetColour(cr, DARK_TEXT);
+      }
+      cairo_show_text(cr, "CTUN");
+    }
+    x+=35;
+
+    cairo_move_to(cr,x,58);
+    
+    if(radio->discovered->device!=DEVICE_HERMES_LITE2) {      
+      if(rx->bpsk) {
+        cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+      } else {
+        cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      }
+      cairo_show_text(cr, "BPSK");
+    }
+    x+=35;
 
     x=70;
-    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+    SetColour(cr, OFF_WHITE);
     cairo_move_to(cr, x, 12);
     cairo_show_text(cr, "A>B");
     x+=35;
@@ -1741,37 +1988,46 @@ void update_vfo(RECEIVER *rx) {
 
     cairo_move_to(cr, x, 12);
     cairo_show_text(cr, "A<>B");
-    x+=35;
+    x+=57;
 
     cairo_move_to(cr, x, 12);
     if(rx->split) {
-      cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+      SetColour(cr, OFF_WHITE);
     } else {
-      cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+      SetColour(cr, DARK_TEXT); 
     }
-    cairo_show_text(cr, "Split");
-    x+=35;
+    cairo_show_text(cr, "SPLIT");
+    //x+=10;
 
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_move_to(cr,285,12);
-    sprintf(temp,"Zoom x%d",rx->zoom);
+    sprintf(temp,"ZOOM x%d",rx->zoom);
     cairo_show_text(cr, temp);
 
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_move_to(cr,355,12);
-    sprintf(temp,"Step %ld Hz",rx->step);
+    sprintf(temp,"STEP %ld Hz",rx->step);
     cairo_show_text(cr, temp);
 
-
-    x=400;
-
+    
+    if (radio!=NULL && radio->transmitter!=NULL) {
+      if (radio->transmitter->rx==rx) {
+        SetColour(cr, WARNING);
+        cairo_move_to(cr,450,12);
+        sprintf(temp,"ASSIGNED TX");
+        cairo_show_text(cr, temp);
+      }
+    }
+    
+    x=500;
+    // --------------------------------------- AF Gain control
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_set_font_size(cr,10);
     cairo_move_to(cr,x,30);
-    cairo_show_text(cr,"AF Gain");
+    cairo_show_text(cr,"AF GAIN");
     x+=60;
 
-    cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
+    SetColour(cr, TEXT_B);
     cairo_rectangle(cr,x,25,rx->volume*100,5);
     cairo_fill(cr);
 
@@ -1802,15 +2058,15 @@ void update_vfo(RECEIVER *rx) {
     cairo_stroke(cr);
 
 
-    x=400;
-
+    x=500;
+    // --------------------------------------- AGC Gain control
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_set_font_size(cr,10);
     cairo_move_to(cr,x,45);
-    cairo_show_text(cr,"AGC Gain");
+    cairo_show_text(cr,"AGC GAIN");
     x+=60;
 
-    cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
+    SetColour(cr, TEXT_C);
     cairo_rectangle(cr,x,40,rx->agc_gain+20.0,5);
     cairo_fill(cr);
 
@@ -1851,8 +2107,104 @@ void update_vfo(RECEIVER *rx) {
     cairo_move_to(cr,x,45);
     cairo_line_to(cr,x,39);
     cairo_stroke(cr);
-
+    // --------------------------------------- House keeping
     cairo_destroy (cr);
     gtk_widget_queue_draw (rx->vfo);
   }
 }
+
+void RoundedRectangle(cairo_t *cr, double x, double y, double width, double height, int state) {
+    double aspect        = 1.0;     
+    double        corner_radius = height / 10.0;   
+
+    double radius = corner_radius / aspect;
+    double degrees = (22/7) / 180.0;           
+           
+           
+    cairo_arc (cr, x + width - radius, y + radius, radius, -90 * degrees, 0 * degrees);
+    cairo_arc (cr, x + width - radius, y + height - radius, radius, 0 * degrees, 90 * degrees);
+    cairo_arc (cr, x + radius, y + height - radius, radius, 90 * degrees, 180 * degrees);
+    cairo_arc (cr, x + radius, y + radius, radius, 180 * degrees, 270 * degrees);
+    cairo_close_path (cr);
+
+    switch(state) {
+      case CLICK_ON : SetColour(cr, BOX_ON);
+                      break;
+      
+      case CLICK_OFF : SetColour(cr, BOX_OFF);
+                       break;
+      
+      case INFO_TRUE : SetColour(cr, INFO_ON);
+                     break;      
+      
+      case INFO_FALSE : SetColour(cr, INFO_OFF);
+                      break;          
+            
+      case WARNING_ON : SetColour(cr, WARNING);
+                        break;                     
+    }
+
+    cairo_fill_preserve (cr);
+    cairo_set_line_width (cr, 10.0);
+    cairo_stroke (cr);    
+}
+
+void SetColour(cairo_t *cr, const int colour) {
+    
+  switch(colour) {
+    case BACKGROUND: {
+      cairo_set_source_rgb (cr, 0.1, 0.1, 0.1); 
+      break;
+    }
+    case OFF_WHITE: {
+      cairo_set_source_rgb (cr, 0.9, 0.9, 0.9);       
+      break;
+    }
+    case BOX_ON: {
+      cairo_set_source_rgb (cr, 0.624, 0.427, 0.690); 
+      break;     
+    }
+    case BOX_OFF: {
+      cairo_set_source_rgb (cr, 0.2, 0.2,	0.2);      
+      break;
+    }    
+    case TEXT_A: {
+      cairo_set_source_rgb(cr, 0.929, 0.616, 0.502);
+      break;
+    }
+    case TEXT_B: {
+      //light blue
+      cairo_set_source_rgb(cr, 0.639, 0.800, 0.820);
+      break;
+    }
+    case TEXT_C: {
+      // Pale orange
+      cairo_set_source_rgb(cr, 0.929,	0.616,	0.502);     
+      break;
+    }
+    case WARNING: {
+      // Pale red
+        cairo_set_source_rgb (cr, 0.851, 0.271, 0.271);    
+      break;
+    }    
+    case DARK_LINES: {
+      // Dark grey
+        cairo_set_source_rgb (cr, 0.3, 0.3, 0.3);   
+      break;
+    }  
+    case DARK_TEXT: {
+      cairo_set_source_rgb(cr, 0.7, 0.7, 0.7);
+      break;
+    }
+    case INFO_ON: {
+      cairo_set_source_rgb(cr, 0.15, 0.58, 0.6);
+      break;      
+    }
+    case INFO_OFF: {
+      cairo_set_source_rgb(cr, 0.2, 0.2, 0.2);
+      break;      
+    }    
+  }
+}
+  
+  

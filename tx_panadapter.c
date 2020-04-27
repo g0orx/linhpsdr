@@ -24,16 +24,17 @@
 #include "mode.h"
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "wideband.h"
 #include "receiver.h"
 #include "transmitter.h"
 #include "radio.h"
+#include "vfo.h"
 //#include "transmitter_dialog.h"
 #include "configure_dialog.h"
 #include "main.h"
 
 static gboolean transmitter_button_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
-  TRANSMITTER *tx=(TRANSMITTER *)data;
   switch(event->button) {
     case 1: // left
       break;
@@ -119,20 +120,21 @@ void update_tx_panadapter(RADIO *r) {
     cr = cairo_create (tx->panadapter_surface);
     cairo_set_line_width(cr, 1.0);
 
-    cairo_pattern_t *pat=cairo_pattern_create_linear(0.0,0.0,0.0,height);
-    cairo_pattern_add_color_stop_rgba(pat,1.0,0.1,0.1,0.1,0.5);
-    cairo_pattern_add_color_stop_rgba(pat,0.0,0.5,0.5,0.5,0.5);
+    SetColour(cr, BACKGROUND);
+    //cairo_pattern_t *pat=cairo_pattern_create_linear(0.0,0.0,0.0,height);
+    //cairo_pattern_add_color_stop_rgba(pat,1.0,0.1,0.1,0.1,0.5);
+    //cairo_pattern_add_color_stop_rgba(pat,0.0,0.5,0.5,0.5,0.5);
     cairo_rectangle(cr, 0,0,width,height);
-    cairo_set_source (cr, pat);
+    //cairo_set_source (cr, pat);
     cairo_fill(cr);
-    cairo_pattern_destroy(pat);
+    //cairo_pattern_destroy(pat);
 
     double dbm_per_line=(double)height/((double)tx->panadapter_high-(double)tx->panadapter_low);
 
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0);
     cairo_set_line_width(cr, 1.0);
-    cairo_select_font_face(cr, "FreeMono", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, 12);
+    cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 10);
     char v[32];
 
     // filter
@@ -158,21 +160,20 @@ void update_tx_panadapter(RADIO *r) {
     cairo_stroke(cr);
 
     // cursor
-    cairo_set_source_rgb (cr, 1.0, 0.0, 0.0);
+    SetColour(cr, TEXT_A);
     cairo_set_line_width(cr, 1.0);
-    cairo_move_to(cr,(double)(width/2.0),0.0);
+    cairo_move_to(cr,(double)(width/2.0),20.0);
     cairo_line_to(cr,(double)(width/2.0),(double)height);
     cairo_stroke(cr);
 
     if(tx->rx->mode_a==CWU || tx->rx->mode_a==CWL) {
-      cairo_set_source_rgb (cr, 1.0, 1.0, 0.0);
+      SetColour(cr, TEXT_B);
       double cw_frequency=filter_left+((filter_right-filter_left)/2.0);
-      cairo_move_to(cr,cw_frequency,10.0);
+      cairo_move_to(cr,cw_frequency,20.0);
       cairo_line_to(cr,cw_frequency,(double)height);
       cairo_stroke(cr);
     }
-
-
+    
     // signal
     if(isTransmitting(radio)) {
       int offset=tx->pixels/3;
@@ -196,54 +197,78 @@ void update_tx_panadapter(RADIO *r) {
         cairo_line_to(cr, (double)i, s2);
       }
 
+      /*
       if(radio->display_filled) {
         cairo_close_path (cr);
         cairo_pattern_t *pat=cairo_pattern_create_linear(0.0,0.0,0.0,height);
-        cairo_pattern_add_color_stop_rgba(pat,1.0,0.1,0.0,0.0,0.5);
-        cairo_pattern_add_color_stop_rgba(pat,0.0,0.5,0.0,0.0,0.5);
+        //cairo_pattern_add_color_stop_rgba(pat,1.0,0.1,0.0,0.0,0.5);
+        //cairo_pattern_add_color_stop_rgba(pat,0.0,0.5,0.0,0.0,0.5);
+        
         cairo_set_source (cr, pat);
         cairo_fill_preserve(cr);
         cairo_pattern_destroy(pat);
       }
+      */
+      
+      SetColour(cr, BACKGROUND);
       cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
       cairo_set_line_width(cr, 1.0);
       cairo_stroke(cr);
-
-      cairo_set_source_rgb (cr, 1.0, 1.0, 0.0);
-      sprintf(text,"%d W",(int)tx->fwd);
-      cairo_move_to(cr, 210, 32);
+      
+      cairo_set_font_size(cr, 12); 
+      
+      SetColour(cr, TEXT_C);
+      sprintf(text,"%.1f W",tx->fwd);
+      cairo_move_to(cr, 206, 34);
       cairo_show_text(cr, text);
   
-      double swr=(tx->fwd+tx->rev)/(tx->fwd-tx->rev);
-      if(swr<0.0) swr=1.0;
-      sprintf(text,"SWR: %1.1f:1",swr);
-      cairo_move_to(cr, 210, 56);
-      cairo_show_text(cr, text);
+      // Won't show SWR if power out is less than
+      // 100 mW, potentially improve this in the future?
+      if (tx->fwd > 1E-1) {
+        double this_swr = (1+ sqrt(tx->rev/tx->fwd)) / (1 - sqrt(tx->rev/tx->fwd));
+        if (this_swr < 0.0) this_swr=1.0;
+        
+        // Exponential moving average filter
+        double alpha = 0.7;
+        tx->swr = (alpha * this_swr) + (1 - alpha) * tx->swr;
+        
+        sprintf(text,"SWR: %1.1f:1", tx->swr);
+        cairo_move_to(cr, 206, 56);
+        cairo_show_text(cr, text);
+      }
   
       sprintf(text,"ALC: %2.1f dB",tx->alc);
-      cairo_move_to(cr, 210, 80);
+      cairo_move_to(cr, 206, 80);
       cairo_show_text(cr, text);
     }
 
     // frequency
     if(tx->rx!=NULL) {
-      long long f=tx->rx->frequency_a;
+      long long f=tx->rx->frequency_a+tx->rx->ctun_offset-tx->rx->lo_tx;
       if(tx->rx->split) {
         f=tx->rx->frequency_b;
       }
       char temp[32];
       sprintf(temp,"%0lld.%03lld.%03lld",f/(long long)1000000,(f%(long long)1000000)/(long long)1000,f%(long long)1000);
-      cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
       if(isTransmitting(radio)) {
-        cairo_set_source_rgb (cr, 1.0, 0.0, 0.0);
+        SetColour(cr, WARNING);
       } else {
-        cairo_set_source_rgb (cr, 0.0, 1.0, 0.0);
+        SetColour(cr, TEXT_C);
       }
       cairo_set_font_size(cr, 20);
       cairo_move_to(cr,((double)width/2.0)+2.0,18.0);
       cairo_show_text(cr, temp);
     }
+    
+    if(radio->discovered->device==DEVICE_HERMES_LITE2) {   
+      cairo_set_font_size(cr, 12);       
+      SetColour(cr, TEXT_C);
+      sprintf(text,"%2.0f degC",tx->temperature);
+      cairo_move_to(cr, 206, 157);
+      cairo_show_text(cr, text);
 
+    }
+    cairo_stroke(cr);    
     cairo_destroy(cr);
     gtk_widget_queue_draw(tx->panadapter);
   }

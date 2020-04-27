@@ -22,6 +22,7 @@
 
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "wideband.h"
 #include "receiver.h"
 #include "transmitter.h"
@@ -32,10 +33,6 @@
 static int colorLowR=0; // black
 static int colorLowG=0;
 static int colorLowB=0;
-
-static int colorMidR=255; // red
-static int colorMidG=0;
-static int colorMidB=0;
 
 static int colorHighR=255; // yellow
 static int colorHighG=255;
@@ -51,18 +48,13 @@ static gboolean resize_timeout(void *data) {
   }
   if(rx->waterfall!=NULL) {
     rx->waterfall_pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, FALSE, 8, rx->waterfall_width, rx->waterfall_height);
-    gchar *pixels = gdk_pixbuf_get_pixels (rx->waterfall_pixbuf);
+    guchar *pixels = gdk_pixbuf_get_pixels (rx->waterfall_pixbuf);
     memset(pixels, 0, rx->waterfall_width*rx->waterfall_height*3);
   }
   rx->waterfall_frequency=0;
   rx->waterfall_sample_rate=0;
   rx->waterfall_resize_timer=-1;
   return FALSE;
-}
-
-static gboolean waterfall_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
-  RECEIVER *rx=(RECEIVER *)data;
-  return TRUE;
 }
 
 static gboolean waterfall_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
@@ -80,7 +72,6 @@ static gboolean waterfall_configure_event_cb(GtkWidget *widget,GdkEventConfigure
   return TRUE;
 }
 
-
 static gboolean waterfall_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   if(rx->waterfall_pixbuf) {
@@ -90,10 +81,6 @@ static gboolean waterfall_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
   return FALSE;
 }
 
-static gboolean waterfall_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
-  RECEIVER *rx=(RECEIVER *)data;
-  return TRUE;
-}
 
 GtkWidget *create_waterfall(RECEIVER *rx) {
   GtkWidget *waterfall;
@@ -130,17 +117,16 @@ void update_waterfall(RECEIVER *rx) {
   float *samples;
 
   if(rx->waterfall_pixbuf && rx->waterfall_height>1) {
-    char *pixels = gdk_pixbuf_get_pixels (rx->waterfall_pixbuf);
+    guchar *pixels = gdk_pixbuf_get_pixels (rx->waterfall_pixbuf);
 
     int width=gdk_pixbuf_get_width(rx->waterfall_pixbuf);
     int height=gdk_pixbuf_get_height(rx->waterfall_pixbuf);
     int rowstride=gdk_pixbuf_get_rowstride(rx->waterfall_pixbuf);
-    int channels=gdk_pixbuf_get_n_channels(rx->waterfall_pixbuf);
-
+    
     if(rx->waterfall_frequency!=0 && (rx->sample_rate==rx->waterfall_sample_rate)) {
       if(rx->waterfall_frequency!=rx->frequency_a) {
         // scrolled or band change
-        long long half=(long long)(rx->sample_rate/2);
+        long long half=((long long)(rx->sample_rate/2))/(rx->zoom);      
         if(rx->waterfall_frequency<(rx->frequency_a-half) || rx->waterfall_frequency>(rx->frequency_a+half)) {
           // outside of the range - blank waterfall
           memset(pixels, 0, width*height*3);
@@ -174,7 +160,7 @@ void update_waterfall(RECEIVER *rx) {
 
     float sample;
     int average=0;
-    char *p;
+    guchar *p;
     p=pixels;
     samples=rx->pixel_samples;
     int offset=((rx->zoom-1)/2)*rx->panadapter_width;
@@ -204,32 +190,32 @@ void update_waterfall(RECEIVER *rx) {
                     float local_percent = (percent - 2.0f/9.0f) / (1.0f/9.0f);
                     *p++ = 0;
                     *p++ = (int)(local_percent*255);
-                    *p++ = 255;
+                    *p++ = (char)255;
                 } else if(percent<(4.0f/9.0f)) {
                      float local_percent = (percent - 3.0f/9.0f) / (1.0f/9.0f);
                      *p++ = 0;
-                     *p++ = 255;
+                     *p++ = (char)255;
                      *p++ = (int)((1.0f-local_percent)*255);
                 } else if(percent<(5.0f/9.0f)) {
                      float local_percent = (percent - 4.0f/9.0f) / (1.0f/9.0f);
                      *p++ = (int)(local_percent*255);
-                     *p++ = 255;
+                     *p++ = (char)255;
                      *p++ = 0;
                 } else if(percent<(7.0f/9.0f)) {
                      float local_percent = (percent - 5.0f/9.0f) / (2.0f/9.0f);
-                     *p++ = 255;
+                     *p++ = (char)255;
                      *p++ = (int)((1.0f-local_percent)*255);
                      *p++ = 0;
                 } else if(percent<(8.0f/9.0f)) {
                      float local_percent = (percent - 7.0f/9.0f) / (1.0f/9.0f);
-                     *p++ = 255;
+                     *p++ = (char)255;
                      *p++ = 0;
                      *p++ = (int)(local_percent*255);
                 } else {
                      float local_percent = (percent - 8.0f/9.0f) / (1.0f/9.0f);
                      *p++ = (int)((0.75f + 0.25f*(1.0f-local_percent))*255.0f);
                      *p++ = (int)(local_percent*255.0f*0.5f);
-                     *p++ = 255;
+                     *p++ = (char)255;
                 }
             }
     }
@@ -241,7 +227,7 @@ void update_waterfall(RECEIVER *rx) {
           if(tim0==0) {
             p=pixels;
             for(i=0;i<width;i++) {
-              *p++=255;
+              *p++=(char)255;
               *p++=0;
               *p++=0;
             }
@@ -253,8 +239,8 @@ void update_waterfall(RECEIVER *rx) {
     } 
 
     if(rx->waterfall_automatic) {
-      rx->waterfall_low=average/(width-2);
-      rx->waterfall_high=rx->waterfall_low+50;
+      rx->waterfall_low=(average/(width-2))-14;
+      rx->waterfall_high=rx->waterfall_low+80;
     }
 
     gtk_widget_queue_draw (rx->waterfall);

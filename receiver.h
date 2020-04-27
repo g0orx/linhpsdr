@@ -20,18 +20,28 @@
 #ifndef RECEIVER_H
 #define RECEIVER_H
 
+
+#include <soundio/soundio.h>
+#ifndef __APPLE__
 #include <pulse/simple.h>
+#include <alsa/asoundlib.h>
+#endif
 
 typedef struct _receiver {
+  
   gint channel; // WDSP channel
 
   gint adc;
 
   gint sample_rate;
   gint buffer_size;
+  gint dsp_rate;
+  gint output_rate;
 
   gint fft_size;
   gboolean low_latency;
+
+  gdouble *buffer;
 
   guint32 iq_sequence;
   gdouble *iq_input_buffer;
@@ -49,16 +59,32 @@ typedef struct _receiver {
   gint fps;
   gdouble display_average_time;
   
+  gboolean ctun;
+  gint64 ctun_offset;
+  gint64 ctun_min;
+  gint64 ctun_max;
+
+  gint64 frequency_min;
+  gint64 frequency_max;
+
+  gboolean qo100_beacon;
+
   gint64 frequency_a;
   gint64 lo_a;
+  gint64 error_a;
   gint band_a;
   gint mode_a;
   gint filter_a;
   gint64 offset;
   gint bandstack;
 
+  gint64 lo_tx;
+  gint64 error_tx;
+  gboolean tx_track_rx;
+
   gint64 frequency_b;
   gint64 lo_b;
+  gint64 error_b;
   gint band_b;
   gint mode_b;
   gint filter_b;
@@ -103,6 +129,9 @@ typedef struct _receiver {
   cairo_surface_t *vfo_surface;
   GtkWidget *meter;
   cairo_surface_t *meter_surface;
+  GtkWidget *radio_info;
+  cairo_surface_t *radio_info_surface;  
+  
 
   GtkWidget *bookmark_dialog;
 
@@ -114,6 +143,8 @@ typedef struct _receiver {
   gint window_height;
 
   GtkWidget *vpaned;
+  gint paned_position;
+  double paned_percent;
 
   GtkWidget *panadapter;
   gint panadapter_width;
@@ -157,13 +188,25 @@ typedef struct _receiver {
   gboolean local_audio;
   gint local_audio_buffer_size;
   gint local_audio_buffer_offset;
-  float *local_audio_buffer;
+  void *local_audio_buffer;
   GMutex local_audio_mutex;
   gint local_audio_latency;
+  gint audio_channels;
   
   gchar *audio_name;
+  int output_index;
   gboolean mute_when_not_active;
+
+  struct SoundIoDevice *output_device;
+  struct SoundIoOutStream *output_stream;
+  struct SoundIoRingBuffer *ring_buffer;
+  gboolean output_started;
+
+#ifndef __APPLE__
   pa_simple* playstream;
+  snd_pcm_t *playback_handle;
+  snd_pcm_format_t local_audio_format;  
+#endif
 
   GtkWidget *toolbar;
   GtkWidget *dialog;
@@ -188,11 +231,27 @@ typedef struct _receiver {
   GMutex rigctl_mutex;
   gint rigctl_client_socket;
   struct sockaddr_in rigctl_client_address;
-  gint rigctl_client_address_length;
+  guint rigctl_client_address_length;
   gint cat_control;
   gboolean rigctl_running;
 
+  gboolean bpsk;
+  gint bpsk_counter;
+  gint bpsk_channel;
+  double *bpsk_audio_output_buffer;
+  gint bpsk_buffer_size;
+  gint bpsk_offset;
+
+  int resample_step;
+
 } RECEIVER;
+
+
+enum {
+  AUDIO_STEREO = 0,
+  AUDIO_LEFT_ONLY = 1,
+  AUDIO_RIGHT_ONLY = 2
+};
 
 extern RECEIVER *create_receiver(int channel,int sample_rate);
 extern void receiver_update_title(RECEIVER *rx);
@@ -206,6 +265,7 @@ extern gboolean receiver_scroll_event_cb(GtkWidget *widget, GdkEventScroll *even
 extern void receiver_filter_changed(RECEIVER *rx,int filter);
 extern void receiver_mode_changed(RECEIVER *rx,int mode);
 extern void receiver_band_changed(RECEIVER *rx,int band);
+extern void receiver_xvtr_changed(RECEIVER *rx);
 extern void set_filter(RECEIVER *rx,int low,int high);
 extern void set_deviation(RECEIVER *rx);
 
@@ -216,4 +276,6 @@ extern void receiver_change_sample_rate(RECEIVER *rx,int sample_rate);
 extern void set_agc(RECEIVER *rx);
 extern void calculate_display_average(RECEIVER *rx);
 extern void receiver_fps_changed(RECEIVER *rx);
+
+extern void update_frequency(RECEIVER *rx);
 #endif

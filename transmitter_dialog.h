@@ -18,3 +18,4 @@
 */
 
 extern GtkWidget *create_transmitter_dialog(TRANSMITTER *tx);
+extern void update_transmitter_audio_choices(TRANSMITTER *tx);

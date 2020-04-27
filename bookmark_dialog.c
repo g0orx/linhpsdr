@@ -24,11 +24,16 @@
 #include <sys/socket.h>
 #include <arpa/inet.h> //inet_addr
 
+#ifdef SOAPYSDR
+#include <SoapySDR/Device.h>
+#endif
+
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "main.h"
 #include "mode.h"
@@ -50,8 +55,6 @@ enum {
 };
 
 static GtkListStore *store;
-static GtkWidget *list;
-static GtkTreeModel *model;
 static GtkWidget *view;
 static GtkCellRenderer *renderer;
 static GtkTreeIter iter;
@@ -136,11 +139,13 @@ static void restore_bookmarks() {
   }
 }
 
+/* TO REMOVE
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   rx->bookmark_dialog=NULL;
   return TRUE;
 }
+*/
 
 static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
@@ -195,7 +200,6 @@ static void tree_selection_changed_cb (GtkTreeSelection *selection, gpointer dat
   gchar *frequency;
   gchar *mode;
   gchar *filter;
-  RECEIVER *rx=(RECEIVER *)data;
 
   if (gtk_tree_selection_get_selected(selection,&model,&iter)) {
     gtk_tree_model_get(model,&iter, NAME_COLUMN, &name, -1);
@@ -261,7 +265,6 @@ void delete_cb(GtkWidget *menuitem,gpointer data) {
   gchar *frequency;
   gchar *mode;
   gchar *filter;
-  RECEIVER *rx=(RECEIVER *)data;
 
   model = gtk_tree_view_get_model(GTK_TREE_VIEW(view));
   selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(view));
@@ -419,7 +422,6 @@ static gint compare_func(GtkTreeModel *model,GtkTreeIter *a,GtkTreeIter *b,gpoin
 }
 
 GtkWidget *create_bookmark_dialog(RECEIVER *rx,gint function,BOOKMARK *bookmark) {
-  int i;
   int x;
   int y;
   gchar temp[128];
@@ -470,7 +472,7 @@ GtkWidget *create_bookmark_dialog(RECEIVER *rx,gint function,BOOKMARK *bookmark)
       gtk_grid_attach(GTK_GRID(grid),filter_title,x,y,1,1);
       x++;
       FILTER* band_filters=filters[rx->mode_a];
-      FILTER* band_filter=&band_filters[rx->filter_a];
+      //FILTER* band_filter=&band_filters[rx->filter_a]; // TO REMOVE
       g_snprintf((gchar *)&temp,sizeof(temp),"%s",band_filters[rx->filter_a].title);
       GtkWidget *filter_text=gtk_label_new(temp);
       gtk_grid_attach(GTK_GRID(grid),filter_text,x,y,1,1);
@@ -507,7 +509,7 @@ GtkWidget *create_bookmark_dialog(RECEIVER *rx,gint function,BOOKMARK *bookmark)
       BOOKMARK *bmk=bookmark_head;
       while(bmk!=NULL) {
         FILTER* band_filters=filters[bmk->mode];
-        FILTER* band_filter=&band_filters[bmk->filter];
+        //FILTER* band_filter=&band_filters[bmk->filter]; // TO REMOVE
         g_snprintf((gchar *)&temp,sizeof(temp),"%4lld.%03lld.%03lld",bmk->frequency/(long long)1000000,(bmk->frequency%(long long)1000000)/(long long)1000,bmk->frequency%(long long)1000);
         gtk_list_store_append(store,&iter);
         gtk_list_store_set(store,&iter,
@@ -560,7 +562,7 @@ GtkWidget *create_bookmark_dialog(RECEIVER *rx,gint function,BOOKMARK *bookmark)
       gtk_grid_attach(GTK_GRID(grid),filter_title,x,y,1,1);
       x++;
       band_filters=filters[rx->mode_a];
-      band_filter=&band_filters[bookmark->filter];
+      //band_filter=&band_filters[bookmark->filter]; // TO REMOVE
       g_snprintf((gchar *)&temp,sizeof(temp),"%s",band_filters[bookmark->filter].title);
       filter_text=gtk_label_new(temp);
       gtk_grid_attach(GTK_GRID(grid),filter_text,x,y,1,1);

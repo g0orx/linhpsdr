@@ -360,6 +360,7 @@ struct frequency_info frequencyInfo[]=
         {10368000000LL, 10368099999LL, "10GHz General", -1, TRUE},
         {10368100000LL, 10368100000LL, "10GHz Calling Frequency", -1, TRUE},
         {10368100001LL, 10368400000LL, "10GHz General", -1, TRUE},
+        {10489550000LL, 10489800000LL, "QO-100 NB", -1, TRUE},
 
         {24192000000LL, 24192099999LL, "24GHz General", -1, TRUE},
         {24192100000LL, 24192100000LL, "24GHz Calling Frequency", -1, TRUE},

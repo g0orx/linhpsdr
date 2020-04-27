@@ -33,6 +33,7 @@
 #include "transmitter.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "receiver_dialog.h"
 #include "vfo.h"
@@ -52,9 +53,9 @@ typedef struct _SELECT {
   gint choice;
 } SELECT;
 
-static void update_mode(RECEIVER *rx,int mode);
 static void update_filters(RECEIVER *rx);
 
+/* TO REMOVE
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   rx->dialog=NULL;
@@ -74,6 +75,7 @@ static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) 
   rx->filter_grid=NULL;
   return FALSE;
 }
+*/
 
 static void sample_rate_cb(GtkWidget *widget,gpointer data) {
   SELECT *select=(SELECT *)data;
@@ -89,6 +91,7 @@ static void adc_cb(GtkWidget *widget,gpointer data) {
   receiver_update_title(rx);
 }
 
+/* TO REMOVE
 static gboolean band_select_cb(GtkWidget *widget,gpointer data) {
   SELECT *select=(SELECT *)data;
   RECEIVER *rx=select->rx;
@@ -97,6 +100,7 @@ static gboolean band_select_cb(GtkWidget *widget,gpointer data) {
   int mode_a;
   long long frequency_a;
   long long lo_a=0LL;
+  long long error_a=0LL;
 
   switch(band) {
     case band2200:
@@ -445,22 +449,42 @@ static gboolean band_select_cb(GtkWidget *widget,gpointer data) {
           break;
       }
       break;
-#ifdef LIMESDR
+#ifdef SOAPYSDR
     case band70:
+      mode_a=USB;
+      frequency_a=70200000;
+      break;
+    case band144:
+      mode_a=USB;
+      frequency_a=144200000;
       break;
     case band220:
+      mode_a=USB;
+      frequency_a=220200000;
       break;
     case band430:
+      mode_a=USB;
+      frequency_a=432200000;
       break;
     case band902:
+      mode_a=USB;
+      frequency_a=902200000;
       break;
     case band1240:
+      mode_a=USB;
+      frequency_a=1240200000;
       break;
     case band2300:
+      mode_a=USB;
+      frequency_a=2300300000;
       break;
     case band3400:
+      mode_a=USB;
+      frequency_a=3400300000;
       break;
     case bandAIR:
+      mode_a=AM;
+      frequency_a=118800000;
       break;
 #endif
     case bandGen:
@@ -476,6 +500,7 @@ static gboolean band_select_cb(GtkWidget *widget,gpointer data) {
       mode_a=USB;
       frequency_a=b->frequencyMin;
       lo_a=b->frequencyLO;
+      error_a=b->errorLO;
       break;
   }
   if(band!=rx->band_a) {
@@ -491,6 +516,7 @@ static gboolean band_select_cb(GtkWidget *widget,gpointer data) {
   rx->band_a=band;
   rx->frequency_a=frequency_a;
   rx->lo_a=lo_a;
+  rx->error_a=error_a;
   receiver_band_changed(rx,band);
   update_mode(rx,mode_a);
   if(radio->transmitter->rx==rx) {
@@ -502,6 +528,7 @@ static gboolean band_select_cb(GtkWidget *widget,gpointer data) {
   }
   return TRUE;
 }
+*/
 
 static gboolean filter_select_cb(GtkWidget *widget,gpointer data) {
   SELECT *select=(SELECT *)data;
@@ -535,6 +562,7 @@ static gboolean deviation_select_cb(GtkWidget *widget,gpointer data) {
   }
   set_deviation(rx);
   transmitter_set_deviation(radio->transmitter);
+  update_vfo(rx);
 /*
   set_button_text_color(last_filter,"black");
   last_filter=widget;
@@ -578,12 +606,9 @@ static void var_spin_high_cb (GtkWidget *widget, gpointer data) {
 
 static void update_filters(RECEIVER *rx) {
   int i;
-  BAND *band;
   SELECT *select;
 
-  band=band_get_band(rx->band_a);
   FILTER* band_filters=filters[rx->mode_a];
-  FILTER* band_filter=&band_filters[rx->filter_a];
 
   if(rx->filter_frame!=NULL && rx->filter_grid!=NULL) {
     gtk_container_remove(GTK_CONTAINER(rx->filter_frame),rx->filter_grid);
@@ -630,6 +655,7 @@ g_print("update_filters: new filter grid %p\n",rx->filter_grid);
 
     default:
       for(i=0;i<FILTERS-2;i++) {
+/*
         FILTER* band_filter=&band_filters[i];
         GtkWidget *b=gtk_button_new_with_label(band_filters[i].title);
         if(i==rx->filter_a) {
@@ -643,6 +669,7 @@ g_print("update_filters: new filter grid %p\n",rx->filter_grid);
         select->choice=i;
         g_signal_connect(b,"pressed",G_CALLBACK(filter_select_cb),(gpointer)select);
         gtk_grid_attach(GTK_GRID(rx->filter_grid),b,i%FILTER_COLUMNS,i/FILTER_COLUMNS,1,1);
+*/
       }
 
   // last 2 are var1 and var2
@@ -705,6 +732,7 @@ g_print("update_filters: new filter grid %p\n",rx->filter_grid);
   }
 }
 
+/* TO REMOVE
 static void update_mode(RECEIVER *rx,int mode) {
   int x=rx->mode_a%MODE_COLUMNS;
   int y=rx->mode_a/MODE_COLUMNS;
@@ -725,6 +753,7 @@ static void update_mode(RECEIVER *rx,int mode) {
   }
 }
 
+
 static gboolean mode_select_cb(GtkWidget *widget,gpointer data) {
   SELECT *select=(SELECT *)data;
   RECEIVER *rx=select->rx;
@@ -732,6 +761,7 @@ static gboolean mode_select_cb(GtkWidget *widget,gpointer data) {
   update_mode(rx,m);
   return TRUE;
 }
+*/
 
 static void tx_cb(GtkWidget *widget, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
@@ -821,6 +851,11 @@ static void local_audio_cb(GtkWidget *widget,gpointer data) {
   }
 }
 
+static void audio_channels_cb(GtkWidget *widget, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  rx->audio_channels = gtk_combo_box_get_active(GTK_COMBO_BOX (widget));
+}
+
 static void audio_choice_cb(GtkComboBox *widget,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   int i;
@@ -829,29 +864,41 @@ static void audio_choice_cb(GtkComboBox *widget,gpointer data) {
     i=gtk_combo_box_get_active(widget);
     if(rx->audio_name!=NULL) {
       g_free(rx->audio_name);
+      //rx->audio_name=NULL;
     }
-    rx->audio_name=g_new0(gchar,strlen(output_devices[i].name)+1);
-    strcpy(rx->audio_name,output_devices[i].name);
-    if(audio_open_output(rx)<0) {
-      rx->local_audio=FALSE;
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON (local_audio),FALSE);
+    if(i>=0) {
+      rx->audio_name=g_new0(gchar,strlen(output_devices[i].name)+1);
+      rx->output_index=output_devices[i].index;
+      strcpy(rx->audio_name,output_devices[i].name);
+      if(audio_open_output(rx)<0) {
+        rx->local_audio=FALSE;
+        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON (local_audio),FALSE);
+      }
     }
   } else {
     i=gtk_combo_box_get_active(widget);
     if(rx->audio_name!=NULL) {
       g_free(rx->audio_name);
+      rx->audio_name=NULL;
     }
-    rx->audio_name=g_new0(gchar,strlen(output_devices[i].name)+1);
-    strcpy(rx->audio_name,output_devices[i].name);
+    if(i>=0) {
+      rx->audio_name=g_new0(gchar,strlen(output_devices[i].name)+1);
+      strcpy(rx->audio_name,output_devices[i].name);
+    }
   }
   if(gtk_combo_box_get_active(GTK_COMBO_BOX(audio_choice))==-1) {
     gtk_widget_set_sensitive(local_audio, FALSE);
   } else {
     gtk_widget_set_sensitive(local_audio, TRUE);
   }
-  g_print("Output device changed: %d: %s (%s)\n",i,output_devices[i].name,output_devices[i].description);
+  if(i>=0) {
+    g_print("Output device changed: %d: %s (%s)\n",i,output_devices[i].name,output_devices[i].description);
+  } else {
+    g_print("Output device changed: %d\n",i);
+  }
 }
 
+/* TO REMOVE
 static void buffer_size_spin_cb(GtkWidget *widget,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   rx->local_audio_buffer_size=gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
@@ -861,6 +908,7 @@ static void latency_spin_cb(GtkWidget *widget,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   rx->local_audio_latency=gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
 }
+*/
 
 static void enable_cb(GtkWidget *widget, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
@@ -892,11 +940,27 @@ static void high_value_changed_cb (GtkWidget *widget, gpointer data) {
   SetRXAGrphEQ(rx->channel, rx->equalizer);
 }
 
+
+
+void update_audio_choices(RECEIVER *rx) {
+  int i;
+g_print("receiver_dialog: update_audio_choices: rx=%d\n",rx->channel);
+  gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(audio_choice));
+  for(i=0;i<n_output_devices;i++) {
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_choice),NULL,output_devices[i].description);
+    if(rx->audio_name!=NULL) {
+      if(strcmp(output_devices[i].name,rx->audio_name)==0) {
+        gtk_combo_box_set_active(GTK_COMBO_BOX(audio_choice),i);
+      }
+    }
+  }
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (local_audio), rx->local_audio);
+}
+
 GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   int i;
   int col=0;
   int row=0;
-  BAND *band;
   SELECT *select;
 
   GtkWidget *grid=gtk_grid_new();
@@ -932,154 +996,118 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     gtk_grid_attach(GTK_GRID(adc_grid),adc1_b,1,0,1,1);
   }
 
-  if(radio->discovered->protocol==PROTOCOL_2) {
-    int x=0;
-    int y=0;
-
-    GtkWidget *sample_rate_frame=gtk_frame_new("Sample Rate");
-    GtkWidget *sample_rate_grid=gtk_grid_new();
-    gtk_grid_set_row_homogeneous(GTK_GRID(sample_rate_grid),TRUE);
-    gtk_grid_set_column_homogeneous(GTK_GRID(sample_rate_grid),TRUE);
-    gtk_container_add(GTK_CONTAINER(sample_rate_frame),sample_rate_grid);
-    gtk_grid_attach(GTK_GRID(grid),sample_rate_frame,col,row++,1,1);
-
-    GtkWidget *sample_rate_48=gtk_radio_button_new_with_label(NULL,"48000");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_48), rx->sample_rate==48000);
-    gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_48,x,y++,1,1);
-    select=g_new0(SELECT,1);
-    select->rx=rx;
-    select->choice=48000;
-    g_signal_connect(sample_rate_48,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
-
-    GtkWidget *sample_rate_96=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_48),"96000");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_96), rx->sample_rate==96000);
-    gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_96,x,y++,1,1);
-    select=g_new0(SELECT,1);
-    select->rx=rx;
-    select->choice=96000;
-    g_signal_connect(sample_rate_96,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
-
-    GtkWidget *sample_rate_192=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_96),"192000");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_192), rx->sample_rate==192000);
-    gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_192,x,y++,1,1);
-    select=g_new0(SELECT,1);
-    select->rx=rx;
-    select->choice=192000;
-    g_signal_connect(sample_rate_192,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
-
-
-    x++;
-    y=0;
-    GtkWidget *sample_rate_384=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_192),"384000");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_384), rx->sample_rate==384000);
-    gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_384,x,y++,1,1);
-    select=g_new0(SELECT,1);
-    select->rx=rx;
-    select->choice=384000;
-    g_signal_connect(sample_rate_384,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
-
-    GtkWidget *sample_rate_768=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_384),"768000");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_768), rx->sample_rate==768000);
-    gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_768,x,y++,1,1);
-    select=g_new0(SELECT,1);
-    select->rx=rx;
-    select->choice=768000;
-    g_signal_connect(sample_rate_768,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
-
-    GtkWidget *sample_rate_1536=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_768),"1536000");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_1536), rx->sample_rate==1536000);
-    gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_1536,x,y++,1,1);
-    select=g_new0(SELECT,1);
-    select->rx=rx;
-    select->choice=1536000;
-    g_signal_connect(sample_rate_1536,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
-  }
-
-  GtkWidget *band_frame=gtk_frame_new("Band");
-  rx->band_grid=gtk_grid_new();
-  gtk_grid_set_row_homogeneous(GTK_GRID(rx->band_grid),TRUE);
-  gtk_grid_set_column_homogeneous(GTK_GRID(rx->band_grid),TRUE);
-  gtk_container_add(GTK_CONTAINER(band_frame),rx->band_grid);
-  gtk_grid_attach(GTK_GRID(grid),band_frame,col,row++,1,2);
-  row++;
-
-  for(i=0;i<BANDS+XVTRS;i++) {
-#ifdef LIMESDR
-    if(protocol!=LIMESDR_PROTOCOL) {
-      if(i>=band70 && i<=band3400) {
-        continue;
-      }
-    }
+  switch(radio->discovered->protocol) {
+    case PROTOCOL_2:
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
 #endif
-    band=(BAND*)band_get_band(i);
-    if(strlen(band->title)>0) {
-      GtkWidget *b=gtk_button_new_with_label(band->title);
-      set_button_text_color(b,"black");
-      if(i==rx->band_a) {
-        set_button_text_color(b,"orange");
+      {
+      int x=0;
+      int y=0;
+
+      GtkWidget *sample_rate_frame=gtk_frame_new("Sample Rate");
+      GtkWidget *sample_rate_grid=gtk_grid_new();
+      gtk_grid_set_row_homogeneous(GTK_GRID(sample_rate_grid),TRUE);
+      gtk_grid_set_column_homogeneous(GTK_GRID(sample_rate_grid),TRUE);
+      gtk_container_add(GTK_CONTAINER(sample_rate_frame),sample_rate_grid);
+      gtk_grid_attach(GTK_GRID(grid),sample_rate_frame,col,row++,1,1);
+
+      GtkWidget *sample_rate_48=gtk_radio_button_new_with_label(NULL,"48000");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_48), rx->sample_rate==48000);
+      gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_48,x,y++,1,1);
+      select=g_new0(SELECT,1);
+      select->rx=rx;
+      select->choice=48000;
+      g_signal_connect(sample_rate_48,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
+
+      GtkWidget *sample_rate_96=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_48),"96000");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_96), rx->sample_rate==96000);
+      gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_96,x,y++,1,1);
+      select=g_new0(SELECT,1);
+      select->rx=rx;
+      select->choice=96000;
+      g_signal_connect(sample_rate_96,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
+
+      GtkWidget *sample_rate_192=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_96),"192000");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_192), rx->sample_rate==192000);
+      gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_192,x,y++,1,1);
+      select=g_new0(SELECT,1);
+      select->rx=rx;
+      select->choice=192000;
+      g_signal_connect(sample_rate_192,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
+
+      x++;
+      y=0;
+      GtkWidget *sample_rate_384=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_192),"384000");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_384), rx->sample_rate==384000);
+      gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_384,x,y++,1,1);
+      select=g_new0(SELECT,1);
+      select->rx=rx;
+      select->choice=384000;
+      g_signal_connect(sample_rate_384,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
+
+#ifdef SOAPYSDR
+      if((radio->discovered->protocol==PROTOCOL_2) ||
+         ((radio->discovered->protocol==PROTOCOL_SOAPYSDR) && (radio->discovered->info.soapy.sample_rate>384000))) {
+#endif
+        GtkWidget *sample_rate_768=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_384),"768000");
+        gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_768), rx->sample_rate==768000);
+        gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_768,x,y++,1,1);
+        select=g_new0(SELECT,1);
+        select->rx=rx;
+        select->choice=768000;
+        g_signal_connect(sample_rate_768,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
+
+        GtkWidget *sample_rate_1536=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_768),"1536000");
+        gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_1536), rx->sample_rate==1536000);
+        gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_1536,x,y++,1,1);
+        select=g_new0(SELECT,1);
+        select->rx=rx;
+        select->choice=1536000;
+        g_signal_connect(sample_rate_1536,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
+#ifdef SOAPYSDR
       }
-      gtk_grid_attach(GTK_GRID(rx->band_grid),b,i%BAND_COLUMNS,i/BAND_COLUMNS,1,1);
-      select=g_new0(SELECT,1);
-      select->rx=rx;
-      select->choice=i;
-      g_signal_connect(b,"clicked",G_CALLBACK(band_select_cb),(gpointer)select);
-    }
+#endif
+      }
+    break;
   }
 
-  GtkWidget *mode_frame=gtk_frame_new("Mode");
-  rx->mode_grid=gtk_grid_new();
-  gtk_grid_set_row_homogeneous(GTK_GRID(rx->mode_grid),TRUE);
-  gtk_grid_set_column_homogeneous(GTK_GRID(rx->mode_grid),TRUE);
-  gtk_container_add(GTK_CONTAINER(mode_frame),rx->mode_grid);
-  gtk_grid_attach(GTK_GRID(grid),mode_frame,col,row++,1,2);
-  row++;
-
-  for(i=0;i<MODES;i++) {
-    GtkWidget *b=gtk_button_new_with_label(mode_string[i]);
-    if(i==rx->mode_a) {
-      set_button_text_color(b,"orange");
-      //last_mode=b;
-    } else {
-      set_button_text_color(b,"black");
-    }
-    gtk_grid_attach(GTK_GRID(rx->mode_grid),b,i%MODE_COLUMNS,i/MODE_COLUMNS,1,1);
-      select=g_new0(SELECT,1);
-      select->rx=rx;
-      select->choice=i;
-    g_signal_connect(b,"pressed",G_CALLBACK(mode_select_cb),(gpointer)select);
-  }
-
-  band=band_get_band(rx->band_a);
-  FILTER* band_filters=filters[rx->mode_a];
-  FILTER* band_filter=&band_filters[rx->filter_a];
   rx->filter_frame=gtk_frame_new("Filter");
-  gtk_grid_attach(GTK_GRID(grid),rx->filter_frame,col,row++,1,3);
-  row++;
-  row++;
+  gtk_grid_attach(GTK_GRID(grid),rx->filter_frame,col,row++,1,1);
 
   update_filters(rx);
 
   col=0;
 
-  if(n_output_devices>0) {
+  if(n_output_devices>=0) {
     GtkWidget *audio_frame=gtk_frame_new("Audio");
     GtkWidget *audio_grid=gtk_grid_new();
     gtk_grid_set_row_homogeneous(GTK_GRID(audio_grid),TRUE);
     gtk_grid_set_column_homogeneous(GTK_GRID(audio_grid),TRUE);
     gtk_container_add(GTK_CONTAINER(audio_frame),audio_grid);
-    gtk_grid_attach(GTK_GRID(grid),audio_frame,col,row++,2,2);
-    row++;
+    gtk_grid_attach(GTK_GRID(grid),audio_frame,col,row++,1,1);
 
     local_audio=gtk_check_button_new_with_label("Local Audio");
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (local_audio), rx->local_audio);
     gtk_grid_attach(GTK_GRID(audio_grid),local_audio,0,0,1,1);
     g_signal_connect(local_audio,"toggled",G_CALLBACK(local_audio_cb),rx);
 
-    GtkWidget *remote_audio=gtk_check_button_new_with_label("Remote Audio");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (remote_audio), rx->remote_audio);
-    gtk_grid_attach(GTK_GRID(audio_grid),remote_audio,1,0,1,1);
-    g_signal_connect(remote_audio,"toggled",G_CALLBACK(remote_audio_cb),rx);
+    if(radio->discovered->device!=DEVICE_HERMES_LITE2
+#ifdef SOAPYSDR
+       && radio->discovered->device!=DEVICE_SOAPYSDR_USB
+#endif
+      ) {
 
+      GtkWidget *remote_audio=gtk_check_button_new_with_label("Remote Audio");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (remote_audio), rx->remote_audio);
+      gtk_grid_attach(GTK_GRID(audio_grid),remote_audio,1,0,1,1);
+      g_signal_connect(remote_audio,"toggled",G_CALLBACK(remote_audio_cb),rx);
+    }
+
+    audio_choice=gtk_combo_box_text_new();
+    //update_audio_choices(rx);
+    
+    // Audio output device options
     audio_choice=gtk_combo_box_text_new();
     for(i=0;i<n_output_devices;i++) {
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_choice),NULL,output_devices[i].description);
@@ -1089,35 +1117,142 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
         }
       }
     }
-    gtk_grid_attach(GTK_GRID(audio_grid),audio_choice,0,1,2,1);
+    
+    gtk_grid_attach(GTK_GRID(audio_grid),audio_choice,0,2,2,1);
     g_signal_connect(audio_choice,"changed",G_CALLBACK(audio_choice_cb),rx);
     if(gtk_combo_box_get_active(GTK_COMBO_BOX(audio_choice))==-1) {
       gtk_widget_set_sensitive(local_audio, FALSE);
     }
+    
+    // Stereo, left, right audio
+    GtkWidget *audio_channels_combo=gtk_combo_box_text_new();
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_channels_combo),NULL,"Stereo");
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_channels_combo),NULL,"Left");
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_channels_combo),NULL,"Right");    
+    gtk_combo_box_set_active(GTK_COMBO_BOX(audio_channels_combo),rx->audio_channels);
+    gtk_grid_attach(GTK_GRID(audio_grid),audio_channels_combo,0,1,2,1);
+    g_signal_connect(audio_channels_combo,"changed",G_CALLBACK(audio_channels_cb),rx);
   }
+
+  GtkWidget *equalizer_frame=gtk_frame_new("Equalizer");
+  GtkWidget *equalizer_grid=gtk_grid_new();
+  gtk_grid_set_row_homogeneous(GTK_GRID(equalizer_grid),FALSE);
+  gtk_grid_set_column_homogeneous(GTK_GRID(equalizer_grid),TRUE);
+  gtk_container_add(GTK_CONTAINER(equalizer_frame),equalizer_grid);
+  gtk_grid_attach(GTK_GRID(grid),equalizer_frame,col,row++,1,4);
+
+  GtkWidget *enable_b=gtk_check_button_new_with_label("Enable Equalizer");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (enable_b), rx->enable_equalizer);
+  g_signal_connect(enable_b,"toggled",G_CALLBACK(enable_cb),rx);
+  gtk_grid_attach(GTK_GRID(equalizer_grid),enable_b,0,0,4,1);
+
+  GtkWidget *label=gtk_label_new("Preamp");
+  gtk_grid_attach(GTK_GRID(equalizer_grid),label,0,1,1,1);
+
+  label=gtk_label_new("Low");
+  gtk_grid_attach(GTK_GRID(equalizer_grid),label,1,1,1,1);
+
+  label=gtk_label_new("Mid");
+  gtk_grid_attach(GTK_GRID(equalizer_grid),label,2,1,1,1);
+
+  label=gtk_label_new("High");
+  gtk_grid_attach(GTK_GRID(equalizer_grid),label,3,1,1,1);
+
+  GtkWidget *preamp_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
+  gtk_range_set_value(GTK_RANGE(preamp_scale),(double)rx->equalizer[0]);
+  GtkAdjustment *adj=gtk_range_get_adjustment(GTK_RANGE(preamp_scale));
+  gtk_adjustment_set_page_increment(adj,1.0);
+  g_signal_connect(preamp_scale,"value-changed",G_CALLBACK(preamp_value_changed_cb),rx);
+  gtk_grid_attach(GTK_GRID(equalizer_grid),preamp_scale,0,2,1,10);
+  gtk_widget_set_size_request(preamp_scale,10,270);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-12.0,GTK_POS_LEFT,"-12dB");
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),0.0,GTK_POS_LEFT,"0dB");
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),12.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(preamp_scale),15.0,GTK_POS_LEFT,"15dB");
+
+  GtkWidget *low_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
+  gtk_range_set_value(GTK_RANGE(low_scale),(double)rx->equalizer[1]);
+  adj=gtk_range_get_adjustment(GTK_RANGE(low_scale));
+  gtk_adjustment_set_page_increment(adj,1.0);
+  g_signal_connect(low_scale,"value-changed",G_CALLBACK(low_value_changed_cb),rx);
+  gtk_grid_attach(GTK_GRID(equalizer_grid),low_scale,1,2,1,10);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),-12.0,GTK_POS_LEFT,"-12dB");
+  gtk_scale_add_mark(GTK_SCALE(low_scale),-9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),-6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),-3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),0.0,GTK_POS_LEFT,"0dB");
+  gtk_scale_add_mark(GTK_SCALE(low_scale),3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),12.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(low_scale),15.0,GTK_POS_LEFT,"15dB");
+
+  GtkWidget *mid_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
+  gtk_range_set_value(GTK_RANGE(mid_scale),(double)rx->equalizer[2]);
+  adj=gtk_range_get_adjustment(GTK_RANGE(mid_scale));
+  gtk_adjustment_set_page_increment(adj,1.0);
+  g_signal_connect(mid_scale,"value-changed",G_CALLBACK(mid_value_changed_cb),rx);
+  gtk_grid_attach(GTK_GRID(equalizer_grid),mid_scale,2,2,1,10);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),-12.0,GTK_POS_LEFT,"-12dB");
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),-9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),-6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),-3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),0.0,GTK_POS_LEFT,"0dB");
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),12.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(mid_scale),15.0,GTK_POS_LEFT,"15dB");
+
+  GtkWidget *high_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
+  gtk_range_set_value(GTK_RANGE(high_scale),(double)rx->equalizer[3]);
+  adj=gtk_range_get_adjustment(GTK_RANGE(high_scale));
+  gtk_adjustment_set_page_increment(adj,1.0);
+  g_signal_connect(high_scale,"value-changed",G_CALLBACK(high_value_changed_cb),rx);
+  gtk_grid_attach(GTK_GRID(equalizer_grid),high_scale,3,2,1,10);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),-12.0,GTK_POS_LEFT,"-12dB");
+  gtk_scale_add_mark(GTK_SCALE(high_scale),-9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),-6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),-3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),0.0,GTK_POS_LEFT,"0dB");
+  gtk_scale_add_mark(GTK_SCALE(high_scale),3.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),6.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),9.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),12.0,GTK_POS_LEFT,NULL);
+  gtk_scale_add_mark(GTK_SCALE(high_scale),15.0,GTK_POS_LEFT,"15dB");
 
   col++;
   row=0;
 
-  GtkWidget *tx_frame=gtk_frame_new("TX Frequency");
-  GtkWidget *tx_grid=gtk_grid_new();
-  gtk_grid_set_row_homogeneous(GTK_GRID(tx_grid),TRUE);
-  gtk_grid_set_column_homogeneous(GTK_GRID(tx_grid),TRUE);
-  gtk_container_add(GTK_CONTAINER(tx_frame),tx_grid);
-  gtk_grid_attach(GTK_GRID(grid),tx_frame,col,row++,1,1);
+  if(strcmp(radio->discovered->name,"rtlsdr")!=0) {
+    GtkWidget *tx_frame=gtk_frame_new("TX Frequency");
+    GtkWidget *tx_grid=gtk_grid_new();
+    gtk_grid_set_row_homogeneous(GTK_GRID(tx_grid),TRUE);
+    gtk_grid_set_column_homogeneous(GTK_GRID(tx_grid),TRUE);
+    gtk_container_add(GTK_CONTAINER(tx_frame),tx_grid);
+    gtk_grid_attach(GTK_GRID(grid),tx_frame,col,row++,1,1);
 
-  tx_control=gtk_check_button_new_with_label("Use This Receivers Frequency");
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (tx_control), radio->transmitter->rx==rx);
-  gtk_grid_attach(GTK_GRID(tx_grid),tx_control,0,0,1,1);
-  g_signal_connect(tx_control,"toggled",G_CALLBACK(tx_cb),rx);
+    tx_control=gtk_check_button_new_with_label("Use This Receivers Frequency");
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (tx_control), radio->transmitter->rx==rx);
+    gtk_grid_attach(GTK_GRID(tx_grid),tx_control,0,0,1,1);
+    g_signal_connect(tx_control,"toggled",G_CALLBACK(tx_cb),rx);
+  }
 
   GtkWidget *panadapter_frame=gtk_frame_new("Panadapter");
   GtkWidget *panadapter_grid=gtk_grid_new();
   gtk_grid_set_row_homogeneous(GTK_GRID(panadapter_grid),TRUE);
   gtk_grid_set_column_homogeneous(GTK_GRID(panadapter_grid),FALSE);
   gtk_container_add(GTK_CONTAINER(panadapter_frame),panadapter_grid);
-  gtk_grid_attach(GTK_GRID(grid),panadapter_frame,col,row++,1,1);
+  gtk_grid_attach(GTK_GRID(grid),panadapter_frame,col,row++,1,3);
 
+  row++;
+  row++;
   
   GtkWidget *fps_label=gtk_label_new("FPS:");
   gtk_grid_attach(GTK_GRID(panadapter_grid),fps_label,0,0,1,1);
@@ -1125,7 +1260,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   GtkWidget *fps_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,1.0, 50.0, 1.00);
   gtk_widget_set_size_request(fps_scale,200,30);
   gtk_range_set_value (GTK_RANGE(fps_scale),rx->fps);
-  GtkAdjustment *adj=gtk_range_get_adjustment(GTK_RANGE(fps_scale));
+  adj=gtk_range_get_adjustment(GTK_RANGE(fps_scale));
   gtk_adjustment_set_page_increment(adj,1.0);
   gtk_widget_show(fps_scale);
   g_signal_connect(G_OBJECT(fps_scale),"value_changed",G_CALLBACK(fps_value_changed_cb),rx);
@@ -1212,100 +1347,6 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (waterfall_ft8_marker), rx->waterfall_ft8_marker);
   gtk_grid_attach(GTK_GRID(waterfall_grid),waterfall_ft8_marker,0,3,2,1);
   g_signal_connect(waterfall_ft8_marker,"toggled",G_CALLBACK(waterfall_ft8_marker_cb),rx);
-
-
-  GtkWidget *equalizer_frame=gtk_frame_new("Equalizer");
-  GtkWidget *equalizer_grid=gtk_grid_new();
-  gtk_grid_set_row_homogeneous(GTK_GRID(equalizer_grid),FALSE);
-  gtk_grid_set_column_homogeneous(GTK_GRID(equalizer_grid),TRUE);
-  gtk_container_add(GTK_CONTAINER(equalizer_frame),equalizer_grid);
-  gtk_grid_attach(GTK_GRID(grid),equalizer_frame,col,row++,1,4);
-
-  GtkWidget *enable_b=gtk_check_button_new_with_label("Enable Equalizer");
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (enable_b), rx->enable_equalizer);
-  g_signal_connect(enable_b,"toggled",G_CALLBACK(enable_cb),rx);
-  gtk_grid_attach(GTK_GRID(equalizer_grid),enable_b,0,0,4,1);
-
-  GtkWidget *label=gtk_label_new("Preamp");
-  gtk_grid_attach(GTK_GRID(equalizer_grid),label,0,1,1,1);
-
-  label=gtk_label_new("Low");
-  gtk_grid_attach(GTK_GRID(equalizer_grid),label,1,1,1,1);
-
-  label=gtk_label_new("Mid");
-  gtk_grid_attach(GTK_GRID(equalizer_grid),label,2,1,1,1);
-
-  label=gtk_label_new("High");
-  gtk_grid_attach(GTK_GRID(equalizer_grid),label,3,1,1,1);
-
-  GtkWidget *preamp_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
-  gtk_range_set_value(GTK_RANGE(preamp_scale),(double)rx->equalizer[0]);
-  adj=gtk_range_get_adjustment(GTK_RANGE(preamp_scale));
-  gtk_adjustment_set_page_increment(adj,1.0);
-  g_signal_connect(preamp_scale,"value-changed",G_CALLBACK(preamp_value_changed_cb),rx);
-  gtk_grid_attach(GTK_GRID(equalizer_grid),preamp_scale,0,2,1,10);
-  gtk_widget_set_size_request(preamp_scale,10,270);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-12.0,GTK_POS_LEFT,"-12dB");
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),-3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),0.0,GTK_POS_LEFT,"0dB");
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),12.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(preamp_scale),15.0,GTK_POS_LEFT,"15dB");
-
-  GtkWidget *low_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
-  gtk_range_set_value(GTK_RANGE(low_scale),(double)rx->equalizer[1]);
-  adj=gtk_range_get_adjustment(GTK_RANGE(low_scale));
-  gtk_adjustment_set_page_increment(adj,1.0);
-  g_signal_connect(low_scale,"value-changed",G_CALLBACK(low_value_changed_cb),rx);
-  gtk_grid_attach(GTK_GRID(equalizer_grid),low_scale,1,2,1,10);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),-12.0,GTK_POS_LEFT,"-12dB");
-  gtk_scale_add_mark(GTK_SCALE(low_scale),-9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),-6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),-3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),0.0,GTK_POS_LEFT,"0dB");
-  gtk_scale_add_mark(GTK_SCALE(low_scale),3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),12.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(low_scale),15.0,GTK_POS_LEFT,"15dB");
-
-  GtkWidget *mid_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
-  gtk_range_set_value(GTK_RANGE(mid_scale),(double)rx->equalizer[2]);
-  adj=gtk_range_get_adjustment(GTK_RANGE(mid_scale));
-  gtk_adjustment_set_page_increment(adj,1.0);
-  g_signal_connect(mid_scale,"value-changed",G_CALLBACK(mid_value_changed_cb),rx);
-  gtk_grid_attach(GTK_GRID(equalizer_grid),mid_scale,2,2,1,10);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),-12.0,GTK_POS_LEFT,"-12dB");
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),-9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),-6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),-3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),0.0,GTK_POS_LEFT,"0dB");
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),12.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(mid_scale),15.0,GTK_POS_LEFT,"15dB");
-
-  GtkWidget *high_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
-  gtk_range_set_value(GTK_RANGE(high_scale),(double)rx->equalizer[3]);
-  adj=gtk_range_get_adjustment(GTK_RANGE(high_scale));
-  gtk_adjustment_set_page_increment(adj,1.0);
-  g_signal_connect(high_scale,"value-changed",G_CALLBACK(high_value_changed_cb),rx);
-  gtk_grid_attach(GTK_GRID(equalizer_grid),high_scale,3,2,1,10);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),-12.0,GTK_POS_LEFT,"-12dB");
-  gtk_scale_add_mark(GTK_SCALE(high_scale),-9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),-6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),-3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),0.0,GTK_POS_LEFT,"0dB");
-  gtk_scale_add_mark(GTK_SCALE(high_scale),3.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),6.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),9.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),12.0,GTK_POS_LEFT,NULL);
-  gtk_scale_add_mark(GTK_SCALE(high_scale),15.0,GTK_POS_LEFT,"15dB");
 
   return grid;
 }

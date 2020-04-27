@@ -38,11 +38,9 @@
 static char interface_name[64];
 static struct sockaddr_in interface_addr={0};
 static struct sockaddr_in interface_netmask={0};
-static int interface_length;
 
 #define DISCOVERY_PORT 1024
 static int discovery_socket;
-static struct sockaddr_in discovery_addr;
 
 static GThread *discover_thread_id;
 static gpointer discover_receive_thread(gpointer data);
@@ -64,7 +62,6 @@ static void discover(struct ifaddrs* iface) {
 
     int optval = 1;
     setsockopt(discovery_socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-    setsockopt(discovery_socket, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 
     sa = (struct sockaddr_in *) iface->ifa_addr;
     mask = (struct sockaddr_in *) iface->ifa_netmask;
@@ -137,7 +134,7 @@ static void discover(struct ifaddrs* iface) {
 //static void *discover_receive_thread(void* arg) {
 static gpointer discover_receive_thread(gpointer data) {
     struct sockaddr_in addr;
-    int len;
+    socklen_t len;
     unsigned char buffer[2048];
     int bytes_read;
     struct timeval tv;
@@ -164,51 +161,81 @@ g_print("discover_receive_thread\n");
             if (status == 2 || status == 3) {
                 if(devices<MAX_DEVICES) {
                     discovered[devices].protocol=PROTOCOL_1;
+                    discovered[devices].software_version=buffer[9]&0xFF;                    
                     switch(buffer[10]&0xFF) {
                         case OLD_DEVICE_METIS:
                             discovered[devices].device=DEVICE_METIS;
                             strcpy(discovered[devices].name,"Metis");
                             discovered[devices].supported_receivers=5;
+                            discovered[devices].supported_transmitters=1;
                             discovered[devices].adcs=1;
+                            discovered[devices].frequency_min=0.0;
+                            discovered[devices].frequency_max=61440000.0;
                             break;
                         case OLD_DEVICE_HERMES:
                             discovered[devices].device=DEVICE_HERMES;
                             strcpy(discovered[devices].name,"Hermes");
                             discovered[devices].supported_receivers=5;
+                            discovered[devices].supported_transmitters=1;
                             discovered[devices].adcs=1;
+                            discovered[devices].frequency_min=0.0;
+                            discovered[devices].frequency_max=61440000.0;
                             break;
                         case OLD_DEVICE_ANGELIA:
                             discovered[devices].device=DEVICE_ANGELIA;
                             strcpy(discovered[devices].name,"Angelia");
                             discovered[devices].supported_receivers=7;
+                            discovered[devices].supported_transmitters=1;
                             discovered[devices].adcs=2;
+                            discovered[devices].frequency_min=0.0;
+                            discovered[devices].frequency_max=61440000.0;
                             break;
                         case OLD_DEVICE_ORION:
                             discovered[devices].device=DEVICE_ORION;
                             strcpy(discovered[devices].name,"Orion");
                             discovered[devices].supported_receivers=7;
+                            discovered[devices].supported_transmitters=1;
                             discovered[devices].adcs=2;
+                            discovered[devices].frequency_min=0.0;
+                            discovered[devices].frequency_max=61440000.0;
                             break;
                         case OLD_DEVICE_HERMES_LITE:
                             discovered[devices].device=DEVICE_HERMES_LITE;
-                            strcpy(discovered[devices].name,"Hermes Lite");
-                            discovered[devices].supported_receivers=7;
+                            g_print("%d", discovered[devices].software_version);
+			                      if (discovered[devices].software_version < 42) {
+                              strcpy(discovered[devices].name,"Hermes Lite V1");
+                              discovered[devices].supported_receivers = 2;                                
+			                      } else {
+                              strcpy(discovered[devices].name,"Hermes Lite V2");
+			                        discovered[devices].device = DEVICE_HERMES_LITE2;
+                              // HL2 send max supported receveirs in discovery response.
+                              discovered[devices].supported_receivers=buffer[0x13];                    
+			                      }                            
+                            discovered[devices].supported_transmitters=1;
                             discovered[devices].adcs=1;
+                            discovered[devices].frequency_min=0.0;
+                            discovered[devices].frequency_max=30720000.0;
                             break;
                         case OLD_DEVICE_ORION2:
                             discovered[devices].device=DEVICE_ORION2;
                             strcpy(discovered[devices].name,"Orion 2");
                             discovered[devices].supported_receivers=7;
+                            discovered[devices].supported_transmitters=1;
                             discovered[devices].adcs=2;
+                            discovered[devices].frequency_min=0.0;
+                            discovered[devices].frequency_max=61440000.0;
                             break;
                         default:
                             discovered[devices].device=DEVICE_UNKNOWN;
                             strcpy(discovered[devices].name,"Unknown");
                             discovered[devices].supported_receivers=7;
+                            discovered[devices].supported_transmitters=1;
                             discovered[devices].adcs=1;
+                            discovered[devices].frequency_min=0.0;
+                            discovered[devices].frequency_max=61440000.0;
                             break;
                     }
-                    discovered[devices].software_version=buffer[9]&0xFF;
+
                     for(i=0;i<6;i++) {
                         discovered[devices].info.network.mac_address[i]=buffer[i+3];
                     }
@@ -238,7 +265,8 @@ g_print("discover_receive_thread\n");
 
     }
     g_print("discovery: exiting discover_receive_thread\n");
-    g_thread_exit(NULL);
+    //g_thread_exit(NULL);
+    return NULL;
 }
 
 void protocol1_discovery() {

@@ -24,6 +24,7 @@
 #include "discovered.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "receiver.h"
 #include "transmitter.h"
 #include "radio.h"
@@ -33,7 +34,6 @@
 static char *title="Microphone Level";
 
 static gboolean mic_level_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
-  TRANSMITTER *tx=(TRANSMITTER *)data;
   int width=gtk_widget_get_allocated_width (widget);
   int height=gtk_widget_get_allocated_height (widget);
   if(radio->mic_level_surface) {
@@ -46,13 +46,11 @@ static gboolean mic_level_configure_event_cb(GtkWidget *widget,GdkEventConfigure
     cairo_set_source_rgb (cr, 1.0, 1.0, 1.0);
     cairo_paint (cr);
     cairo_destroy(cr);
-    //transmitter_init_analyzer(tx);
   }
   return TRUE;
 }
 
 static gboolean mic_level_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
-  TRANSMITTER *tx=(TRANSMITTER *)data;
   if(radio->mic_level_surface!=NULL) {
     cairo_set_source_surface (cr, radio->mic_level_surface, 0.0, 0.0);
     cairo_paint (cr);
@@ -61,7 +59,6 @@ static gboolean mic_level_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
 }
 
 static gboolean mic_level_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
-  TRANSMITTER *tx=(TRANSMITTER *)data;
   int width=gtk_widget_get_allocated_width(widget);
   double x=event->x;
   radio->vox_threshold=(x-5.0)/(double)width;

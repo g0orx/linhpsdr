@@ -38,10 +38,14 @@
 #include "transmitter.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "main.h"
 #include "protocol1.h"
 #include "protocol2.h"
+#ifdef SOAPYSDR
+#include "soapy_protocol.h"
+#endif
 #include "property.h"
 #include "rigctl.h"
 #include "version.h"
@@ -53,8 +57,6 @@ static sem_t *wisdom_sem;
 static GThread *wisdom_thread_id;
 
 static GtkListStore *store;
-static GtkWidget *list;
-static GtkTreeModel *model;
 static GtkWidget *view;
 static gulong selection_signal_id;
 static GtkWidget *none_found;
@@ -64,6 +66,7 @@ static GtkWidget *retry;
 static DISCOVERED *d=NULL;
 
 RADIO *radio;
+gboolean opengl=FALSE;
 
 enum {
   NAME_COLUMN,
@@ -86,8 +89,15 @@ static gboolean main_delete (GtkWidget *widget) {
       case PROTOCOL_2:
         protocol2_stop();
         break;
+#ifdef SOAPYSDR
+      case PROTOCOL_SOAPYSDR:
+        soapy_protocol_stop();
+        break;
+#endif
     }
-  }
+    audio_close_input(radio);
+    //audio_close_output(radio);
+  }    
   _exit(0);
 }
 
@@ -101,18 +111,69 @@ g_print("Creating wisdom file: %s\n", (char *)arg);
 static void tree_selection_changed_cb (GtkTreeSelection *selection, gpointer data) {
   GtkTreeIter iter;
   GtkTreeModel *model;
+  gchar *name;
+  gchar *protocol;
+  gchar *version;
   gchar *ip;
+  gchar *mac;
+  GtkTreeIter temp_iter;
+  gchar *temp_name;
+  gchar *temp_protocol;
+  gchar *temp_version;
+  gchar *temp_ip;
+  gchar *temp_mac;
   gint i;
 
 g_print("tree_selection_changed_cb\n");
   if (gtk_tree_selection_get_selected (selection, &model, &iter)) {
+    gtk_tree_model_get (model, &iter, NAME_COLUMN, &name, -1);
+    gtk_tree_model_get (model, &iter, PROTOCOL_COLUMN, &protocol, -1);
+    gtk_tree_model_get (model, &iter, VERSION_COLUMN, &version, -1);
     gtk_tree_model_get (model, &iter, IP_COLUMN, &ip, -1);
-    for(i=0;i<devices;i++) {
-      if(g_strcmp0(ip,inet_ntoa(discovered[i].info.network.address.sin_addr))==0) {
-        break;
+    gtk_tree_model_get (model, &iter, MAC_COLUMN, &mac, -1);
+fprintf(stderr,"tree_selection_changed_cb: selected=%s,%s,%s,%s,%s\n",name,protocol,version,ip,mac);
+    gboolean found=FALSE;
+
+    i=0;
+
+    if(gtk_tree_model_get_iter_first(model,&temp_iter)) {
+      gtk_tree_model_get (model, &temp_iter, NAME_COLUMN, &temp_name, -1);
+      gtk_tree_model_get (model, &temp_iter, PROTOCOL_COLUMN, &temp_protocol, -1);
+      gtk_tree_model_get (model, &temp_iter, VERSION_COLUMN, &temp_version, -1);
+      gtk_tree_model_get (model, &temp_iter, IP_COLUMN, &temp_ip, -1);
+      gtk_tree_model_get (model, &temp_iter, MAC_COLUMN, &temp_mac, -1);
+
+fprintf(stderr,"tree_selection_changed_cb: first=%s,%s,%s,%s,%s\n",temp_name,temp_protocol,temp_version,temp_ip,temp_mac);
+      if(g_strcmp0(name,temp_name)==0) {
+        if(g_strcmp0(protocol,temp_protocol)==0 &&
+          g_strcmp0(version,temp_version)==0 &&
+          g_strcmp0(ip,temp_ip)==0 &&
+          g_strcmp0(mac,temp_mac)==0) {
+          found=TRUE;
+        }
+      }
+
+
+      if(!found) {
+        while(gtk_tree_model_iter_next(model,&temp_iter) && !found) {
+          i++;
+          gtk_tree_model_get (model, &temp_iter, NAME_COLUMN, &temp_name, -1);
+          gtk_tree_model_get (model, &temp_iter, PROTOCOL_COLUMN, &temp_protocol, -1);
+          gtk_tree_model_get (model, &temp_iter, VERSION_COLUMN, &temp_version, -1);
+          gtk_tree_model_get (model, &temp_iter, IP_COLUMN, &temp_ip, -1);
+          gtk_tree_model_get (model, &temp_iter, MAC_COLUMN, &temp_mac, -1);
+fprintf(stderr,"tree_selection_changed_cb: next=%s,%s,%s,%s,%s\n",temp_name,temp_protocol,temp_version,temp_ip,temp_mac);
+          if(g_strcmp0(protocol,temp_protocol)==0 &&
+            g_strcmp0(version,temp_version)==0 &&
+            g_strcmp0(ip,temp_ip)==0 &&
+            g_strcmp0(mac,temp_mac)==0) {
+            found=TRUE;
+          }
+        }
       }
     }
-    if(i<devices) {
+
+    if(found) {
       g_print("found %d\n",i);
       d=&discovered[i];
       switch(d->status) {
@@ -125,7 +186,7 @@ g_print("tree_selection_changed_cb\n");
       }
     } else {
       d=NULL;
-      g_print("could not find %s\n",ip);
+      g_print("could not find selection\n");
     }
     g_free (ip);
   }
@@ -134,6 +195,9 @@ g_print("tree_selection_changed_cb\n");
 static int discover(void *data) {
   char v[32];
   char mac[32];
+  char protocol[32];
+  char ip[32];
+  char iface[32];
   gint i;
   GtkCellRenderer *renderer;
   GtkTreeIter iter;
@@ -172,24 +236,58 @@ static int discover(void *data) {
 
     for(i=0;i<devices;i++) {
       d=&discovered[i];
-      sprintf(v,"%d.%d", d->software_version/10, d->software_version%10);
-      sprintf(mac,"%02X:%02X:%02X:%02X:%02X:%02X",
-        d->info.network.mac_address[0],
-        d->info.network.mac_address[1],
-        d->info.network.mac_address[2],
-        d->info.network.mac_address[3],
-        d->info.network.mac_address[4],
-        d->info.network.mac_address[5]);
+
+g_print("discovered: %d device=%d\n",i,discovered[i].device);
+
+      switch(d->device) {
+#ifdef SOAPYSDR
+        case DEVICE_SOAPYSDR_USB:
+          sprintf(v,"%d.%d.%d", d->software_version/100,(d->software_version%100)/10, d->software_version%10);
+          if(strcmp(d->name,"rtlsdr")==0) {
+            sprintf(mac,"%d",d->info.soapy.rtlsdr_count);
+          } else {
+            strcpy(mac,"");
+          }
+          strcpy(ip,"");
+          strcpy(iface,"USB");
+          break;
+#endif
+        default:
+          sprintf(v,"%d.%d", d->software_version/10, d->software_version%10);
+          sprintf(mac,"%02X:%02X:%02X:%02X:%02X:%02X",
+            d->info.network.mac_address[0],
+            d->info.network.mac_address[1],
+            d->info.network.mac_address[2],
+            d->info.network.mac_address[3],
+            d->info.network.mac_address[4],
+            d->info.network.mac_address[5]);
+          strcpy(ip,inet_ntoa(d->info.network.address.sin_addr));
+          strcpy(iface,d->info.network.interface_name);
+          break;
+      }
+
+      if(d->protocol==PROTOCOL_1) {
+        strcpy(protocol,"1");
+      } else if(d->protocol==PROTOCOL_2) {
+        strcpy(protocol,"2");
+#ifdef SOAPYSDR
+      } else if(d->protocol==PROTOCOL_SOAPYSDR) {
+        strcpy(protocol,"SoapySDR");
+#endif
+      } else {
+        strcpy(protocol,"UNKNOWN");
+      }
+     
 
 g_print("adding %s\n",d->name);
       gtk_list_store_append(store,i==0?&iter0:&iter);
       gtk_list_store_set(store,i==0?&iter0:&iter,
         NAME_COLUMN, d->name,
-        PROTOCOL_COLUMN, d->protocol==PROTOCOL_1?"1":"2",
+        PROTOCOL_COLUMN, protocol,
         VERSION_COLUMN, v,
-          IP_COLUMN, inet_ntoa(d->info.network.address.sin_addr),
+        IP_COLUMN, ip,
         MAC_COLUMN, mac,
-        INTERFACE_COLUMN, d->info.network.interface_name,
+        INTERFACE_COLUMN, iface,
         STATUS_COLUMN, d->status==2?"Idle":"In Use",
         -1);
     }
@@ -223,7 +321,6 @@ static gboolean wisdom_delete(GtkWidget *widget) {
 }
 
 static int check_wisdom(void *data) {
-  char *res;
   char wisdom_directory[1024];
   char wisdom_file[1024];
   GtkWidget *dialog;
@@ -236,9 +333,9 @@ static int check_wisdom(void *data) {
       wisdom_sem=sem_open("wisdomsem",O_CREAT,0700,0);
 #else
       wisdom_sem=malloc(sizeof(sem_t));
-      int rc=sem_init(wisdom_sem, 0, 0);
+      sem_init(wisdom_sem, 0, 0);
 #endif
-      wisdom_thread_id = g_thread_new( "Wisdoom", wisdom_thread, (gpointer)wisdom_directory);
+      wisdom_thread_id = g_thread_new( "Wisdom", wisdom_thread, (gpointer)wisdom_directory);
       if( ! wisdom_thread_id ) {
         g_print("g_thread_new failed for wisdom_thread\n");
         exit( -1 );
@@ -290,30 +387,55 @@ gboolean retry_cb(GtkWidget *widget,gpointer data) {
 gboolean start_cb(GtkWidget *widget,gpointer data) { 
   char v[32];
   char mac[32];
+  char ip[32];
+  char iface[32];
+  char protocol[32];
   gchar title[128];
   char *value;
   gint x=-1;
   gint y=-1;
-  gint width;
-  gint height;
 
   if(d!=NULL && d->status==STATE_AVAILABLE) {
-    g_snprintf(v,sizeof(v),"%d.%d", d->software_version/10, d->software_version%10);
-    g_snprintf(mac,sizeof(mac),"%02X:%02X:%02X:%02X:%02X:%02X",
-        d->info.network.mac_address[0],
-        d->info.network.mac_address[1],
-        d->info.network.mac_address[2],
-        d->info.network.mac_address[3],
-        d->info.network.mac_address[4],
-        d->info.network.mac_address[5]);
-    g_snprintf((gchar *)&title,sizeof(title),"Linux HPSDR (%s): %s P%d v%s %s (%s) on %s",
+    switch(d->device) {
+#ifdef SOAPYSDR
+      case DEVICE_SOAPYSDR_USB:
+        g_snprintf(v,sizeof(v),"%d.%d.%d", d->software_version/100, (d->software_version%100)/10, d->software_version%10);
+        if(strcmp(d->name,"rtlsdr")==0) {
+          g_snprintf(mac,sizeof(mac),"%d",d->info.soapy.rtlsdr_count);
+        } else {
+          strcpy(mac,"");
+        }
+        strcpy(ip,"");
+        strcpy(protocol,"SoapySDR");
+        strcpy(iface,"USB");
+        break;
+#endif
+      default:
+        g_snprintf(v,sizeof(v),"%d.%d", d->software_version/10, d->software_version%10);
+        g_snprintf(mac,sizeof(mac),"%02X:%02X:%02X:%02X:%02X:%02X",
+          d->info.network.mac_address[0],
+          d->info.network.mac_address[1],
+          d->info.network.mac_address[2],
+          d->info.network.mac_address[3],
+          d->info.network.mac_address[4],
+          d->info.network.mac_address[5]);
+        strcpy(ip,inet_ntoa(d->info.network.address.sin_addr));
+        if(d->protocol==0) {
+          strcpy(protocol,"P1");
+        } else {
+          strcpy(protocol,"P2");
+        }
+        strcpy(iface,d->info.network.interface_name);
+        break;
+    }
+    g_snprintf((gchar *)&title,sizeof(title),"Linux HPSDR (%s): %s %s v%s %s (%s) on %s",
       version,
       d->name,
-      d->protocol==PROTOCOL_1?1:2,
+      protocol,
       v,
-      inet_ntoa(d->info.network.address.sin_addr),
+      ip,
       mac,
-      d->info.network.interface_name);
+      iface);
 
     g_print("starting %s\n",title);
     gdk_window_set_cursor(gtk_widget_get_window(main_window),gdk_cursor_new(GDK_WATCH));
@@ -337,13 +459,6 @@ g_print("x=%d y=%d\n",x,y);
     if(x!=-1 && y!=-1) {
 g_print("moving main_window to x=%d y=%d\n",x,y);
       gtk_window_move(GTK_WINDOW(main_window),x,y);
-/*
-      value=getProperty("radio.width");
-      if(value!=NULL) width=atoi(value);
-      value=getProperty("radio.height");
-      if(value!=NULL) height=atoi(value);
-      gtk_window_resize(GTK_WINDOW(main_window),width,height);
-*/
     }
     gdk_window_set_cursor(gtk_widget_get_window(main_window),gdk_cursor_new(GDK_ARROW));
   }
@@ -368,6 +483,15 @@ static void activate_hpsdr(GtkApplication *app, gpointer data) {
     g_print("HPSDR: no default screen!\n");
     _exit(0);
   }
+
+#ifdef OPENGL
+  GtkWidget *opengl_widget=gtk_gl_area_new();
+  opengl=opengl_widget!=NULL;
+  if(opengl_widget!=NULL) {
+    gtk_widget_destroy(opengl_widget);
+  }
+#endif
+  g_print("opengl: %d\n",opengl);
 
 #ifdef __APPLE__
   sprintf(png_path,"/usr/local/share/linhpsdr/hpsdr.png");
@@ -427,6 +551,7 @@ int main(int argc, char **argv) {
   rc=mkdir(text,0777);
   sprintf(text,"%s/.local/share/linhpsdr",homedir);
   rc=mkdir(text,0777);
+
   sprintf(text,"org.g0orx.hpsdr.pid%d",getpid());
   hpsdr=gtk_application_new(text, G_APPLICATION_FLAGS_NONE);
   g_signal_connect(hpsdr, "activate", G_CALLBACK(activate_hpsdr), NULL);

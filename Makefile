@@ -9,14 +9,63 @@ LINK=gcc
 GTKINCLUDES=`pkg-config --cflags gtk+-3.0`
 GTKLIBS=`pkg-config --libs gtk+-3.0`
 
+#OPENGL_OPTIONS=-D OPENGL
+#OPENGL_INCLUDES=`pkg-config --cflags epoxy`
+#OPENGL_LIBS=`pkg-config --libs epoxy`
 
-AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
+AUDIO_LIBS=-lasound -lpulse-simple -lpulse -lpulse-mainloop-glib -lsoundio
 
-OPTIONS=-g -Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3
-#OPTIONS=-g -Wno-deprecated-declarations -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
+# uncomment the line below to include SoapySDR support
+#
+# Note: SoapySDR support has only been tested with the RTL-SDR and LimeSDR
+#       No TX support yet.
+#
+#       If you want to build with SoapySDR support you will need to install:
+#
+#       sudo apt-get install libsoapysdr-dev
+#	sudo apt-get install soapysdr-module-rtlsdr
+#	sudo apt-get install soapysdr-module-lms7
+#
+#SOAPYSDR_INCLUDE=SOAPYSDR
+
+ifeq ($(SOAPYSDR_INCLUDE),SOAPYSDR)
+SOAPYSDR_OPTIONS=-D SOAPYSDR
+SOAPYSDR_LIBS=-lSoapySDR
+SOAPYSDR_SOURCES= \
+soapy_discovery.c \
+soapy_protocol.c
+SOAPYSDR_HEADERS= \
+soapy_discovery.h \
+soapy_protocol.h
+SOAPYSDR_OBJS= \
+soapy_discovery.o \
+soapy_protocol.o
+endif
+
+# cwdaemon support. Allows linux based logging software to key an Hermes/HermesLite2
+# needs :
+#			https://github.com/m5evt/unixcw-3.5.1.git
+
+#CWDAEMON_INCLUDE=CWDAEMON
+
+#ifeq ($(CWDAEMON_INCLUDE),CWDAEMON)
+#CWDAEMON_OPTIONS=-D CWDAEMON
+#CWDAEMON_LIBS=-lcw
+#CWDAEMON_SOURCES= \
+#cwdaemon.c
+#CWDAEMON_HEADERS= \
+#cwdaemon.h
+#CWDAEMON_OBJS= \
+#cwdaemon.o
+#endif
+
+
+OPTIONS=-Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) \
+         $(CWDAEMON_OPTIONS)  $(OPENGL_OPTIONS) -O3 -g
+#OPTIONS=-g -Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
 LIBS=-lrt -lm -lpthread -lwdsp
-INCLUDES=$(GTKINCLUDES)
+INCLUDES=$(GTKINCLUDES) $(OPGL_INCLUDES)
 
 COMPILE=$(CC) $(OPTIONS) $(INCLUDES)
 
@@ -53,13 +102,13 @@ radio_dialog.c\
 receiver_dialog.c\
 transmitter_dialog.c\
 pa_dialog.c\
+eer_dialog.c\
 wideband_dialog.c\
 about_dialog.c\
 button_text.c\
 wideband.c\
 vox.c\
 ext.c\
-smartsdr_server.c\
 configure_dialog.c\
 bookmark_dialog.c\
 puresignal_dialog.c\
@@ -67,7 +116,9 @@ oc_dialog.c\
 xvtr_dialog.c\
 frequency.c\
 rigctl.c\
-error_handler.c
+error_handler.c\
+radio_info.c\
+bpsk.c
 
 HEADERS=\
 main.h\
@@ -101,13 +152,13 @@ radio_dialog.h\
 receiver_dialog.h\
 transmitter_dialog.h\
 pa_dialog.h\
+eer_dialog.h\
 wideband_dialog.h\
 about_dialog.h\
 button_text.h\
 wideband.h\
 vox.h\
 ext.h\
-smartsdr_server.h\
 configure_dialog.h\
 bookmark_dialog.h\
 puresignal_dialog.h\
@@ -115,7 +166,9 @@ oc_dialog.h\
 xvtr_dialog.h\
 frequency.h\
 rigctl.h\
-error_handler.h
+error_handler.h\
+radio_info.h\
+bpsk.h
 
 OBJS=\
 main.o\
@@ -148,13 +201,13 @@ radio_dialog.o\
 receiver_dialog.o\
 transmitter_dialog.o\
 pa_dialog.o\
+eer_dialog.o\
 wideband_dialog.o\
 about_dialog.o\
 button_text.o\
 wideband.o\
 vox.o\
 ext.o\
-smartsdr_server.o\
 configure_dialog.o\
 bookmark_dialog.o\
 puresignal_dialog.o\
@@ -162,15 +215,17 @@ oc_dialog.o\
 xvtr_dialog.o\
 frequency.o\
 rigctl.o\
-error_handler.o
+error_handler.o\
+radio_info.o\
+bpsk.o
 
-all: prebuild  $(PROGRAM) $(HEADERS) $(SOURCES)
+all: prebuild  $(PROGRAM) $(HEADERS) $(SOURCES) $(SOAPYSDR_SOURCES) $(CWDAEMON_SOURCES) 
 
 prebuild:
 	rm -f version.o
 
-$(PROGRAM):  $(OBJS)
-	$(LINK) -o $(PROGRAM) $(OBJS) $(GTKLIBS) $(LIBS) $(AUDIO_LIBS)
+$(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS)
+	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(GTKLIBS) $(LIBS) $(AUDIO_LIBS) $(SOAPYSDR_LIBS) $(CWDAEMON_LIBS) $(OPENGL_LIBS)
 
 .c.o:
 	$(COMPILE) -c -o $@ $<
@@ -181,13 +236,12 @@ clean:
 	-rm -f $(PROGRAM)
 
 install: $(PROGRAM)
-	sudo cp $(PROGRAM) /usr/local/bin
-	if [ ! -d ~/.local/share/linhpsdr ]; then mkdir ~/.local/share/linhpsdr; fi
-	if [ ! -d /usr/share/linhpsdr ]; then sudo mkdir /usr/share/linhpsdr; fi
-	sudo cp hpsdr.png /usr/share/linhpsdr
-	sudo cp hpsdr_icon.png /usr/share/linhpsdr
-	sudo cp hpsdr_small.png /usr/share/linhpsdr
-	sudo cp linhpsdr.desktop /usr/share/applications
+	cp $(PROGRAM) /usr/local/bin
+	if [ ! -d /usr/share/linhpsdr ]; then mkdir /usr/share/linhpsdr; fi
+	cp hpsdr.png /usr/share/linhpsdr
+	cp hpsdr_icon.png /usr/share/linhpsdr
+	cp hpsdr_small.png /usr/share/linhpsdr
+	cp linhpsdr.desktop /usr/share/applications
 
 debian:
 	cp $(PROGRAM) pkg/linhpsdr/usr/local/bin

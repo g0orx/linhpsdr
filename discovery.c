@@ -27,10 +27,16 @@
 #include "discovery.h"
 #include "protocol1_discovery.h"
 #include "protocol2_discovery.h"
+#ifdef SOAPYSDR
+#include "soapy_discovery.h"
+#endif
 
 void discovery() {
 g_print("discovery\n");
   devices=0;
   protocol1_discovery();
   protocol2_discovery();
+#ifdef SOAPYSDR
+  soapy_discovery();
+#endif
 }

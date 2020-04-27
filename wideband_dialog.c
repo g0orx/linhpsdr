@@ -33,24 +33,26 @@
 #include "transmitter.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "receiver_dialog.h"
 #include "vfo.h"
 #include "audio.h"
 #include "main.h"
-
+/*
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   WIDEBAND *w=(WIDEBAND *)data;
   w->dialog=NULL;
   return TRUE;
 }
-
+*/
+/*
 static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) {
   WIDEBAND *w=(WIDEBAND *)data;
   w->dialog=NULL;
   return FALSE;
 }
-
+*/
 static void panadapter_high_value_changed_cb(GtkWidget *widget, gpointer data) {
   WIDEBAND *w=(WIDEBAND *)data;
   w->panadapter_high=gtk_range_get_value(GTK_RANGE(widget));
@@ -78,7 +80,6 @@ static void waterfall_automatic_cb(GtkWidget *widget, gpointer data) {
 }
 
 GtkWidget *create_wideband_dialog(WIDEBAND *w) {
-  int i;
   int col=0;
   int row=0;
 

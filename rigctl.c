@@ -37,7 +37,10 @@
 // IP stuff below
 #include <sys/socket.h>
 #include <arpa/inet.h> //inet_addr
+
 #include "receiver.h"
+#include "vfo.h"
+#include "transmitter.h"
 #ifdef PIHPSDR
 #include "toolbar.h"
 #include "band_menu.h"
@@ -72,6 +75,7 @@
 #include "receiver.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "protocol1.h"
 #include "protocol2.h"
@@ -117,8 +121,7 @@ int connect_cnt = 0;
 int rigctlGetFilterLow();
 int rigctlGetFilterHigh();
 int rigctlGetMode(RECEIVER *rx);
-int rigctlSetFilterLow(int val);
-int rigctlSetFilterHigh(int val);
+void rigctlSetMode(RECEIVER *rx, int new_mode);
 int new_level;
 int active_transmitter = 0;
 int rigctl_busy = 0;  // Used to tell rigctl_menu that launch has already occured
@@ -154,13 +157,13 @@ FILTER * band_filter;
 //static GThread *rigctl_set_timer_thread_id = NULL;
 //static int server_running;
 
+#ifdef SERIAL
 static GThread *serial_server_thread_id = NULL;
+#endif
 
 //static int server_socket=-1;
 //static int server_address_length;
 //static struct sockaddr_in server_address;
-
-static int rigctl_timer = 0;
 
 typedef struct _client {
   int socket;
@@ -201,7 +204,6 @@ int ctcss_mode;  // Numbers 0/1 - on off.
 static gpointer rigctl_client (gpointer data);
 
 void close_rigctl_ports(RECEIVER *rx) {
-  int i;
   struct linger linger = { 0 };
   linger.l_onoff = 1;
   linger.l_linger = 0;
@@ -227,16 +229,7 @@ void close_rigctl_ports(RECEIVER *rx) {
   }
 }
 
-// RigCtl Timer - to throttle passes through the parser...
-// Sets rigctl_timer while waiting - clears and exits thread.
-static gpointer set_rigctl_timer (gpointer data) {
-      rigctl_timer = 1;
-      // Wait throttle time
-      usleep(RIGCTL_TIMER_DELAY);
-      rigctl_timer = 0;
-}
 
-//
 // Used to convert transmitter->ctcss_frequency into 1-39 value for TS2000.
 // This COULD be done with a simple table lookup - but I've already written the code
 // so at this point...
@@ -342,6 +335,7 @@ void send_dash() {
        //fprintf(stderr,"_%d",mox);
        
 }
+
 void send_dot() {
        int dot_delay = 1200/cw_keyer_speed;
        g_idle_add(ext_cw_key, (gpointer)(long)1);
@@ -350,6 +344,7 @@ void send_dot() {
        usleep((long)dot_delay* 1000L);
        //fprintf(stderr,".%d",mox);
 }
+
 void send_space() {
        int dot_delay = 1200/cw_keyer_speed;
        usleep((long)dot_delay* 7000L);
@@ -456,6 +451,7 @@ void rigctl_send_cw_char(char cw_char) {
     usleep(delay*3L);
     //fprintf(stderr,"\n");
 }
+
 void gui_vfo_move_to(gpointer data) {
    long long freq = *(long long *) data;
    fprintf(stderr,"GUI: %11lld\n",freq);
@@ -472,6 +468,7 @@ long long rigctl_getFrequency() {
       return vfo[active_receiver->id].frequency;
    } 
 }
+
 #endif // PIHPSDR
 // Looks up entry INDEX_NUM in the command structure and
 // returns the command string
@@ -481,9 +478,9 @@ void send_resp (int client_sock,char * msg) {
         fprintf(stderr,"RIGCTL: RESP=%s\n",msg);
     #endif
     if(client_sock == -1) { // Serial port 
-       int bytes=write(fd,msg,strlen(msg));   
+       write(fd,msg,strlen(msg));   
     } else {  // TCP/IP port
-       int bytes=write(client_sock, msg, strlen(msg));
+       write(client_sock, msg, strlen(msg));
     }
 }
 
@@ -494,9 +491,7 @@ void send_resp (int client_sock,char * msg) {
 static gpointer rigctl_server(gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   int port=rigctl_port_base+rx->channel;
-  int rc;
   int on=1;
-  int i;
   GThread *client_thread_id;
 
   fprintf(stderr,"rigctl_server: starting server on port %d\n",port);
@@ -537,7 +532,7 @@ static gpointer rigctl_server(gpointer data) {
       continue;
     }
 
-    client_thread_id = g_thread_new("rigctl client", rigctl_client, (gpointer)rx);
+    client_thread_id = g_thread_new("rigctl_client", rigctl_client, (gpointer)rx);
     if(client_thread_id==NULL) {
       fprintf(stderr,"g_thread_new failed for rigctl_client\n");
       fprintf(stderr,"setting SO_LINGER to 0 for client_socket: %d\n",rx->rigctl_client_socket);
@@ -555,10 +550,7 @@ static gpointer rigctl_server(gpointer data) {
   return NULL;
 }
 
-static gpointer rigctl_client (gpointer data) {
-   int len;
-   int c;
-   
+static gpointer rigctl_client (gpointer data) { 
    RECEIVER *rx=(RECEIVER *)data;
 
    fprintf(stderr,"rigctl_client: starting rigctl_client: socket=%d\n",rx->rigctl_client_socket);
@@ -575,17 +567,18 @@ static gpointer rigctl_client (gpointer data) {
    int semi_number = 0;
    int i;
    char * work_ptr;
-   char work_buf[MAXDATASIZE];
+
    int numbytes;
    char  cmd_input[MAXDATASIZE] ;
    char cmd_save[80];
    char cw_check_buf[4];
 
     while(rx->rigctl_running && (numbytes=recv(rx->rigctl_client_socket , cmd_input , MAXDATASIZE-2 , 0)) > 0 ) {
+         #ifdef RIGCTL_DEBUG
+         char work_buf[MAXDATASIZE];  
          for(i=0;i<numbytes;i++)  { work_buf[i] = cmd_input[i]; }
          work_buf[i+1] = '\0';
-         #ifdef RIGCTL_DEBUG
-         fprintf(stderr,"RIGCTL: RCVD=%s<-\n",work_buf);
+         fprintf(stderr,"RIGCTL: RCVD=%s\n",work_buf);
          #endif
 
         // Need to handle two cases
@@ -657,7 +650,6 @@ static gpointer rigctl_client (gpointer data) {
            }
            for(i=0;i<MAXDATASIZE;i++){
                 cmd_input[i] = '\0'; 
-                work_buf[i]  = '\0';  // Clear the input buffer
            }
         }
        // Got here because socket closed 
@@ -697,44 +689,23 @@ int ft_read() {
 // 
 void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
         int work_int;     
-        int new_low, new_high;
         int zzid_flag;
-        double meter;
-        double forward;
-        double reverse;
-        double vswr;
         char msg[200];
-        char buf[200];
-        int i;
+
 #ifdef PIHPSDR
+        char buf[200];
+        int new_low, new_high;
+        double vswr;
+        double forward;
+        double reverse;        
+        double meter;
+
         BANDSTACK_ENTRY *entry;
 #endif // PIHPSDR
         // Parse the cmd_input
         //int space = command.indexOf(' ');
         //char cmd_char = com_head->cmd_string[0]; // Assume the command is first thing!
         char cmd_str[3];
-
-/*
-        // Put in throtle check here - we have an issue with issuing to many 
-        // GUI commands - the idea is to create a separate thread that maintains a 200ms clock
-        // and use the Mutex mechanism to wait here till we process the next command
-
-        while(rigctl_timer != 0) {  // Wait here till the timer expires
-            usleep(1000);
-        }
- 
-        // Start a new timer...
-	
-        rigctl_set_timer_thread_id = g_thread_new( "Rigctl Timer", set_rigctl_timer, NULL);
-
-        while(rigctl_timer != 1) {  // Wait here till the timer sets!
-            usleep(1000);
-        }
-        usleep(1000);
-
-	// Clean up the thread
-	g_thread_unref(rigctl_set_timer_thread_id);
-*/
 
         // On with the rest of the show..
         cmd_str[0] = cmd_input[0];
@@ -748,7 +719,7 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
         //    strip the ZZ out and set the zzid_flag = 1;
  
        #ifdef  RIGCTL_DEBUG
-        fprintf(stderr,"RIGCTL: CMD=%s\n",cmd_input);
+       fprintf(stderr,"RIGCTL: CMD=%s\n",cmd_input);
        #endif
         zzid_flag = 0;  // Set to indicate we haven't seen ZZ
         char * zzid_ptr;
@@ -767,7 +738,6 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
            // It is 4AM and this was the only safe way for me to get a strcpy to work
            // so - there ya go...
            for(cnt=2; cnt<=len;cnt++) { 
-               //fprintf(stderr,"[%d]=%c:",cnt,cmd_input[cnt]);
                *zzid_ptr++= cmd_input[cnt]; 
            }
            temp[len+1] = '\0';
@@ -1047,11 +1017,7 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                              fprintf(stderr,"RIGCTL: BD - current band=%d\n",cur_band);
                                              #endif
                                              if(cur_band == 0) {
-                                                #ifdef LIMESDR
-                                                    cur_band = band472;
-                                                #else
-                                                    cur_band = band6;
-                                                #endif
+                                                cur_band = band6;
                                              } else {
                                                 --cur_band;
                                              } 
@@ -2062,8 +2028,8 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                                 send_resp(client_sock,"IS00000;");
                                              } 
                                           }  
-        else if((strcmp(cmd_str,"KS")==0) && (zzid_flag == 0) || 
-                (strcmp(cmd_str,"CS")==0) && (zzid_flag==1))  { 
+        else if(((strcmp(cmd_str,"KS")==0) && (zzid_flag == 0)) || 
+                ((strcmp(cmd_str,"CS")==0) && (zzid_flag==1)))  { 
          #ifdef PIHPSDR
                                             // TS-2000 - KS - Set/Reads keying speed 0-060 max
                                             // PiHPSDR - ZZCS - Sets/Reads Keying speed
@@ -2163,104 +2129,30 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                              }
                                          }
         else if((strcmp(cmd_str,"MD")==0) && (zzid_flag == 0)) {  
-                                            // TS-2000 - MD - Set/Read Mode
-                                            // Mode - digit selects mode
-                                            // 1 = LSB
-                                            // 2 = USB
-                                            // 3 = CWU
-                                            // 4 = FM
-                                            // 5 = AM
-                                            // 6 = DIGL
-                                            // 7 = CWL
-                                            // 9 = DIGU 
-        #ifdef PIHPSDR
-                                            int new_mode;
-                                            if(len > 2) { // Set Mode
-                                               switch(atoi(&cmd_input[2])) {   
-                                                 case 1:  
-                                                     new_mode = modeLSB;
-                                                     break;
-                                                 case 2:  
-                                                     new_mode = modeUSB;
-                                                     break;
-                                                 case 3:  
-                                                     new_mode = modeCWU;
-                                                     break;
-                                                 case 4:  
-                                                     new_mode = modeFMN;
-                                                     break;
-                                                 case 5:  
-                                                     new_mode = modeAM;
-                                                     break;
-                                                 case 6:  
-                                                     new_mode = modeDIGL;
-                                                     break;
-                                                 case 7:  
-                                                     new_mode = modeCWL;
-                                                     break;
-                                                 case 9:  
-                                                     new_mode = modeDIGU;
-                                                     break;
-                                                 default:
-                                                     break;
-                                                     #ifdef RIGCTL_DEBUG
-                                                     fprintf(stderr,"MD command Unknown\n");
-                                                     #endif
-                                               }
-                                            // Other stuff to switch modes goes here..
-                                            // since new_mode has the interpreted command in 
-                                            // in it now.
-                                            entry= (BANDSTACK_ENTRY *) 
-                                                  bandstack_entry_get_current();
-                                            entry->mode=new_mode;
-                                            // BUG - kills the system when there is some
-                                            // GPIO activity and Mode sets occur. Used twittling the
- 					    // frequency along with setting mode between USB/LSB with
-					    // flrig. Tried doing the g_idle_add trick - but don't know the
-					    // the magic to get that to compile without warnings 
-                                            //setMode(entry->mode);
-                                            set_mode(active_receiver,entry->mode);
-                                            // Moved the ext_vfo_update down after filter updated. (John G0ORX)
-                                            //g_idle_add(ext_vfo_update,NULL);
-                                            
-                                            FILTER* band_filters=filters[entry->mode];
-                                            FILTER* band_filter=&band_filters[entry->filter];
-                                            //setFilter(band_filter->low,band_filter->high);
-                                            set_filter(active_receiver,band_filter->low,band_filter->high);
-                                            /* Need a way to update VFO info here..*/
-                                            g_idle_add(ext_vfo_update,NULL);
-                                            }  else {     // Read Mode
-                                               int curr_mode;
-                                               switch (vfo[active_receiver->id].mode) {
-                                                  case modeLSB: curr_mode = 1; 
-                                                          break;   
-                                                  case modeUSB: curr_mode = 2;
-                                                          break;
-                                                  case modeCWL: curr_mode = 7; // CWL
-                                                          break;
-                                                  case modeCWU: curr_mode = 3; // CWU
-                                                          break;
-                                                  case modeFMN: curr_mode = 4; // FMN
-                                                          break;
-							  case modeAM: curr_mode = 5; // AM
-								  break;
-							  case modeDIGU: curr_mode = 9; // DIGU
-								  break;
-							  case modeDIGL: curr_mode = 6; // DIGL
-								  break;
-							  default: 
-								  #ifdef RIGCTL_DEBUG
-								    fprintf(stderr,
-								    "RIGCTL: MD command doesn't support %d\n",
-								    vfo[active_receiver->id].mode);
-								  #endif
-								  break;
-						       }
-						       sprintf(msg,"MD%1d;",curr_mode);
-						       send_resp(client_sock,msg);
-						    }
-                #endif // PIHPSDR
-						 }
+          // TS-2000 - MD - Set/Read Mode
+          // Mode - digit selects mode
+          // 1 = LSB
+          // 2 = USB
+          // 3 = CWU
+          // 4 = FM
+          // 5 = AM
+          // 6 = DIGL
+          // 7 = CWL
+          // 9 = DIGU 
+                
+          // Respond with the current mode                                            
+	  if(len <= 2) { 
+            int curr_mode = rigctlGetMode(rx);
+            sprintf(msg,"MD%1d;",curr_mode);
+	    send_resp(client_sock,msg);            
+          }
+          else {
+            // Set Mode
+            int new_mode = atoi(&cmd_input[2]);
+            printf("Set Mode\n");
+            rigctlSetMode(rx, new_mode);
+          }
+        }
 		else if((strcmp(cmd_str,"MD")==0) && (zzid_flag == 1)) {  
                 #ifdef PIHPSDR
 						    // PiHPSDR - ZZMD - Set/Read Modulation Mode
@@ -2281,7 +2173,7 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
 							  FILTER* band_filter=&band_filters[entry->filter];
 							  //setFilter(band_filter->low,band_filter->high);
 							  set_filter(active_receiver,band_filter->low,band_filter->high);
-							  /* Need a way to update VFO info here..*/
+							  // Need a way to update VFO info here..
 							  g_idle_add(ext_vfo_update,NULL);
 						       } else {
 							  fprintf(stderr,"RIGCTL: Error - ZZMD - Illegal cmd received=%d",work_int);
@@ -3173,8 +3065,8 @@ void parse_cmd ( char * cmd_input,int len,int client_sock,RECEIVER *rx) {
                                                send_resp(client_sock,"?;"); 
                                              }
                                          }
-        else if((strcmp(cmd_str,"SD")==0) && (zzid_flag == 0) ||  
-                (strcmp(cmd_str,"CD")==0) && (zzid_flag ==1)) {  
+        else if(((strcmp(cmd_str,"SD")==0) && (zzid_flag == 0)) ||  
+                ((strcmp(cmd_str,"CD")==0) && (zzid_flag == 1))) {  
                                             // PiHPSDR - ZZCD - Set/Read CW Keyer Hang Time
                                             // TS-2000 - SD - Set/Read Break In Delay
                                             // 
@@ -3946,7 +3838,7 @@ int launch_serial () {
      set_blocking (fd, 1);                   // set no blocking
 
      
-     serial_server_thread_id = g_thread_new( "Serial server", serial_server, NULL);
+     serial_server_thread_id = g_thread_new( "rigctl_serial", serial_server, NULL);
      if( ! serial_server_thread_id )
      {
        fprintf(stderr,"g_thread_new failed on serial_server\n");
@@ -3966,12 +3858,10 @@ void disable_serial () {
 //                   (Port numbers now const ints instead of defines..) 
 //
 void launch_rigctl (RECEIVER *rx) {
-   int err;
-   
    g_print("launch_rigctl for receiver: %d\n",rx->channel);
 
    // This routine encapsulates the thread call
-   rx->rigctl_server_thread_id = g_thread_new( "rigctl server", rigctl_server, (gpointer)rx);
+   rx->rigctl_server_thread_id = g_thread_new( "rigctl_server", rigctl_server, (gpointer)rx);
    if( ! rx->rigctl_server_thread_id )
    {
      fprintf(stderr,"g_thread_new failed on rigctl_server\n");
@@ -3992,12 +3882,44 @@ int rigctlGetMode(RECEIVER *rx)  {
         }
 }
 
-
-int rigctlSetFilterLow(int val){
-};
-
-int rigctlSetFilterHigh(int val){
-};
+void rigctlSetMode(RECEIVER *rx, int new_mode)  {
+  printf("New mode %d\n", new_mode);
+  int mode = 1;
+        switch(new_mode) {
+           case 1: mode = 0;
+                   printf("LSB\n");
+                   break;
+           case 2: mode = 1;
+                   printf("USB\n");
+                   break;
+           case 3: mode = 3;
+                   printf("CWL\n");           
+                   break;
+           case 4: mode = 5;
+                   printf("FMN\n");
+                   break;
+           case 5: mode = 6;
+                   printf("AM\n");           
+                   break;
+           //case 6: rx->mode_a = 7;
+           //        break;
+           //case 7: rx->mode_a = 3;
+           //        printf("USB\n");
+           //        break;
+           default: return;
+        }
+  MODE *m = g_new0(MODE, 1);
+  m->rx = rx;
+  m->mode_a = mode;
+  g_idle_add(ext_set_mode,(gpointer)m);  
+  
+  //receiver_mode_changed(rx, rx->mode_a);     
+  //transmitter_set_mode(radio->transmitter, rx->mode_a);  
+  //update_vfo(rx);     
+  //g_mutex_unlock(&rx->mutex);
+  //transmitter_set_mode(radio->transmitter, rx->mode_a);        
+  return;
+}
 
 void set_freqB(long long new_freqB) {      
 
@@ -4009,7 +3931,6 @@ void set_freqB(long long new_freqB) {
    g_idle_add(ext_vfo_update,NULL);
 #endif // PIHPSDR
 }
-
 
 int set_band (gpointer data) {
 #ifdef PIHPSDR 
@@ -4116,16 +4037,18 @@ int set_band (gpointer data) {
   //calcTuneDriveLevel();
   g_idle_add(ext_vfo_update,NULL);
 
+#endif // PIHPSDR
   return 0;
-  #endif // PIHPSDR
 }
+
 int set_alc(gpointer data) {
   #ifdef PIHPSDR
     int * lcl_ptr = (int *) data;
     alc = *lcl_ptr;
     fprintf(stderr,"RIGCTL: set_alc=%d\n",alc);
-    return 0;
+
   #endif // PIHPSDR
+    return 0;
 }
 
 int lookup_band(int val) {

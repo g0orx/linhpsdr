@@ -22,6 +22,10 @@
 
 #include <netinet/in.h>
 
+#ifdef SOAPYSDR
+#include <SoapySDR/Device.h>
+#endif
+
 #define MAX_DEVICES 16
 
 #define OLD_DEVICE_METIS 0
@@ -42,14 +46,18 @@
 
 
 enum {
-  DEVICE_UNKNOWN=-1,
-  DEVICE_METIS=0,
-  DEVICE_HERMES,
-  DEVICE_HERMES2,
-  DEVICE_ANGELIA,
-  DEVICE_ORION,
-  DEVICE_ORION2,
-  DEVICE_HERMES_LITE
+  DEVICE_UNKNOWN=-1
+  ,DEVICE_METIS=0
+  ,DEVICE_HERMES
+  ,DEVICE_HERMES2
+  ,DEVICE_ANGELIA
+  ,DEVICE_ORION
+  ,DEVICE_ORION2
+  ,DEVICE_HERMES_LITE
+  ,DEVICE_HERMES_LITE2
+#ifdef SOAPYSDR
+  ,DEVICE_SOAPYSDR_USB
+#endif
 };
 
 #define STATE_AVAILABLE 2
@@ -57,6 +65,9 @@ enum {
 
 #define PROTOCOL_1 0
 #define PROTOCOL_2 1
+#ifdef SOAPYSDR
+#define PROTOCOL_SOAPYSDR 2
+#endif
 
 struct _DISCOVERED {
     int protocol;
@@ -65,7 +76,10 @@ struct _DISCOVERED {
     int software_version;
     int status;
     int supported_receivers;
+    int supported_transmitters;
     int adcs;
+    double frequency_min;
+    double frequency_max;
     union {
       struct network {
         unsigned char mac_address[6];
@@ -76,6 +90,26 @@ struct _DISCOVERED {
         struct sockaddr_in interface_netmask;
         char interface_name[64];
       } network;
+#ifdef SOAPYSDR
+      struct soapy {
+        int rtlsdr_count;
+        int sample_rate;
+        size_t rx_channels;
+        size_t rx_gains;
+        char **rx_gain;
+        SoapySDRRange *rx_range;
+        gboolean rx_has_automatic_gain;
+        gboolean rx_has_automatic_dc_offset_correction;
+        size_t rx_antennas;
+        char **rx_antenna;
+        size_t tx_channels;
+        size_t tx_gains;
+        char **tx_gain;
+        SoapySDRRange *tx_range;
+        size_t tx_antennas;
+        char **tx_antenna;
+      } soapy;
+#endif
     } info;
 };
 

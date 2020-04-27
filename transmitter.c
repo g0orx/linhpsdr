@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <wdsp.h>
+
 #include "alex.h"
 #include "discovered.h"
 #include "mode.h"
@@ -32,6 +33,7 @@
 #include "transmitter.h"
 #include "wideband.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "protocol1.h"
 #include "protocol2.h"
@@ -42,6 +44,42 @@
 #include "mic_level.h"
 #include "property.h"
 #include "ext.h"
+#ifdef SOAPYSDR
+#include "soapy_protocol.h"
+#endif
+
+// Ring buffer for sending 126 tx iq samples in a packet
+#define QUEUE_ELEMENTS 10000
+#define QUEUE_SIZE (QUEUE_ELEMENTS + 1)
+long Queue[QUEUE_SIZE];
+long QueueIn, QueueOut;
+
+const int protocol1_tx_scheduler[20][26] = {
+//  Three receivers - 25 Tx queue events per set of 63, 126, 252, 504  received frames
+{0, 3, 5, 8, 10, 13, 15, 18, 20, 23, 25, 28, 30, 33, 35, 38, 40, 43, 45, 48, 50, 53, 55, 58, 60, -1}, // 25 frames per 63
+{0, 6, 10, 16, 20, 26, 30, 36, 40, 46, 50, 56, 60, 66, 70, 76, 80, 86, 90, 96, 100, 106, 110, 116, 120, -1}, // 25 frames per 126
+{0, 12, 20, 32, 40, 52, 60, 72, 80, 92, 100, 112, 120, 132, 140, 152, 160, 172, 180, 192, 200, 212, 220, 232, 240}, // 25 frames per 252
+{0, 24, 40, 64, 80, 104, 120, 144, 160, 184, 200, 224,240, 264, 280, 304, 320, 344, 360, 384, 400, 424, 440, 464, 480}, // 25 frames per 504
+// Four receivers - 19 Tx queue events per set of 63, 126, 252, 504  received frames
+{3, 6, 10, 13, 16, 20, 23, 26, 30, 33, 36, 40, 43, 46, 50, 53, 56, 59, 62, -1, -1, -1, -1, -1, -1, -1}, // 19 frames per 63
+{6, 12, 20, 26, 32, 40, 46, 52, 60, 66, 72, 80, 86, 92, 100, 106, 112, 118, 124, -1, -1, -1, -1, -1, -1, -1}, // 19 frames per 126
+{12, 24, 40, 52, 64, 80, 92, 104, 120, 132, 144, 160, 172, 184, 200, 212, 224, 236, 248, -1, -1, -1, -1, -1, -1, -1},  // 19 frames per 252
+{24, 48, 80, 104, 128, 160, 184, 208, 240, 264, 288, 320, 344, 368, 400, 424, 448, 472, 496,-1, -1, -1, -1, -1, -1, -1},  // 19 frames per 504
+// Five receivers - 15 Tx queue events per set of 63, 126, 252, 504  received frames
+{4, 8, 12, 16, 21, 25, 29, 33, 37, 42, 46, 50, 54, 58, 62, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}, // 15 frames per 63
+{8, 16, 24, 32, 42, 50, 58, 66, 74, 84, 92, 100, 108, 116, 124, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}, // 15 frames per 126
+{ 16, 32, 48, 64, 84, 100, 116, 132, 148, 168, 184, 200, 216, 232, 248, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},  // 15 frames per 252
+{ 32, 64, 96, 128, 168, 200, 232, 264, 296, 336, 368, 400, 432, 464, 496, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},  // 15 frames per 504
+// Six receivers - 13 Tx queue events per set of 63, 126, 252, 504  received frames
+{ 5, 10, 15, 20, 24, 29, 34, 39, 44, 48, 53, 58, 62, -1, -1, -1, -1, -1, -1, -1, -1 , -1, -1, -1, -1, -1}, // 13 frames per 63
+{ 10, 20, 30, 40, 48, 58, 68, 78, 88, 96, 106, 116, 124, -1, -1, -1, -1, -1, -1, -1, -1 , -1, -1, -1, -1, -1}, // 13 frames per 126
+{ 20, 40, 60, 80, 96, 116, 136, 156, 176, 192, 212, 232, 248, -1, -1, -1, -1, -1, -1, -1, -1 , -1, -1, -1, -1, -1},  // 13 frames per 252
+{ 40, 80, 120, 160, 192, 232, 272, 312, 352, 384, 424, 464, 496, -1, -1, -1, -1, -1, -1, -1, -1 , -1, -1, -1, -1, -1},  // 13 frames per 504
+//  Seven receivers - 11 Tx queue events per set of 63, 126, 252, 504  received frames
+{6, 12, 17, 23, 29, 34, 40, 45, 51, 57, 62, -1, -1, -1, -1, -1, -1, -1 , -1, -1, -1, -1, -1, -1, -1, -1}, // 11 frames per 63
+{12, 24, 34, 46, 58, 68, 80, 90, 102, 114, 124, -1, -1, -1, -1, -1, -1, -1 , -1, -1, -1, -1, -1, -1, -1, -1}, // 11 frames per 126
+{24, 48, 68, 92, 116, 136, 160, 180, 204, 228, 248, -1, -1, -1, -1, -1, -1, -1 , -1, -1, -1, -1, -1, -1, -1, -1},  // 11 frames per 252
+{48, 96, 136, 184, 232, 272, 320, 360, 408, 456, 496, -1, -1, -1, -1, -1, -1, -1 , -1, -1, -1, -1, -1, -1, -1, -1}};  // 11 frames per 504   
 
 void transmitter_save_state(TRANSMITTER *tx) {
   char name[80];
@@ -137,7 +175,33 @@ void transmitter_save_state(TRANSMITTER *tx) {
   sprintf(name,"transmitter[%d].ctcss_frequency",tx->channel);
   sprintf(value,"%f",tx->ctcss_frequency);
   setProperty(name,value);
-
+  sprintf(name,"transmitter[%d].eer",tx->channel);
+  sprintf(value,"%i",tx->eer);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_amiq",tx->channel);
+  sprintf(value,"%i",tx->eer_amiq);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_pgain",tx->channel);
+  sprintf(value,"%f",tx->eer_pgain);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_mgain",tx->channel);
+  sprintf(value,"%f",tx->eer_mgain);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_pdelay",tx->channel);
+  sprintf(value,"%f",tx->eer_pdelay);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_mdelay",tx->channel);
+  sprintf(value,"%f",tx->eer_mdelay);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_enable_delays",tx->channel);
+  sprintf(value,"%i",tx->eer_enable_delays);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_pwm_min",tx->channel);
+  sprintf(value,"%i",tx->eer_pwm_min);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].eer_pwm_max",tx->channel);
+  sprintf(value,"%i",tx->eer_pwm_max);
+  setProperty(name,value);
 }
 
 void transmitter_restore_state(TRANSMITTER *tx) {
@@ -199,12 +263,14 @@ void transmitter_restore_state(TRANSMITTER *tx) {
   sprintf(name,"transmitter[%d].mic_dsp_rate",tx->channel);
   value=getProperty(name);
   if(value) tx->mic_dsp_rate=atoi(value);
+/*
   sprintf(name,"transmitter[%d].iq_output_rate",tx->channel);
   value=getProperty(name);
   if(value) tx->iq_output_rate=atoi(value);
   sprintf(name,"transmitter[%d].output_samples",tx->channel);
   value=getProperty(name);
   if(value) tx->output_samples=atoi(value);
+*/
   sprintf(name,"transmitter[%d].pre_emphasize",tx->channel);
   value=getProperty(name);
   if(value) tx->pre_emphasize=atoi(value);
@@ -234,12 +300,40 @@ void transmitter_restore_state(TRANSMITTER *tx) {
   sprintf(name,"transmitter[%d].ctcss_frequency",tx->channel);
   value=getProperty(name);
   if(value) tx->ctcss_frequency=atof(value);
+  sprintf(name,"transmitter[%d].eer",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer=atoi(value);
+  sprintf(name,"transmitter[%d].eer_amiq",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_amiq=atoi(value);
+  sprintf(name,"transmitter[%d].eer_pgain",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_pgain=atof(value);
+  sprintf(name,"transmitter[%d].eer_mgain",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_mgain=atof(value);
+  sprintf(name,"transmitter[%d].eer_pdelay",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_pdelay=atof(value);
+  sprintf(name,"transmitter[%d].eer_mdelay",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_mdelay=atof(value);
+  sprintf(name,"transmitter[%d].eer_enable_delays",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_enable_delays=atoi(value);
+  sprintf(name,"transmitter[%d].eer_pwm_min",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_pwm_min=atoi(value);
+  sprintf(name,"transmitter[%d].eer_pwm_max",tx->channel);
+  value=getProperty(name);
+  if(value) tx->eer_pwm_max=atoi(value);
 }
 
 static gboolean update_timer_cb(void *data) {
   int rc;
   double constant1;
   double constant2;
+  int fwd_cal_offset=6;
 
   TRANSMITTER *tx=(TRANSMITTER *)data;
   //if(isTransmitting(radio)) {
@@ -253,6 +347,19 @@ static gboolean update_timer_cb(void *data) {
 
   if(isTransmitting(radio)) {
     tx->alc=GetTXAMeter(tx->channel,tx->alc_meter);
+
+    int fwd_power;
+    int rev_power;
+    int ex_power;
+    double v1;
+
+    fwd_power=tx->alex_forward_power;
+    rev_power=tx->alex_reverse_power;
+    if(radio->discovered->device==DEVICE_HERMES_LITE2) {
+      ex_power=0;
+    } else {
+      ex_power=tx->exciter_power;
+    }
 
     switch(radio->discovered->device) {
       case DEVICE_METIS:
@@ -279,31 +386,39 @@ static gboolean update_timer_cb(void *data) {
         constant1=5.0;
         constant2=0.108;
         break;
-      case DEVICE_HERMES_LITE:
+      case DEVICE_HERMES_LITE2:
+        if(rev_power>fwd_power) {
+          fwd_power=tx->alex_reverse_power;
+          rev_power=tx->alex_forward_power;
+        }
         constant1=3.3;
-        constant2=0.095;
+        constant2=1.4;
+        fwd_cal_offset=6;      
         break;
     }
 
-    int power=tx->alex_forward_power;
-    if(power==0) {
-      power=tx->exciter_power;
-    }
-    double v1;
-    v1=((double)power/4095.0)*constant1;
-    tx->fwd=(v1*v1)/constant2;
 
-    power=tx->exciter_power;
-    v1=((double)power/4095.0)*constant1;
-    tx->exciter=(v1*v1)/constant2;
-
-    tx->rev=0.0;
-    if(tx->alex_forward_power!=0) {
-      power=tx->alex_reverse_power;
-      v1=((double)power/4095.0)*constant1;
-      tx->rev=(v1*v1)/constant2;
+    if(fwd_power==0) {
+      fwd_power=ex_power;
     }
     
+    fwd_power=fwd_power-fwd_cal_offset;
+    v1=((double)fwd_power/4095.0)*constant1;
+    tx->fwd=(v1*v1)/constant2;    
+    
+    if(radio->discovered->device==DEVICE_HERMES_LITE2) {
+      tx->exciter=0.0;
+    } else {
+      ex_power=ex_power-fwd_cal_offset;
+      v1=((double)ex_power/4095.0)*constant1;
+      tx->exciter=(v1*v1)/constant2;
+    }
+
+    tx->rev=0.0;
+    if(fwd_power!=0) {
+      v1=((double)rev_power/4095.0)*constant1;
+      tx->rev=(v1*v1)/constant2;
+    }    
   }
 
   return TRUE;
@@ -321,6 +436,41 @@ void transmitter_set_ps(TRANSMITTER *tx,gboolean state) {
   } else {
     SetPSControl(tx->channel, 1, 0, 0, 0);
   }
+}
+
+void transmitter_enable_eer(TRANSMITTER *tx,gboolean state) {
+  tx->eer=state;
+  SetEERRun(0, tx->eer);
+}
+
+void transmitter_set_eer_mode_amiq(TRANSMITTER *tx,gboolean state) {
+  tx->eer_amiq=state;
+  SetEERAMIQ(0, tx->eer_amiq); // 0=phase only, 1=magnitude and phase, 2=magnitude only (not supported here)
+}
+
+void transmitter_enable_eer_delays(TRANSMITTER *tx,gboolean state) {
+  tx->eer_enable_delays=state;
+  SetEERRunDelays(0, tx->eer_enable_delays);
+}
+
+void transmitter_set_eer_pgain(TRANSMITTER *tx,gdouble gain) {
+  tx->eer_pgain=gain;
+  SetEERPgain(0, tx->eer_pgain);
+}
+
+void transmitter_set_eer_pdelay(TRANSMITTER *tx,gdouble delay) {
+  tx->eer_pdelay=delay;
+  SetEERPdelay(0, tx->eer_pdelay/1e6);
+}
+
+void transmitter_set_eer_mgain(TRANSMITTER *tx,gdouble gain) {
+  tx->eer_mgain=gain;
+  SetEERMgain(0, tx->eer_mgain);
+}
+
+void transmitter_set_eer_mdelay(TRANSMITTER *tx,gdouble delay) {
+  tx->eer_mdelay=delay;
+  SetEERMdelay(0, tx->eer_mdelay/1e6);
 }
 
 void transmitter_set_twotone(TRANSMITTER *tx,gboolean state) {
@@ -345,13 +495,155 @@ void transmitter_set_ps_sample_rate(TRANSMITTER *tx,int rate) {
   SetPSFeedbackRate (tx->channel,rate);
 }
 
-static void full_tx_buffer(TRANSMITTER *tx) {
+//Initialise the ring buffer
+void QueueInit(void) {
+    QueueIn = QueueOut = 0;
+}
+
+//Put sample on the ring buffer
+int QueuePut(long new) {
+  if(QueueIn == (( QueueOut - 1 + QUEUE_SIZE) % QUEUE_SIZE)) {
+    return -1; // Queue Full
+  }
+
+  Queue[QueueIn] = new;
+  QueueIn = (QueueIn + 1) % QUEUE_SIZE;
+  return 0; // No errors
+}
+
+//Get sample from the ring buffer
+int QueueGet(long *old) {
+  // Queue Empty - nothing to get
+  if(QueueIn == QueueOut) return -1; 
+
+  *old = Queue[QueueOut];
+  QueueOut = (QueueOut + 1) % QUEUE_SIZE;
+  return 0; // No errors
+}
+
+// Tx packet schedule synched to the rx packets
+// Credit to N5EG for most most of the code
+// https://github.com/Tom-McDermott/gr-hpsdr/blob/master/lib/HermesProxy.cc
+int SendTXpacketQuery(TRANSMITTER *tx) {
+  tx->packet_counter++;
+  
+  switch (radio->receivers) {
+    case 1: {
+      // one Tx frame for each Rx frame
+      if(radio->sample_rate == 48000)	return 1;
+	    // one Tx frame for each two Rx frames
+		  if(radio->sample_rate == 96000)	{
+		    if((tx->packet_counter & 0x1) == 0) return 1;
+        break;
+      }
+	
+      // one Tx frame for each four Tx frames  
+		  if(radio->sample_rate == 192000) {
+		    if((tx->packet_counter & 0x3) == 0) return 1;
+        break;
+      }
+
+      // one Tx frame for each eight Tx frames
+		  if(radio->sample_rate == 384000) {
+		    if((tx->packet_counter & 0x7) == 0) return 1;
+        break;
+      }	
+    }
+    
+    case 2: {
+      // one Tx frame for each 1.75 Rx frame
+      if(radio->sample_rate == 48000)	{
+        if(((tx->packet_counter % 0x7) & 0x01) == 0) return 1;
+        break;
+      }
+        
+	    // one Tx frame for each 3.5 Rx frames
+		  if(radio->sample_rate == 96000)	{
+		    if(((tx->packet_counter % 0x7) & 0x03) == 0) return 1;
+        break;
+      }
+	
+      // one Tx frame for each four Tx frames  
+		  if(radio->sample_rate == 192000) {
+		    if((tx->packet_counter % 0x7) == 0) return 1;
+        break;
+      }
+
+      // one Tx frame for each eight Tx frames
+		  if(radio->sample_rate == 384000) {
+		    if((tx->packet_counter % 14) == 0) return 1;
+        break;
+      }	
+    }
+    
+    default: {
+      int FrameIndex;
+		  int RxNumIndex = radio->receivers-3;	  //   3,  4,  5,  6,  7  -->  0, 1, 2, 3, 4
+
+		  int SpeedIndex = (radio->sample_rate) / 48000;  // 48k, 96k, 192k, 384k -->  1, 2, 4, 8
+		  SpeedIndex = SpeedIndex >> 1;		  // 48k, 96k, 192k, 384k -->  0, 1, 2, 4
+		  if (SpeedIndex == 4)  SpeedIndex = 3;	  // 48k, 96k, 192k, 384k -->  0, 1, 2, 3
+
+		  int selector = RxNumIndex * 4 + SpeedIndex;	//  0 .. 19
+
+	    // Compute the frame number within a vector
+		  if(radio->sample_rate == 48000) FrameIndex = tx->packet_counter % 63;	// FrameIndex is 0..62
+	  	if(radio->sample_rate == 96000) FrameIndex = tx->packet_counter % 126;	// FrameIndex is 0..125
+	  	if(radio->sample_rate == 192000) FrameIndex = tx->packet_counter % 252;	// FrameIndex is 0..251
+	  	if(radio->sample_rate == 384000) FrameIndex = tx->packet_counter % 504;	// FrameIndex is 0..503      
+      
+      for (int i = 0; i < 26; i++) {
+        if (FrameIndex == protocol1_tx_scheduler[selector][i]) return 1; 
+      }
+      break;
+    }   
+  }
+  return 0;
+}
+
+
+// Protocol 1 receive thread calls this, to send 126 iq samples in a 
+// tx packet
+void full_tx_buffer(TRANSMITTER *tx) {
+  if ((isTransmitting(radio)) && (radio->classE)) return;
+  
+  // Work out if we are going to send a tx packet or return
+  if (!SendTXpacketQuery(tx)) return;
+    
+  for (int j = 0; j < tx->p1_packet_size ; j++) {  
+    long isample = 0;
+    long qsample = 0;           
+    g_mutex_lock((&tx->queue_mutex));
+    QueueGet(&isample);
+    QueueGet(&qsample);    
+    g_mutex_unlock((&tx->queue_mutex));
+    protocol1_iq_samples(isample, qsample);
+  }
+  //}
+  /*
+  else {
+    for (int j=0; j<126; j++) {
+      QueueGet(&isample);
+      QueueGet(&qsample);            
+      protocol1_iq_samples(isample, qsample);
+    }
+  }*/
+}
+
+
+// We have 1024 samples, now going to exchange them for 1024 iq samples
+// then put them into the ring buffer
+void full_tx_buffer_process(TRANSMITTER *tx) {
   long isample;
   long qsample;
+  long lsample;
+  long rsample;
   double gain;
   int j;
   int error;
-  int mode;
+  
+  // round half towards zero  
+  #define ROUNDHTZ(x) ((x)>=0.0?(long)floor((x)*gain+0.5):(long)ceil((x)*gain-0.5))  
 
   switch(radio->discovered->protocol) {
 #ifdef RADIOBERRY
@@ -363,39 +655,81 @@ static void full_tx_buffer(TRANSMITTER *tx) {
     case PROTOCOL_2:
       gain=8388607.0; // 24 bit
       break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      gain=32767.0;  // 16 bit
+      break;
+#endif
   }
-
+  
   update_vox(radio);
-
   fexchange0(tx->channel, tx->mic_input_buffer, tx->iq_output_buffer, &error);
   if(error!=0) {
-//    fprintf(stderr,"full_tx_buffer: channel=%d fexchange0: error=%d\n",tx->channel,error);
+    fprintf(stderr,"full_tx_buffer_process: channel=%d fexchange0: error=%d\n",tx->channel,error);
   }
 
   Spectrum0(1, tx->channel, 0, 0, tx->iq_output_buffer);
+  
+  if ((radio->discovered->protocol == PROTOCOL_1) && (!radio->classE)) {
+    // not going to send out packets now, put them in the ring buffer
+    // then every rx packet, we send a tx packet @48k  
+    for(int j = 0; j < tx->output_samples; j++) {
+      long isample = ROUNDHTZ(tx->iq_output_buffer[j*2]);
+      long qsample = ROUNDHTZ(tx->iq_output_buffer[(j*2)+1]);  
+      g_mutex_lock((&tx->queue_mutex));    
+      QueuePut(isample);
+      QueuePut(qsample);    
+      g_mutex_unlock(&tx->queue_mutex);
+    }
+    return;
+  }
+  
+
+
 
   if(isTransmitting(radio)) {
-/*
-    if(radio->discovered->device==NEW_DEVICE_ATLAS && atlas_penelope) {
-      if(radio->tune && !transmitter->tune_use_drive) {
-        gain=gain*(transmitter->drive*100.0/(double)transmitter->tune_percent);
-      } else {
-        gain=gain*transmitter->drive;
+    if(radio->classE) {
+      for(j=0;j<tx->output_samples;j++) {
+        tx->inI[j]=tx->iq_output_buffer[j*2];
+        tx->inQ[j]=tx->iq_output_buffer[(j*2)+1];
       }
+      // EER processing
+      // input is TX IQ samples in inI,inQ
+      // output phase/IQ/magnitude is written back to inI,inQ and
+      //   outMI,outMQ contain the scaled and delayed input samples
+      
+      xeerEXTF(0, tx->inI, tx->inQ, tx->inI, tx->inQ, tx->outMI, tx->outMQ, isTransmitting(radio), tx->output_samples);
+
     }
-*/
+
     for(j=0;j<tx->output_samples;j++) {
-      double is=tx->iq_output_buffer[j*2];
-      double qs=tx->iq_output_buffer[(j*2)+1];
-      isample=is>=0.0?(long)floor(is*gain+0.5):(long)ceil(is*gain-0.5);
-      qsample=qs>=0.0?(long)floor(qs*gain+0.5):(long)ceil(qs*gain-0.5);
+      if(radio->classE) {
+        isample=ROUNDHTZ(tx->inI[j]);
+        qsample=ROUNDHTZ(tx->inQ[j]);
+        lsample=ROUNDHTZ(tx->outMI[j]);
+        rsample=ROUNDHTZ(tx->outMQ[j]);
+      } else {
+        isample=ROUNDHTZ(tx->iq_output_buffer[j*2]);
+        qsample=ROUNDHTZ(tx->iq_output_buffer[(j*2)+1]);
+      }
       switch(radio->discovered->protocol) {
         case PROTOCOL_1:
-          protocol1_iq_samples(isample,qsample);
+          if(radio->classE) {
+            protocol1_eer_iq_samples(isample,qsample,lsample,rsample);
+          } else {
+            // Unreachable code, protocol1 and not class E
+            // has returned above.
+            return;
+          }
           break;
         case PROTOCOL_2:
           protocol2_iq_samples(isample,qsample);
           break;
+#ifdef SOAPYSDR
+        case PROTOCOL_SOAPYSDR:
+          soapy_protocol_iq_samples((float)tx->iq_output_buffer[j*2],(float)tx->iq_output_buffer[(j*2)+1]);
+          break;
+#endif
 /*
 #ifdef RADIOBERRY
         case RADIOBERRY_PROTOCOL:
@@ -406,13 +740,12 @@ static void full_tx_buffer(TRANSMITTER *tx) {
       }
     }
   }
+#undef ROUNDHTZ
 }
 
 void add_mic_sample(TRANSMITTER *tx,short mic_sample) {
   int mode;
-  double sample;
   double mic_sample_double;
-  int i,s;
  
   if(tx->rx!=NULL) {
     mode=tx->rx->mode_a;
@@ -425,8 +758,9 @@ void add_mic_sample(TRANSMITTER *tx,short mic_sample) {
     tx->mic_input_buffer[tx->mic_samples*2]=mic_sample_double;
     tx->mic_input_buffer[(tx->mic_samples*2)+1]=0.0; //mic_sample_double;
     tx->mic_samples++;
+   
     if(tx->mic_samples==tx->buffer_size) {
-      full_tx_buffer(tx);
+      full_tx_buffer_process(tx);
       tx->mic_samples=0;
     }
 #ifdef AUDIO_WATERFALL
@@ -524,7 +858,6 @@ void transmitter_set_filter(TRANSMITTER *tx,int low,int high) {
   }
 }
 
-
 void transmitter_set_mode(TRANSMITTER* tx,int mode) {
   if(tx!=NULL) {
     SetTXAMode(tx->channel, mode);
@@ -551,6 +884,7 @@ void transmitter_set_pre_emphasize(TRANSMITTER *tx,int state) {
   SetTXAFMEmphPosition(tx->channel,state);
 }
 
+/* TO REMOVE
 static gboolean transmitter_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
   tx->window_width=gtk_widget_get_allocated_width(widget);
@@ -558,6 +892,7 @@ static gboolean transmitter_configure_event_cb(GtkWidget *widget,GdkEventConfigu
   g_print("transmitter_configure_event_cb: wid=%d height=%d\n",tx->window_width,tx->window_height);
   return TRUE;
 }
+*/
 
 static void create_visual(TRANSMITTER *tx) {
   gchar title[32];
@@ -612,8 +947,6 @@ void transmitter_init_analyzer(TRANSMITTER *tx) {
     int span_clip_h = 0;
     int pixels=tx->pixels;
     int stitches = 1;
-    int avm = 0;
-    double tau = 0.001 * 120.0;
     int calibration_data_set = 0;
     double span_min_freq = 0.0;
     double span_max_freq = 0.0;
@@ -627,7 +960,7 @@ void transmitter_init_analyzer(TRANSMITTER *tx) {
 
     if(tx->pixels>0) {
       tx->pixel_samples=g_new0(float,tx->pixels);
-      int max_w = fft_size + (int) min(keep_time * (double) tx->fps, keep_time * (double) fft_size * (double) tx->fps);
+      int max_w = fft_size + (int) fmin(keep_time * (double) tx->fps, keep_time * (double) fft_size * (double) tx->fps);
 
       overlap = (int)max(0.0, ceil(fft_size - (double)tx->mic_sample_rate / (double)tx->fps));
 
@@ -658,21 +991,31 @@ void transmitter_init_analyzer(TRANSMITTER *tx) {
 
 }
 
-
 TRANSMITTER *create_transmitter(int channel) {
+  QueueInit();
   gint rc;
 g_print("create_transmitter: channel=%d\n",channel);
   TRANSMITTER *tx=g_new0(TRANSMITTER,1);
   tx->channel=channel;
+  tx->dac=0;
   tx->alex_antenna=ALEX_TX_ANTENNA_1;
   tx->mic_gain=0.0;
   tx->rx=NULL;
+
+  g_mutex_init(&tx->queue_mutex);
 
   tx->alc_meter=TXA_ALC_PK;
   tx->exciter_power=0;
   tx->alex_forward_power=0;
   tx->alex_reverse_power=0;
+  tx->swr = 1.0;
 
+  tx->eer_amiq=1;
+  tx->eer_pgain=0.5;
+  tx->eer_mgain=0.5;
+  tx->eer_pdelay=200;
+  tx->eer_mdelay=200;
+  tx->eer_enable_delays=TRUE;
   tx->eer_pwm_min=100;
   tx->eer_pwm_max=800;
 
@@ -686,23 +1029,43 @@ g_print("create_transmitter: channel=%d\n",channel);
   tx->fft_size=2048;
   tx->low_latency=FALSE;
 
-  if(radio->discovered->protocol==PROTOCOL_1) {
-    tx->mic_sample_rate=48000;
-    tx->mic_dsp_rate=48000;
-    tx->iq_output_rate=48000;
-    tx->buffer_size=1024;
-    tx->output_samples=1024;
-  } else {
-    tx->mic_sample_rate=48000;
-    tx->mic_dsp_rate=96000;
-    tx->iq_output_rate=192000;
-    tx->buffer_size=1024;
-    tx->output_samples=4096;
+  switch(radio->discovered->protocol) {
+    case PROTOCOL_1:
+      tx->mic_sample_rate=48000;
+      tx->mic_dsp_rate=48000;
+      tx->iq_output_rate=48000;
+      tx->buffer_size=1024;
+      tx->output_samples=1024;
+      tx->p1_packet_size = 126;
+      tx->packet_counter = 0;
+      break;
+    case PROTOCOL_2:
+      tx->mic_sample_rate=48000;
+      tx->mic_dsp_rate=96000;
+      tx->iq_output_rate=192000;
+      tx->buffer_size=1024;
+      tx->output_samples=1024*(tx->iq_output_rate/tx->mic_sample_rate);
+      break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      tx->mic_sample_rate=48000;
+      tx->mic_dsp_rate=96000;
+      tx->iq_output_rate=radio->receiver[0]->sample_rate; // default to first receiver
+      tx->buffer_size=1024;
+      tx->output_samples=1024*(tx->iq_output_rate/tx->mic_sample_rate);
+      break;
+#endif
   }
 
   tx->mic_samples=0;
   tx->mic_input_buffer=g_new(gdouble,2*tx->buffer_size);
   tx->iq_output_buffer=g_new(gdouble,2*tx->output_samples);
+
+  // EER buffers
+  tx->inI=g_new(gfloat,tx->output_samples);
+  tx->inQ=g_new(gfloat,tx->output_samples);
+  tx->outMI=g_new(gfloat,tx->output_samples);
+  tx->outMQ=g_new(gfloat,tx->output_samples);
 
   tx->pre_emphasize=FALSE;
   tx->enable_equalizer=FALSE;
@@ -727,6 +1090,8 @@ g_print("create_transmitter: channel=%d\n",channel);
   tx->drive=20.0;
   tx->tune_use_drive=FALSE;
   tx->tune_percent=10.0;
+
+  tx->temperature = 0.0;
 
   tx->panadapter_high=20;
   tx->panadapter_low=-140;
@@ -804,6 +1169,19 @@ g_print("create_transmitter: channel=%d\n",channel);
   SetTXACompressorGain(tx->channel, tx->compressor_level);
   SetTXACompressorRun(tx->channel, tx->compressor);
 
+  create_eerEXT(0, // id
+                0, // run
+                tx->buffer_size, // size
+                48000, // rate
+                tx->eer_mgain, // mgain
+                tx->eer_pgain, // pgain
+                tx->eer_enable_delays, // rundelays
+                tx->eer_mdelay/1e6, // mdelay
+                tx->eer_pdelay/1e6, // pdelay
+                tx->eer_amiq); // amiq
+
+  SetEERRun(0, 1);
+
   transmitter_set_mode(tx,mode);
 
   create_visual(tx);
@@ -816,5 +1194,16 @@ g_print("create_transmitter: channel=%d\n",channel);
 g_print("update_timer: fps=%d\n",tx->fps);
     tx->update_timer_id=g_timeout_add(1000/tx->fps,update_timer_cb,(gpointer)tx);
   }
+
+  switch(radio->discovered->protocol) {
+    case PROTOCOL_1:
+      break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      soapy_protocol_create_transmitter(tx);
+      break;
+#endif
+  }
+
   return tx;
 }

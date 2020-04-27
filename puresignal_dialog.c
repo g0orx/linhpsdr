@@ -33,6 +33,7 @@
 #include "wideband.h"
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "main.h"
 #include "protocol1.h"
@@ -227,20 +228,6 @@ static gboolean info_timeout(gpointer arg) {
   return running;
 }
 
-static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
-  TRANSMITTER *tx=(TRANSMITTER *)data;
-g_print("tx->dialog: close_cb");
-  tx->dialog=NULL;
-  return TRUE;
-}
-
-static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) {
-  TRANSMITTER *tx=(TRANSMITTER *)data;
-g_print("tx->dialog: delete_cb: %p\n",tx->dialog);
-  tx->dialog=NULL;
-  return FALSE;
-}
-
 static void enable_cb(GtkWidget *widget, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
   transmitter_set_ps(tx,gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget)));
@@ -259,8 +246,6 @@ static void twotone_cb(GtkWidget *widget, gpointer data) {
 
 
 GtkWidget *create_puresignal_dialog(TRANSMITTER *tx) {
-  int i;
-
   GtkWidget *grid=gtk_grid_new();
   gtk_grid_set_row_homogeneous(GTK_GRID(grid),FALSE);
   gtk_grid_set_column_homogeneous(GTK_GRID(grid),FALSE);

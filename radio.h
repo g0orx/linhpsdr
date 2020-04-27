@@ -41,13 +41,18 @@ enum {
   ANGELIA,
   ORION_1,
   ORION_2,
-  HERMES_LITE
+  HERMES_LITE,
+  HERMES_LITE_2
+#ifdef SOAPYSDR
+  ,SOAPYSDR_USB
+#endif
 };
 
 enum {
-  ALEX=0,
+  NONE=0,
+  ALEX,
   APOLLO,
-  NONE
+  N2ADR
 };
 
 enum {
@@ -64,6 +69,7 @@ enum {
 
 typedef struct _radio {
   DISCOVERED *discovered;
+  gboolean can_transmit;
   gint model;
   gint sample_rate;
   gint buffer_size;
@@ -87,10 +93,36 @@ typedef struct _radio {
   gint cw_keyer_ptt_delay;
   gint cw_keyer_hang_time;
   gboolean cw_breakin;
+  gboolean cwdaemon;
+  
+  #ifdef CWDAEMON
+  gint cwdaemon_running;
+  int cwd_port;
+
+  struct sockaddr_in request_addr;
+  socklen_t request_addrlen;
+
+  struct sockaddr_in reply_addr;
+  socklen_t reply_addrlen;
+  int socket_descriptor;  
+  #endif
+
 
   gboolean local_microphone;
   gchar *microphone_name;
+
+  struct SoundIoDevice *input_device;
+  struct SoundIoInStream *input_stream;
+  struct SoundIoRingBuffer *ring_buffer;
+  gboolean input_started;
+  GMutex ring_buffer_mutex;
+  GCond ring_buffer_cond;
+  
+#ifndef __APPLE__
   pa_simple* microphone_stream;
+  snd_pcm_t *record_handle;
+#endif
+
   gint local_microphone_buffer_size;
   gint local_microphone_buffer_offset;
   float *local_microphone_buffer;
@@ -140,6 +172,8 @@ typedef struct _radio {
   long long tune_timeout;
 
   gint filter_board;
+  gboolean enable_pa;
+  gboolean psu_clk;
 
   gboolean display_filled;
 
@@ -155,6 +189,7 @@ typedef struct _radio {
   GtkWidget *dialog;
 
   ADC adc[2];
+  DAC dac[2];
 
   WIDEBAND *wideband;
 
@@ -166,8 +201,16 @@ typedef struct _radio {
 
   int region;
 
+  gboolean duplex;
+
+  gboolean iqswap;
+
+  gint which_audio;
+  gint which_audio_backend;
+
 } RADIO;
 
+extern int radio_start(void *data);
 extern gboolean isTransmitting(RADIO *r);
 extern RADIO *create_radio(DISCOVERED *d);
 extern void delete_receiver(RECEIVER *rx);
@@ -182,4 +225,6 @@ extern void ptt_changed(RADIO *r);
 extern gboolean radio_button_press_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data);
 extern void set_mox(RADIO *r,gboolean state);
 extern void radio_change_region(RADIO *r);
+extern void radio_change_audio(RADIO *r,int selected);
+extern void radio_change_audio_backend(RADIO *r,int selected);
 #endif

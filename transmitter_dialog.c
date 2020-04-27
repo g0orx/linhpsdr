@@ -33,6 +33,7 @@
 #include "wideband.h"
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "main.h"
 #include "protocol1.h"
@@ -48,20 +49,23 @@ static GtkWidget *tx_spin_low;
 static GtkWidget *tx_spin_high;
 
 
-
+/*
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
 g_print("tx->dialog: close_cb");
   tx->dialog=NULL;
   return TRUE;
 }
+*/
 
+/*
 static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
 g_print("tx->dialog: delete_cb: %p\n",tx->dialog);
   tx->dialog=NULL;
   return FALSE;
 }
+*/
 
 static void microphone_audio_cb(GtkWidget *widget,gpointer data) {
   RADIO *radio=(RADIO *)data;
@@ -96,9 +100,12 @@ static void microphone_choice_cb(GtkComboBox *widget,gpointer data) {
     i=gtk_combo_box_get_active(widget);
     if(radio->microphone_name!=NULL) {
       g_free(radio->microphone_name);
+      radio->microphone_name=NULL;
     }
-    radio->microphone_name=g_new0(gchar,strlen(input_devices[i].name)+1);
-    strcpy(radio->microphone_name,input_devices[i].name);
+    if(i>=0) {
+      radio->microphone_name=g_new0(gchar,strlen(input_devices[i].name)+1);
+      strcpy(radio->microphone_name,input_devices[i].name);
+    }
   }
   if(gtk_combo_box_get_active(GTK_COMBO_BOX(microphone_choice))==-1) {
     gtk_widget_set_sensitive(local_microphone, FALSE);
@@ -108,11 +115,13 @@ static void microphone_choice_cb(GtkComboBox *widget,gpointer data) {
   g_print("Input device changed: %d: %s (%s)\n",i,input_devices[i].name,output_devices[i].description);
 }
 
+/*
 static void mic_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
   tx->mic_gain=gtk_range_get_value(GTK_RANGE(widget));
   SetTXAPanelGain1(tx->channel,pow(10.0, tx->mic_gain / 20.0));
 }
+*/
 
 static void tune_value_changed_cb(GtkWidget *widget, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
@@ -215,6 +224,21 @@ static void ctcss_spin_cb (GtkWidget *widget, gpointer data) {
   transmitter_set_ctcss(tx,tx->ctcss,frequency);
 }
 
+void update_transmitter_audio_choices(TRANSMITTER *tx) {
+  int i;
+g_print("transmitter: update_transmitter_audio_choices: tx=%d\n",tx->channel);
+  gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(microphone_choice));
+  for(i=0;i<n_input_devices;i++) {
+g_print("adding: %s\n",input_devices[i].description);
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(microphone_choice),NULL,input_devices[i].description);
+    if(radio->microphone_name!=NULL) {
+      if(strcmp(input_devices[i].name,radio->microphone_name)==0) {
+        gtk_combo_box_set_active(GTK_COMBO_BOX(microphone_choice),i);
+      }
+    }
+  }
+}
+
 GtkWidget *create_transmitter_dialog(TRANSMITTER *tx) {
   int i;
 
@@ -235,15 +259,16 @@ GtkWidget *create_transmitter_dialog(TRANSMITTER *tx) {
   gtk_container_add(GTK_CONTAINER(microphone_frame),microphone_grid);
   gtk_grid_attach(GTK_GRID(grid),microphone_frame,col,row++,2,1);
 
-  if(n_input_devices>0) {
+  if(n_input_devices>=0) {
     local_microphone=gtk_check_button_new_with_label("Local Microphone");
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (local_microphone), radio->local_microphone);
-    gtk_grid_attach(GTK_GRID(microphone_grid),local_microphone,col,row,2,1);
+    gtk_grid_attach(GTK_GRID(microphone_grid),local_microphone,0,0,1,1);
     g_signal_connect(local_microphone,"toggled",G_CALLBACK(microphone_audio_cb),radio);
 
     microphone_choice=gtk_combo_box_text_new();
+    //update_transmitter_audio_choices(tx);
     for(i=0;i<n_input_devices;i++) {
-g_print("adding: %s\n",input_devices[i].description);
+      g_print("adding: %s\n",input_devices[i].description);
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(microphone_choice),NULL,input_devices[i].description);
       if(radio->microphone_name!=NULL) {
         if(strcmp(input_devices[i].name,radio->microphone_name)==0) {

@@ -37,8 +37,9 @@ enum {
    band12,
    band10,
    band6,
-#ifdef LIMESDR
+#if defined(SOAPYSDR)
    band70,
+   band144,
    band220,
    band430,
    band902,
@@ -75,6 +76,8 @@ typedef struct _BAND {
     long long frequencyMax;
     long long frequencyLO;
     long long errorLO;
+    long long txFrequencyLO;
+    long long txErrorLO;
     int disablePA;
 } BAND;
 
@@ -103,7 +106,7 @@ extern int band_get_current();
 extern BAND *band_get_current_band();
 extern BAND *band_get_band(int b);
 extern BAND *band_set_current(int b);
-extern int get_band_from_frequency(long long f);
+extern int get_band_from_frequency(gint64 f);
 
 extern BANDSTACK *bandstack_get_bandstack(int band);
 extern BANDSTACK_ENTRY *bandstack_get_bandstack_entry(int band,int entry);

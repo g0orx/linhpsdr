@@ -26,25 +26,32 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#ifdef SOAPYSDR
+#include <SoapySDR/Device.h>
+#endif
+
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "main.h"
 #include "radio_dialog.h"
 #include "transmitter_dialog.h"
 #include "puresignal_dialog.h"
 #include "pa_dialog.h"
+#include "eer_dialog.h"
 #include "oc_dialog.h"
 #include "xvtr_dialog.h"
 #include "receiver_dialog.h"
 #include "about_dialog.h"
 #include "wideband_dialog.h"
 
-int rx_base=6; // number of tabs before receivers
+int rx_base=3; // number of tabs before receivers
 
+/* TO REMOVE
 static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer data) {
   RADIO *radio=(RADIO *)data;
   int i;
@@ -63,6 +70,7 @@ static gboolean close_cb (GtkWidget *widget, GdkEventButton *event, gpointer dat
 
   return TRUE;
 }
+*/
 
 static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) {
   RADIO *radio=(RADIO *)data;
@@ -82,6 +90,23 @@ static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) 
   return FALSE;
 }
 
+// TO REMOVE?
+static gboolean switch_page_event(GtkNotebook *notebook,GtkWidget *page,guint page_num,gpointer data) {
+  GtkWidget *label=gtk_notebook_get_tab_label(notebook,page);
+  const char *text=gtk_label_get_text(GTK_LABEL(label));
+  g_print("switch_page: %d %s\n",page_num,text);
+  if(strncmp("RX",text,2)==0) {
+    int rx=atoi(&text[3]);
+    g_print("switch_page: %d %s rx=%d\n",page_num,text,rx);
+    //update_audio_choices(radio->receiver[rx]);
+  }
+  if(strncmp("TX",text,2)==0) {
+    //update_transmitter_audio_choices(radio->transmitter);
+  }
+  
+  return TRUE;
+}
+
 GtkWidget *create_configure_dialog(RADIO *radio,int tab) {
   int i;
   gchar title[64];
@@ -98,9 +123,6 @@ GtkWidget *create_configure_dialog(RADIO *radio,int tab) {
   GtkWidget *notebook=gtk_notebook_new();
 
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_radio_dialog(radio),gtk_label_new("Radio"));
-  gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_transmitter_dialog(radio->transmitter),gtk_label_new("TX"));
-  gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_puresignal_dialog(radio->transmitter),gtk_label_new("Pure Signal"));
-  gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_pa_dialog(radio),gtk_label_new("PA"));
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_oc_dialog(radio),gtk_label_new("OC"));
   gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_xvtr_dialog(radio),gtk_label_new("XVTR"));
 
@@ -111,6 +133,13 @@ GtkWidget *create_configure_dialog(RADIO *radio,int tab) {
     }
   }
 
+  if(radio->can_transmit) {
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_transmitter_dialog(radio->transmitter),gtk_label_new("TX"));
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_puresignal_dialog(radio->transmitter),gtk_label_new("Pure Signal"));
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_pa_dialog(radio),gtk_label_new("PA"));
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_eer_dialog(radio),gtk_label_new("EER"));
+  }
+
   if(radio->wideband) {
     gtk_notebook_append_page(GTK_NOTEBOOK(notebook),create_wideband_dialog(radio->wideband),gtk_label_new("Wideband"));
   }
@@ -119,6 +148,8 @@ GtkWidget *create_configure_dialog(RADIO *radio,int tab) {
   gtk_container_add(GTK_CONTAINER(content),notebook);
   gtk_widget_show_all(dialog);
   gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook),tab);
+
+  g_signal_connect (notebook,"switch-page",G_CALLBACK(switch_page_event),(gpointer)radio);
 
   return dialog;
 

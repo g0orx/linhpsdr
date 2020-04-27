@@ -34,6 +34,7 @@
 #include "wideband_panadapter.h"
 #include "discovered.h"
 #include "adc.h"
+#include "dac.h"
 #include "radio.h"
 #include "main.h"
 #include "vfo.h"
@@ -98,7 +99,6 @@ static gboolean wideband_panadapter_configure_event_cb(GtkWidget *widget,GdkEven
   return TRUE;
 }
 
-
 static gboolean wideband_panadapter_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
   WIDEBAND *w=(WIDEBAND *)data;
   if(w->panadapter_surface!=NULL) {
@@ -108,9 +108,11 @@ static gboolean wideband_panadapter_draw_cb(GtkWidget *widget,cairo_t *cr,gpoint
   return TRUE;
 }
 
+/*
 static gboolean wideband_panadapter_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
   return TRUE;
 }
+*/
 
 GtkWidget *create_wideband_panadapter(WIDEBAND *w) {
   GtkWidget *panadapter;
@@ -143,16 +145,11 @@ GtkWidget *create_wideband_panadapter(WIDEBAND *w) {
 
 void update_wideband_panadapter(WIDEBAND *w) {
   long i;
-  int x1,x2;
-  int result;
   float *samples;
-  float saved_max;
-  float saved_min;
   cairo_text_extents_t extents;
   gdouble hz_per_pixel;
   gdouble x;
 
-  int display_width=gtk_widget_get_allocated_width (w->panadapter);
   int display_height=gtk_widget_get_allocated_height (w->panadapter);
 
   if(display_height<=1) return;
@@ -189,7 +186,7 @@ void update_wideband_panadapter(WIDEBAND *w) {
   char v[32];
 
   for(i=w->panadapter_high;i>=w->panadapter_low;i--) {
-    int mod=abs(i)%20;
+    int mod=labs(i)%20;
     if(mod==0) {
       double y = (double)(w->panadapter_high-i)*dbm_per_line;
       cairo_move_to(cr,0.0,y);
