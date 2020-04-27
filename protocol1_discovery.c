@@ -202,7 +202,7 @@ g_print("discover_receive_thread\n");
                         case OLD_DEVICE_HERMES_LITE:
                             discovered[devices].device=DEVICE_HERMES_LITE;
                             g_print("%d", discovered[devices].software_version);
-			                      if (discovered[devices].software_version < 40) {
+			                      if (discovered[devices].software_version < 42) {
                               strcpy(discovered[devices].name,"Hermes Lite V1");
                               discovered[devices].supported_receivers = 2;                                
 			                      } else {
