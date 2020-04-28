@@ -911,10 +911,8 @@ static void process_ozy_input_buffer(char  *buffer) {
 }
 #endif
 
-// No longer used, all packets sent to radio are through full protocol1_iq_samples or 
-// protocol1_eer_iq_samples
+// Send rx audio back to radio
 void protocol1_audio_samples(RECEIVER *rx,short left_audio_sample,short right_audio_sample) {
-  return;
   if(!isTransmitting(radio)) {
 //    if(rx->mixed_audio==0) {
       rx->mixed_left_audio=left_audio_sample;
@@ -1361,7 +1359,7 @@ void ozy_send_buffer() {
           output_buffer[C2]|=0x02;
         }
         
-        if ((radio->model=HERMES_LITE) && (radio->enable_pa)) {
+        if ((radio->discovered->device==DEVICE_HERMES_LITE2) && (radio->enable_pa)) {
           output_buffer[C2]|=0x2C;
         }
         else {
@@ -1369,7 +1367,7 @@ void ozy_send_buffer() {
             output_buffer[C2]|=0x2C;
           }
         }
-        if(((radio->filter_board==APOLLO) || (radio->model=HERMES_LITE)) && radio->tune) {
+        if(((radio->filter_board==APOLLO) || (radio->discovered->device==DEVICE_HERMES_LITE2)) && radio->tune) {
             output_buffer[C2]|=0x10;
         }
         
