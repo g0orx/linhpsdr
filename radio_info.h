@@ -18,4 +18,4 @@
 */
 
 extern GtkWidget *create_radio_info_visual(RECEIVER *rx);
-extern void update_info(RECEIVER *r,gdouble value);
+extern void update_radio_info(RECEIVER *rx);

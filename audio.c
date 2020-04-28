@@ -947,7 +947,7 @@ static void *mic_read_thread(gpointer arg) {
   int err;
   g_print("mic_read_thread: ENTRY\n");
   switch(radio->which_audio) {
-    case USE_SOUNDIO: {
+    case USE_SOUNDIO:
       while(running) {
         g_mutex_lock (&r->ring_buffer_mutex);
         while(soundio_ring_buffer_fill_count(r->ring_buffer)==0)
@@ -967,7 +967,6 @@ static void *mic_read_thread(gpointer arg) {
           case PROTOCOL_2:
             protocol2_process_local_mic(r);
             break;
-      }
 #ifdef SOAPYSDR
           case PROTOCOL_SOAPYSDR:
             soapy_protocol_process_local_mic(r);
