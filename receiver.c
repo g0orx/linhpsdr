@@ -758,7 +758,30 @@ gboolean receiver_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *even
 
 gboolean receiver_scroll_event_cb(GtkWidget *widget, GdkEventScroll *event, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
+  int x=(int)event->x;
+  int y=(int)event->y;
+  int half=rx->panadapter_height/2;
+
   if(!rx->locked) {
+    if((x>4 && x<35) && (widget==rx->panadapter)) {
+      if(event->direction==GDK_SCROLL_UP) {
+
+        if(y<half) {
+          rx->panadapter_high=rx->panadapter_high-5;
+        } else {
+          rx->panadapter_low=rx->panadapter_low-5;
+        }
+        return TRUE;
+      } else {
+        if(y<half) {
+          rx->panadapter_high=rx->panadapter_high+5;
+        } else {
+          rx->panadapter_low=rx->panadapter_low+5;
+        }
+        return TRUE;
+      }
+    }
+
     if(event->direction==GDK_SCROLL_UP) {
       if(rx->ctun) {
         rx->ctun_offset+=rx->step;
