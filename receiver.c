@@ -238,6 +238,9 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].zoom",rx->channel);
   sprintf(value,"%d",rx->zoom);
   setProperty(name,value);
+  sprintf(name,"receiver[%d].pan",rx->channel);
+  sprintf(value,"%d",rx->pan);
+  setProperty(name,value);
 
   sprintf(name,"receiver[%d].agc",rx->channel);
   sprintf(value,"%d",rx->agc);
@@ -450,6 +453,9 @@ void receiver_restore_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].zoom",rx->channel);
   value=getProperty(name);
   if(value) rx->zoom=atoi(value);
+  sprintf(name,"receiver[%d].pan",rx->channel);
+  value=getProperty(name);
+  if(value) rx->pan=atoi(value);
 
   sprintf(name,"receiver[%d].volume",rx->channel);
   value=getProperty(name);
@@ -624,10 +630,13 @@ gboolean receiver_button_press_event_cb(GtkWidget *widget, GdkEventButton *event
   RECEIVER *rx=(RECEIVER *)data;
   switch(event->button) {
     case 1: // left button
-      if(!rx->locked) {
+      //if(!rx->locked) {
         rx->last_x=(int)event->x;
         rx->has_moved=FALSE;
-      }
+        if(rx->zoom>1 && event->y>=rx->panadapter_height-20) {
+          rx->is_panning=TRUE;
+        }
+      //}
       break;
     case 3: // right button
       if(radio->dialog==NULL) {
@@ -656,10 +665,27 @@ void update_frequency(RECEIVER *rx) {
 gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
   gint64 hz;
   RECEIVER *rx=(RECEIVER *)data;
-  int x=(int)event->x;
+  int x;
+  int y;
+  GdkModifierType state;
+  x=event->x;
+  y=event->y;
+  state=event->state;
+  int moved=rx->last_x-x;
   switch(event->button) {
     case 1: // left button
-      if(!rx->locked) {
+      if(rx->is_panning) {
+        int pan=rx->pan-(moved*rx->zoom);
+        if(pan<0) {
+          pan=0;
+        } else if(pan>(rx->pixels-rx->panadapter_width)) {
+          pan=rx->pixels-rx->panadapter_width;
+        }
+        rx->pan=pan;
+        rx->last_x=x;
+        rx->has_moved=FALSE;
+        rx->is_panning=FALSE;
+      } else if(!rx->locked) {
         if(rx->has_moved) {
           // drag
           hz=(gint64)((double)(x-rx->last_x)*rx->hz_per_pixel);
@@ -686,12 +712,13 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
             }
           }
           
-          
-          
           // Pandapter midpoint, may be offset by other parts of the code
+          int center_pan=(rx->pixels/2)-(rx->panadapter_width/2);
+          if(rx->zoom>1) {
+            offset=center_pan-rx->pan;
+          }
           int mid_point = (rx->panadapter_width/2)+(int)offset;
           hz=(gint64)((double)(x-mid_point)*rx->hz_per_pixel);
-  
           
           if(rx->ctun) {                
             rx->ctun_offset=hz/rx->step*rx->step;
@@ -707,6 +734,9 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
               rx->frequency_a+=radio->cw_keyer_sidetone_frequency;
             } else if ((rx->mode_a==CWU) && (!rx->split)) {
               rx->frequency_a-=radio->cw_keyer_sidetone_frequency;            
+            }
+            if(rx->zoom>1) {
+              rx->pan=center_pan;
             }
           }
         }
@@ -732,10 +762,23 @@ gboolean receiver_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *even
   gint x,y;
   GdkModifierType state;
   RECEIVER *rx=(RECEIVER *)data;
-  if(!rx->locked) {
-    gdk_window_get_device_position(event->window,event->device,&x,&y,&state);
+
+  x=event->x;
+  y=event->y;
+  state=event->state;
+  //gdk_window_get_device_position(event->window,event->device,&x,&y,&state);
+  int moved=rx->last_x-x;
+  if(rx->is_panning) {
+    int pan=rx->pan-(moved*rx->zoom);
+    if(pan<0) {
+      pan=0;
+    } else if(pan>(rx->pixels-rx->panadapter_width)) {
+      pan=rx->pixels-rx->panadapter_width;
+    }
+    rx->pan=pan;
+    rx->last_x=x;
+  } else if(!rx->locked) {
     if((state & GDK_BUTTON1_MASK) == GDK_BUTTON1_MASK) {
-      int moved=rx->last_x-x;
       gint64 hz=(gint64)((double)moved*rx->hz_per_pixel);
       if(rx->ctun) {
         rx->ctun_offset=(rx->ctun_offset-hz)/rx->step*rx->step;
@@ -762,7 +805,21 @@ gboolean receiver_scroll_event_cb(GtkWidget *widget, GdkEventScroll *event, gpoi
   int y=(int)event->y;
   int half=rx->panadapter_height/2;
 
-  if(!rx->locked) {
+  if(rx->zoom>1 && y>=rx->panadapter_height-20) {
+    int pan;
+    if(event->direction==GDK_SCROLL_UP) {
+      pan=rx->pan+rx->zoom;
+    } else {
+      pan=rx->pan-rx->zoom;
+    }
+
+    if(pan<0) {
+      pan=0;
+    } else if(pan>(rx->pixels-rx->panadapter_width)) {
+      pan=rx->pixels-rx->panadapter_width;
+    }
+    rx->pan=pan;
+  } else if(!rx->locked) {
     if((x>4 && x<35) && (widget==rx->panadapter)) {
       if(event->direction==GDK_SCROLL_UP) {
 
@@ -1141,7 +1198,7 @@ static void create_visual(RECEIVER *rx) {
   
   
   rx->radio_info=create_radio_info_visual(rx);
-  gtk_widget_set_size_request(rx->radio_info, 170, 60);        
+  gtk_widget_set_size_request(rx->radio_info, 250, 60);        
   gtk_table_attach(GTK_TABLE(rx->table), rx->radio_info, 3, 4, 0, 1,
       GTK_FILL, GTK_FILL, 0, 0);  
 
@@ -1199,7 +1256,7 @@ void receiver_init_analyzer(RECEIVER *rx) {
     double span_min_freq = 0.0;
     double span_max_freq = 0.0;
 
-g_print("receiver_init_analyzer: channel=%d zoom=%d pixels=%d pixel_samples=%p\n",rx->channel,rx->zoom,rx->pixels,rx->pixel_samples);
+g_print("receiver_init_analyzer: channel=%d zoom=%d pixels=%d pixel_samples=%p pan=%d\n",rx->channel,rx->zoom,rx->pixels,rx->pixel_samples,rx->pan);
 
   if(rx->pixel_samples!=NULL) {
 //g_print("receiver_init_analyzer: g_free: channel=%d pixel_samples=%p\n",rx->channel,rx->pixel_samples);
@@ -1242,6 +1299,24 @@ g_print("SetAnalyzer id=%d buffer_size=%d fft_size=%d overlap=%d\n",rx->channel,
 
 }
 
+void receiver_change_zoom(RECEIVER *rx,int zoom) {
+  rx->zoom=zoom;
+  rx->pixels=rx->panadapter_width*rx->zoom;
+  if(rx->zoom==1) {
+    rx->pan=0;
+  } else {
+    if(rx->ctun) {
+      long long min_frequency=rx->frequency_a-(long long)(rx->sample_rate/2);
+      rx->pan=(rx->pixels/2)-(rx->panadapter_width/2);
+      //rx->pan=((rx->min_frequency)/rx->hz_per_pixel)-(rx->panadapter_width/2);
+      if(rx->pan<0) rx->pan=0;
+      if(rx->pan>(rx->pixels-rx->panadapter_width)) rx->pan=rx->pixels-rx->panadapter_width;
+    } else {
+      rx->pan=(rx->pixels/2)-(rx->panadapter_width/2);
+    }
+  }
+  receiver_init_analyzer(rx);
+}
 
 RECEIVER *create_receiver(int channel,int sample_rate) {
   RECEIVER *rx=g_new0(RECEIVER,1);
@@ -1455,6 +1530,8 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   rx->mute_when_not_active=FALSE;
 
   rx->zoom=1;
+  rx->pan=0;
+  rx->is_panning=FALSE;
   rx->enable_equalizer=FALSE;
   rx->equalizer[0]=0;
   rx->equalizer[1]=0;

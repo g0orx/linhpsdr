@@ -605,6 +605,7 @@ int SendTXpacketQuery(TRANSMITTER *tx) {
 // Protocol 1 receive thread calls this, to send 126 iq samples in a 
 // tx packet
 void full_tx_buffer(TRANSMITTER *tx) {
+  if (!isTransmitting(radio) && radio->discovered->device!=DEVICE_HERMES_LITE2) return;
   if ((isTransmitting(radio)) && (radio->classE)) return;
   
   // Work out if we are going to send a tx packet or return

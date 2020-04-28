@@ -176,6 +176,19 @@ void update_radio_info(RECEIVER *rx) {
   }
   // Alsa MIDI server  
   RoundedRectangle(cr, 125, top_y, 25.0, 6.0, INFO_FALSE);  
+  // Sat mode 
+  if (radio->sat_mode==SAT_NONE) {
+    RoundedRectangle(cr, 165, top_y, 25.0, 6.0, INFO_FALSE);    
+  } else {
+    RoundedRectangle(cr, 165, top_y, 25.0, 6.0, INFO_TRUE);
+  }
+  // Mute RX while transmitting (when in duplex mode)
+  if (radio->mute_rx_while_transmitting) {
+    RoundedRectangle(cr, 205, top_y, 25.0, 6.0, INFO_TRUE);
+  } else {
+    RoundedRectangle(cr, 205, top_y, 25.0, 6.0, INFO_FALSE);
+  }
+
 
 
   top_y = 18;
@@ -218,7 +231,26 @@ void update_radio_info(RECEIVER *rx) {
   SetColour(cr, DARK_TEXT);
   cairo_move_to(cr, 123, top_y + 7);    
   cairo_show_text(cr, "MIDI"); 
-
+  // Sat mode
+  cairo_move_to(cr, 163, top_y + 7);    
+  switch(radio->sat_mode) {
+    case SAT_NONE:
+      SetColour(cr, DARK_TEXT);
+      cairo_show_text(cr, "SAT"); 
+      break;
+    case SAT_MODE:
+      SetColour(cr, OFF_WHITE);
+      cairo_show_text(cr, "SAT"); 
+      break;
+    case RSAT_MODE:
+      SetColour(cr, OFF_WHITE);
+      cairo_show_text(cr, "RSAT"); 
+      break;
+  }
+  // Mute RX while transmitting    
+  SetColour(cr, OFF_WHITE);
+  cairo_move_to(cr, 203, top_y + 7);    
+  cairo_show_text(cr, "MUTE");
 
   cairo_destroy(cr);
   gtk_widget_queue_draw(rx->radio_info);

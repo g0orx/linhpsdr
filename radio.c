@@ -247,6 +247,10 @@ g_print("radio_save_state: %s\n",filename);
 
   sprintf(value,"%d",radio->duplex);
   setProperty("radio.duplex",value);
+  sprintf(value,"%d",radio->sat_mode);
+  setProperty("radio.sat_mode",value);
+  sprintf(value,"%d",radio->mute_rx_while_transmitting);
+  setProperty("radio.mute_rx_while_transmitting",value);
 
   sprintf(value,"%d",rigctl_enable);
   setProperty("rigctl_enable",value);
@@ -447,6 +451,10 @@ void radio_restore_state(RADIO *radio) {
 
   value=getProperty("radio.duplex");
   if(value!=NULL) radio->duplex=atoi(value);
+  value=getProperty("radio.sat_mode");
+  if(value!=NULL) radio->sat_mode=atoi(value);
+  value=getProperty("radio.mute_rx_while_transmitting");
+  if(value!=NULL) radio->mute_rx_while_transmitting=atoi(value);
 
   value=getProperty("radio.iqswap");
   if(value) radio->iqswap=atoi(value);
@@ -1207,6 +1215,9 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   r->which_audio=USE_SOUNDIO;
   r->which_audio_backend=0;
+
+  r->sat_mode=SAT_NONE;
+  r->mute_rx_while_transmitting=FALSE;
 
   r->dialog=NULL;
 

@@ -54,6 +54,8 @@ static GtkWidget *adc0_filters_combo_box;
 static GtkWidget *adc0_hpf_combo_box;
 static GtkWidget *adc0_lpf_combo_box;
 static GtkWidget *duplex_b;
+static GtkWidget *sat_combo;
+static GtkWidget *mute_rx_b;
 static GtkWidget *dither_b;
 static GtkWidget *random_b;
 static GtkWidget *preamp_b;
@@ -477,6 +479,15 @@ static void duplex_cb(GtkWidget *widget, gpointer data) {
   radio->duplex = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 }
 
+static void sat_cb(GtkWidget *widget, gpointer data) {
+  RADIO *radio=(RADIO *)data;
+  radio->sat_mode=gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
+}
+
+static void mute_rx_cb(GtkWidget *widget, gpointer data) {
+  radio->mute_rx_while_transmitting=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+}
+
 /* TO REMOVE
 static void lna_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   ADC *adc=(ADC *)data;
@@ -782,12 +793,6 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (disable_fpgaclk_b), radio->psu_clk);
       gtk_grid_attach(GTK_GRID(adc0_grid),disable_fpgaclk_b,0,1,1,1);
       g_signal_connect(disable_fpgaclk_b,"toggled",G_CALLBACK(psu_clk_cb),radio);
-      
-      duplex_b=gtk_check_button_new_with_label("Duplex");
-      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (duplex_b), radio->duplex);
-      gtk_grid_attach(GTK_GRID(adc0_grid),duplex_b,1,1,1,1);
-      g_signal_connect(duplex_b,"toggled",G_CALLBACK(duplex_cb),radio);  
-
       break;    
 
     case DEVICE_HERMES_LITE:
@@ -797,13 +802,6 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       gtk_spin_button_set_value(GTK_SPIN_BUTTON(attenuation_b),(double)radio->adc[0].attenuation);
       gtk_grid_attach(GTK_GRID(adc0_grid),attenuation_b,2,0,1,1);
       g_signal_connect(attenuation_b,"value_changed",G_CALLBACK(attenuation_value_changed_cb),&radio->adc[0]);
-      
-      /*
-      duplex_b=gtk_check_button_new_with_label("Duplex");
-      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (duplex_b), radio->duplex);
-      gtk_grid_attach(GTK_GRID(adc0_grid),duplex_b,1,1,1,1);
-      g_signal_connect(duplex_b,"toggled",G_CALLBACK(duplex_cb),radio);      
-      */
       
       enable_attenuation_b=gtk_check_button_new_with_label("Enable 20dB Attenuation");
       gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (enable_attenuation_b), radio->adc[0].dither);
@@ -855,11 +853,6 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_lpf_combo_box),radio->adc[0].lpf);
       g_signal_connect(adc0_lpf_combo_box,"changed",G_CALLBACK(adc0_lpf_cb),radio);
       gtk_grid_attach(GTK_GRID(adc0_grid),adc0_lpf_combo_box,3,0,1,1);
-
-      duplex_b=gtk_check_button_new_with_label("Duplex");
-      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (duplex_b), radio->duplex);
-      gtk_grid_attach(GTK_GRID(adc0_grid),duplex_b,4,0,1,1);
-      g_signal_connect(duplex_b,"toggled",G_CALLBACK(duplex_cb),&radio->duplex);
 
       // Row 2
       dither_b=gtk_check_button_new_with_label("Dither");
@@ -1058,6 +1051,32 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     gtk_grid_attach(GTK_GRID(mic_grid),boost_b,x,y++,1,1);
     g_signal_connect(boost_b,"toggled",G_CALLBACK(boost_cb),radio);
   }
+
+  GtkWidget *config_frame=gtk_frame_new("Configuration");
+  GtkWidget *config_grid=gtk_grid_new();
+  gtk_grid_set_row_homogeneous(GTK_GRID(config_grid),TRUE);
+  gtk_grid_set_column_homogeneous(GTK_GRID(config_grid),FALSE);
+  gtk_container_add(GTK_CONTAINER(config_frame),config_grid);
+  gtk_grid_attach(GTK_GRID(grid),config_frame,col,row++,1,1);
+
+  duplex_b=gtk_check_button_new_with_label("Duplex");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (duplex_b), radio->duplex);
+  gtk_grid_attach(GTK_GRID(config_grid),duplex_b,0,0,1,1);
+  g_signal_connect(duplex_b,"toggled",G_CALLBACK(duplex_cb),radio);
+  
+  sat_combo=gtk_combo_box_text_new();
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sat_combo),NULL,"SAT Off");
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sat_combo),NULL,"SAT");
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sat_combo),NULL,"RSAT");
+  gtk_combo_box_set_active(GTK_COMBO_BOX(sat_combo),radio->sat_mode);
+  gtk_grid_attach(GTK_GRID(config_grid),sat_combo,1,0,1,1);
+  g_signal_connect(sat_combo,"changed",G_CALLBACK(sat_cb),radio);
+
+  mute_rx_b=gtk_check_button_new_with_label("Mute RX when TX");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (mute_rx_b), radio->mute_rx_while_transmitting);
+  gtk_grid_attach(GTK_GRID(config_grid),mute_rx_b,2,0,1,1);
+  g_signal_connect(mute_rx_b,"toggled",G_CALLBACK(mute_rx_cb),radio);
+
 
   GtkWidget *audio_frame=gtk_frame_new("Audio");
   GtkWidget *audio_grid=gtk_grid_new();
