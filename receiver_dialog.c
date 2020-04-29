@@ -44,10 +44,6 @@
 #define MODE_COLUMNS 4
 #define FILTER_COLUMNS 5
 
-static GtkWidget *local_audio;
-static GtkWidget *audio_choice;
-static GtkWidget *tx_control;
-
 typedef struct _SELECT {
   RECEIVER *rx;
   gint choice;
@@ -844,7 +840,7 @@ static void local_audio_cb(GtkWidget *widget,gpointer data) {
   if(rx->local_audio) {
     if(audio_open_output(rx)<0) {
       rx->local_audio=FALSE;
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON (local_audio),FALSE);
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON (widget),FALSE);
     }
   } else {
     audio_close_output(rx);
@@ -872,7 +868,7 @@ static void audio_choice_cb(GtkComboBox *widget,gpointer data) {
       strcpy(rx->audio_name,output_devices[i].name);
       if(audio_open_output(rx)<0) {
         rx->local_audio=FALSE;
-        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON (local_audio),FALSE);
+        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON (rx->local_audio_b),FALSE);
       }
     }
   } else {
@@ -886,10 +882,10 @@ static void audio_choice_cb(GtkComboBox *widget,gpointer data) {
       strcpy(rx->audio_name,output_devices[i].name);
     }
   }
-  if(gtk_combo_box_get_active(GTK_COMBO_BOX(audio_choice))==-1) {
-    gtk_widget_set_sensitive(local_audio, FALSE);
+  if(gtk_combo_box_get_active(GTK_COMBO_BOX(rx->audio_choice_b))==-1) {
+    gtk_widget_set_sensitive(rx->local_audio_b, FALSE);
   } else {
-    gtk_widget_set_sensitive(local_audio, TRUE);
+    gtk_widget_set_sensitive(rx->local_audio_b, TRUE);
   }
   if(i>=0) {
     g_print("Output device changed: %d: %s (%s)\n",i,output_devices[i].name,output_devices[i].description);
@@ -942,19 +938,32 @@ static void high_value_changed_cb (GtkWidget *widget, gpointer data) {
 
 
 
-void update_audio_choices(RECEIVER *rx) {
+void update_receiver_dialog(RECEIVER *rx) {
   int i;
-g_print("receiver_dialog: update_audio_choices: rx=%d\n",rx->channel);
-  gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(audio_choice));
+g_print("receiver_dialog: update_receiver_dialog: rx=%d\n",rx->channel);
+
+  // update audio
+  g_signal_handler_block(G_OBJECT(rx->audio_choice_b),rx->audio_choice_signal_id);
+  g_signal_handler_block(G_OBJECT(rx->local_audio_b),rx->local_audio_signal_id);
+  gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(rx->audio_choice_b));
+g_print("receiver_dialog: update_receiver_dialog: output_devices=%d\n",n_output_devices);
   for(i=0;i<n_output_devices;i++) {
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_choice),NULL,output_devices[i].description);
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(rx->audio_choice_b),NULL,output_devices[i].description);
     if(rx->audio_name!=NULL) {
       if(strcmp(output_devices[i].name,rx->audio_name)==0) {
-        gtk_combo_box_set_active(GTK_COMBO_BOX(audio_choice),i);
+        gtk_combo_box_set_active(GTK_COMBO_BOX(rx->audio_choice_b),i);
       }
     }
   }
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (local_audio), rx->local_audio);
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->local_audio_b), rx->local_audio);
+  g_signal_handler_unblock(G_OBJECT(rx->local_audio_b),rx->local_audio_signal_id);
+  g_signal_handler_unblock(G_OBJECT(rx->audio_choice_b),rx->audio_choice_signal_id);
+
+  // update TX Frequency
+  g_signal_handler_block(G_OBJECT(rx->tx_control_b),rx->tx_control_signal_id);
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->tx_control_b), radio->transmitter->rx==rx);
+  g_signal_handler_unblock(G_OBJECT(rx->tx_control_b),rx->tx_control_signal_id);
+
 }
 
 GtkWidget *create_receiver_dialog(RECEIVER *rx) {
@@ -1087,10 +1096,10 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     gtk_container_add(GTK_CONTAINER(audio_frame),audio_grid);
     gtk_grid_attach(GTK_GRID(grid),audio_frame,col,row++,1,1);
 
-    local_audio=gtk_check_button_new_with_label("Local Audio");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (local_audio), rx->local_audio);
-    gtk_grid_attach(GTK_GRID(audio_grid),local_audio,0,0,1,1);
-    g_signal_connect(local_audio,"toggled",G_CALLBACK(local_audio_cb),rx);
+    rx->local_audio_b=gtk_check_button_new_with_label("Local Audio");
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->local_audio_b), rx->local_audio);
+    gtk_grid_attach(GTK_GRID(audio_grid),rx->local_audio_b,0,0,1,1);
+    rx->local_audio_signal_id=g_signal_connect(rx->local_audio_b,"toggled",G_CALLBACK(local_audio_cb),rx);
 
     if(radio->discovered->device!=DEVICE_HERMES_LITE2
 #ifdef SOAPYSDR
@@ -1104,24 +1113,26 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
       g_signal_connect(remote_audio,"toggled",G_CALLBACK(remote_audio_cb),rx);
     }
 
-    audio_choice=gtk_combo_box_text_new();
-    //update_audio_choices(rx);
+    rx->audio_choice_b=gtk_combo_box_text_new();
+    gtk_grid_attach(GTK_GRID(audio_grid),rx->audio_choice_b,0,2,2,1);
+    rx->audio_choice_signal_id=g_signal_connect(rx->audio_choice_b,"changed",G_CALLBACK(audio_choice_cb),rx);
+    update_receiver_dialog(rx);
     
+/*
     // Audio output device options
-    audio_choice=gtk_combo_box_text_new();
+    rx->audio_choice_b=gtk_combo_box_text_new();
     for(i=0;i<n_output_devices;i++) {
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_choice),NULL,output_devices[i].description);
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(rx->audio_choice_b),NULL,output_devices[i].description);
       if(rx->audio_name!=NULL) {
         if(strcmp(output_devices[i].name,rx->audio_name)==0) {
-          gtk_combo_box_set_active(GTK_COMBO_BOX(audio_choice),i);
+          gtk_combo_box_set_active(GTK_COMBO_BOX(rx->audio_choice_b),i);
         }
       }
     }
+*/
     
-    gtk_grid_attach(GTK_GRID(audio_grid),audio_choice,0,2,2,1);
-    g_signal_connect(audio_choice,"changed",G_CALLBACK(audio_choice_cb),rx);
-    if(gtk_combo_box_get_active(GTK_COMBO_BOX(audio_choice))==-1) {
-      gtk_widget_set_sensitive(local_audio, FALSE);
+    if(gtk_combo_box_get_active(GTK_COMBO_BOX(rx->audio_choice_b))==-1) {
+      gtk_widget_set_sensitive(rx->local_audio_b, FALSE);
     }
     
     // Stereo, left, right audio
@@ -1238,10 +1249,10 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     gtk_container_add(GTK_CONTAINER(tx_frame),tx_grid);
     gtk_grid_attach(GTK_GRID(grid),tx_frame,col,row++,1,1);
 
-    tx_control=gtk_check_button_new_with_label("Use This Receivers Frequency");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (tx_control), radio->transmitter->rx==rx);
-    gtk_grid_attach(GTK_GRID(tx_grid),tx_control,0,0,1,1);
-    g_signal_connect(tx_control,"toggled",G_CALLBACK(tx_cb),rx);
+    rx->tx_control_b=gtk_check_button_new_with_label("Use This Receivers Frequency");
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->tx_control_b), radio->transmitter->rx==rx);
+    gtk_grid_attach(GTK_GRID(tx_grid),rx->tx_control_b,0,0,1,1);
+    rx->tx_control_signal_id=g_signal_connect(rx->tx_control_b,"toggled",G_CALLBACK(tx_cb),rx);
   }
 
   GtkWidget *panadapter_frame=gtk_frame_new("Panadapter");

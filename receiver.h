@@ -247,6 +247,13 @@ typedef struct _receiver {
 
   int resample_step;
 
+  GtkWidget *local_audio_b;
+  GtkWidget *audio_choice_b;
+  GtkWidget *tx_control_b;
+  gulong audio_choice_signal_id;
+  gulong local_audio_signal_id;
+  gulong tx_control_signal_id;
+
 } RECEIVER;
 
 

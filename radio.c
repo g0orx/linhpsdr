@@ -539,7 +539,7 @@ void radio_change_audio_backend(RADIO *r,int selected) {
           audio_close_output(radio->receiver[i]);
         }
       }
-      //update_audio_choices(radio->receiver[i]);
+      update_receiver_dialog(radio->receiver[i]);
     }
   }
 

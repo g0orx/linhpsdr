@@ -1153,8 +1153,8 @@ void set_agc(RECEIVER *rx) {
 }
 
 void receiver_update_title(RECEIVER *rx) {
-  gchar title[32];
-  g_snprintf((gchar *)&title,sizeof(title),"Linux HPSDR: Rx-%d ADC-%d %d",rx->channel,rx->adc,rx->sample_rate);
+  gchar title[128];
+  g_snprintf((gchar *)&title,sizeof(title),"LinHPSDR: %s Rx-%d ADC-%d %d",radio->discovered->name,rx->channel,rx->adc,rx->sample_rate);
 g_print("receiver_update_title: %s\n",title);
   gtk_window_set_title(GTK_WINDOW(rx->window),title);
 }
@@ -1458,6 +1458,8 @@ fprintf(stderr,"create_receiver: buffer_size=%d\n",rx->buffer_size);
   rx->audio_sequence=0;
 
   rx->mixed_audio=0;
+
+  rx->output_started=FALSE;
 
   rx->fps=10;
   rx->display_average_time=170.0;

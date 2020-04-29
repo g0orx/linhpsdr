@@ -234,9 +234,9 @@ int audio_open_output(RECEIVER *rx) {
 #ifndef __APPLE__
   pa_sample_spec sample_spec;
 #endif
-g_print("audio_open_output: %s\n",rx->audio_name);
   switch(radio->which_audio) {
     case USE_SOUNDIO: {
+g_print("audio_open_output: SOUNDIO: %s\n",rx->audio_name);
       g_mutex_lock(&rx->local_audio_mutex);
 
       // find the device
@@ -306,6 +306,7 @@ g_print("audio_open_output: %s\n",rx->audio_name);
     }
 #ifndef __APPLE__
     case USE_PULSEAUDIO: {
+g_print("audio_open_output: PULSEAUDIO: %s\n",rx->audio_name);
 
       if(rx->audio_name==NULL) {
         result=-1;
@@ -342,7 +343,7 @@ g_print("audio_open_output: %s\n",rx->audio_name);
       break;
     }
     case USE_ALSA: {
-    g_print("audio_open_output: %s\n",rx->audio_name);
+g_print("audio_open_output: ALSA: %s\n",rx->audio_name);
       int err;
       unsigned int rate = 48000;
       unsigned int channels=2;
@@ -356,8 +357,6 @@ g_print("audio_open_output: %s\n",rx->audio_name);
 
       int i;
       char hw[128];
-
-    fprintf(stderr,"audio_open_output: selected=%s\n",rx->audio_name);
 
       i=0;
       while(i<127 && rx->audio_name[i]!=' ') {
@@ -701,6 +700,7 @@ void audio_close_output(RECEIVER *rx) {
         g_free(rx->local_audio_buffer);
         rx->local_audio_buffer=NULL;
       }
+      rx->output_started=FALSE;
       g_mutex_unlock(&rx->local_audio_mutex);
       break;
     }
@@ -1139,8 +1139,8 @@ g_print("audio: state_cb: PA_CONTEXT_READY\n");
 void create_audio(int backend_index,const char *backend) {
   int rc;
 
-  //n_output_devices=0;
-  //n_input_devices=0;
+  n_output_devices=0;
+  n_input_devices=0;
 
   switch(radio->which_audio) {
     case USE_SOUNDIO:
