@@ -940,7 +940,6 @@ static void high_value_changed_cb (GtkWidget *widget, gpointer data) {
 
 void update_receiver_dialog(RECEIVER *rx) {
   int i;
-g_print("receiver_dialog: update_receiver_dialog: rx=%d\n",rx->channel);
 
   // update audio
   g_signal_handler_block(G_OBJECT(rx->audio_choice_b),rx->audio_choice_signal_id);
