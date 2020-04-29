@@ -946,7 +946,6 @@ g_print("receiver_dialog: update_receiver_dialog: rx=%d\n",rx->channel);
   g_signal_handler_block(G_OBJECT(rx->audio_choice_b),rx->audio_choice_signal_id);
   g_signal_handler_block(G_OBJECT(rx->local_audio_b),rx->local_audio_signal_id);
   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(rx->audio_choice_b));
-g_print("receiver_dialog: update_receiver_dialog: output_devices=%d\n",n_output_devices);
   for(i=0;i<n_output_devices;i++) {
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(rx->audio_choice_b),NULL,output_devices[i].description);
     if(rx->audio_name!=NULL) {
@@ -1116,11 +1115,8 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     rx->audio_choice_b=gtk_combo_box_text_new();
     gtk_grid_attach(GTK_GRID(audio_grid),rx->audio_choice_b,0,2,2,1);
     rx->audio_choice_signal_id=g_signal_connect(rx->audio_choice_b,"changed",G_CALLBACK(audio_choice_cb),rx);
-    update_receiver_dialog(rx);
     
-/*
     // Audio output device options
-    rx->audio_choice_b=gtk_combo_box_text_new();
     for(i=0;i<n_output_devices;i++) {
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(rx->audio_choice_b),NULL,output_devices[i].description);
       if(rx->audio_name!=NULL) {
@@ -1129,7 +1125,6 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
         }
       }
     }
-*/
     
     if(gtk_combo_box_get_active(GTK_COMBO_BOX(rx->audio_choice_b))==-1) {
       gtk_widget_set_sensitive(rx->local_audio_b, FALSE);
