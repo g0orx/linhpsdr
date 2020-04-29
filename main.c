@@ -41,6 +41,7 @@
 #include "dac.h"
 #include "radio.h"
 #include "main.h"
+#include "audio.h"
 #include "protocol1.h"
 #include "protocol2.h"
 #ifdef SOAPYSDR

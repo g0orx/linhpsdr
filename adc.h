@@ -54,6 +54,7 @@ enum {
 };
 
 typedef struct _adc {
+  gint id;
   gint filters;
   gint hpf;
   gint lpf;
@@ -64,7 +65,7 @@ typedef struct _adc {
   gint attenuation;
   gboolean enable_step_attenuation;
 #ifdef SOAPYSDR
-  gint *rx_gain;
+  gdouble gain;
   gboolean agc;
 #endif
 } ADC;
