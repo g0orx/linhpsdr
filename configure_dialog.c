@@ -100,7 +100,7 @@ static gboolean switch_page_event(GtkNotebook *notebook,GtkWidget *page,guint pa
     update_receiver_dialog(radio->receiver[rx]);
   }
   if(strncmp("TX",text,2)==0) {
-    update_transmitter_audio_choices(radio->transmitter);
+    update_transmitter_dialog(radio->transmitter);
   }
   return TRUE;
 }
