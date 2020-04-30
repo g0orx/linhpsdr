@@ -954,6 +954,13 @@ void update_receiver_dialog(RECEIVER *rx) {
     }
   }
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->local_audio_b), rx->local_audio);
+
+  if(gtk_combo_box_get_active(GTK_COMBO_BOX(rx->audio_choice_b))==-1) {
+    gtk_widget_set_sensitive(rx->local_audio_b, FALSE);
+  } else {
+    gtk_widget_set_sensitive(rx->local_audio_b, TRUE);
+  }
+
   g_signal_handler_unblock(G_OBJECT(rx->local_audio_b),rx->local_audio_signal_id);
   g_signal_handler_unblock(G_OBJECT(rx->audio_choice_b),rx->audio_choice_signal_id);
 
@@ -1116,19 +1123,21 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     rx->audio_choice_signal_id=g_signal_connect(rx->audio_choice_b,"changed",G_CALLBACK(audio_choice_cb),rx);
     
     // Audio output device options
-    for(i=0;i<n_output_devices;i++) {
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(rx->audio_choice_b),NULL,output_devices[i].description);
-      if(rx->audio_name!=NULL) {
-        if(strcmp(output_devices[i].name,rx->audio_name)==0) {
-          gtk_combo_box_set_active(GTK_COMBO_BOX(rx->audio_choice_b),i);
-        }
-      }
-    }
+    // TO REMOVE because the variable n_output_devices is always zero here
+    // for(i=0;i<n_output_devices;i++) {
+    //   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(rx->audio_choice_b),NULL,output_devices[i].description);
+    //   if(rx->audio_name!=NULL) {
+    //     if(strcmp(output_devices[i].name,rx->audio_name)==0) {
+    //       gtk_combo_box_set_active(GTK_COMBO_BOX(rx->audio_choice_b),i);
+    //     }
+    //   }
+    // }
     
-    if(gtk_combo_box_get_active(GTK_COMBO_BOX(rx->audio_choice_b))==-1) {
-      gtk_widget_set_sensitive(rx->local_audio_b, FALSE);
-    }
-    
+    // Moved to update_receiver_dialog
+    // if(gtk_combo_box_get_active(GTK_COMBO_BOX(rx->audio_choice_b))==-1) {
+    //   gtk_widget_set_sensitive(rx->local_audio_b, FALSE);
+    // }
+
     // Stereo, left, right audio
     GtkWidget *audio_channels_combo=gtk_combo_box_text_new();
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_channels_combo),NULL,"Stereo");

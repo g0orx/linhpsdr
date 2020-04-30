@@ -242,6 +242,12 @@ g_print("adding: %s\n",input_devices[i].description);
   }
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (tx->local_microphone_b), radio->local_microphone);
 
+  if(gtk_combo_box_get_active(GTK_COMBO_BOX(radio->transmitter->microphone_choice_b))==-1) {
+    gtk_widget_set_sensitive(radio->transmitter->local_microphone_b, FALSE);
+  } else {
+    gtk_widget_set_sensitive(radio->transmitter->local_microphone_b, TRUE);
+  }
+
   g_signal_handler_unblock(G_OBJECT(tx->local_microphone_b),tx->local_microphone_signal_id);
   g_signal_handler_unblock(G_OBJECT(tx->microphone_choice_b),tx->microphone_choice_signal_id);
 }
@@ -274,20 +280,22 @@ GtkWidget *create_transmitter_dialog(TRANSMITTER *tx) {
 
     radio->transmitter->microphone_choice_b=gtk_combo_box_text_new();
     //update_transmitter_audio_choices(tx);
-    for(i=0;i<n_input_devices;i++) {
-      g_print("adding: %s\n",input_devices[i].description);
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(radio->transmitter->microphone_choice_b),NULL,input_devices[i].description);
-      if(radio->microphone_name!=NULL) {
-        if(strcmp(input_devices[i].name,radio->microphone_name)==0) {
-          gtk_combo_box_set_active(GTK_COMBO_BOX(radio->transmitter->microphone_choice_b),i);
-        }
-      }
-    }
-    if(gtk_combo_box_get_active(GTK_COMBO_BOX(radio->transmitter->microphone_choice_b))==-1) {
-      gtk_widget_set_sensitive(radio->transmitter->local_microphone_b, FALSE);
-    } else {
-      gtk_widget_set_sensitive(radio->transmitter->local_microphone_b, TRUE);
-    }
+    // TO REMOVE because the variable n_input_devices is always zero here
+    // for(i=0;i<n_input_devices;i++) {
+    //   g_print("adding: %s\n",input_devices[i].description);
+    //   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(radio->transmitter->microphone_choice_b),NULL,input_devices[i].description);
+    //   if(radio->microphone_name!=NULL) {
+    //     if(strcmp(input_devices[i].name,radio->microphone_name)==0) {
+    //       gtk_combo_box_set_active(GTK_COMBO_BOX(radio->transmitter->microphone_choice_b),i);
+    //     }
+    //   }
+    // }
+    // Moved to update_transmitter_dialog
+    // if(gtk_combo_box_get_active(GTK_COMBO_BOX(radio->transmitter->microphone_choice_b))==-1) {
+    //   gtk_widget_set_sensitive(radio->transmitter->local_microphone_b, FALSE);
+    // } else {
+    //   gtk_widget_set_sensitive(radio->transmitter->local_microphone_b, TRUE);
+    // }
 
     gtk_grid_attach(GTK_GRID(microphone_grid),radio->transmitter->microphone_choice_b,1,0,1,1);
     radio->transmitter->microphone_choice_signal_id=g_signal_connect(radio->transmitter->microphone_choice_b,"changed",G_CALLBACK(microphone_choice_cb),radio);
