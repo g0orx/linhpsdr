@@ -216,6 +216,8 @@ typedef struct _radio {
 
   gint sat_mode;
   gboolean mute_rx_while_transmitting;
+  
+  gboolean midi;
 
 } RADIO;
 
