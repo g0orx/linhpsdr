@@ -1071,7 +1071,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   
   #ifdef CWDAEMON
   r->cwdaemon_running=FALSE;
-  r->cwd_port = 6789;
+  r->cwd_port = 51000;
   #endif
   
   r->display_filled=TRUE;

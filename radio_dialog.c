@@ -415,7 +415,7 @@ static void swr_alarm_changed_cb(GtkWidget *widget, gpointer data) {
 
 static void temperature_alarm_changed_cb(GtkWidget *widget, gpointer data) {
   RADIO *radio=(RADIO *)data;
-  radio->temperature_alarm_value=gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
+  radio->temperature_alarm_value=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
 }
 
 
