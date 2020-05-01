@@ -63,6 +63,8 @@ static GtkWidget *attenuation_label;
 static GtkWidget *attenuation_b;
 static GtkWidget *enable_attenuation_b;
 static GtkWidget *disable_fpgaclk_b;
+static GtkWidget *swr_alarm_b;
+static GtkWidget *temperature_alarm_b;
 
 static GtkWidget *adc1_frame;
 static GtkWidget *adc1_antenna_combo_box;
@@ -80,6 +82,10 @@ static GtkWidget *rigctl_base;
 #ifdef SOAPYSDR
 static GtkWidget *dac0_frame;
 static GtkWidget *dac0_antenna_combo_box;
+#endif
+
+#ifdef CWDAEMON
+static GtkWidget *cwport;
 #endif
 
 static GtkWidget *audio_backend_combo_box;
@@ -402,6 +408,17 @@ static void panadapter_calibrate_changed_cb(GtkWidget *widget, gpointer data) {
   radio->panadapter_calibration=gtk_range_get_value(GTK_RANGE(widget));
 }
 
+static void swr_alarm_changed_cb(GtkWidget *widget, gpointer data) {
+  RADIO *radio=(RADIO *)data;
+  radio->swr_alarm_value=gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
+}
+
+static void temperature_alarm_changed_cb(GtkWidget *widget, gpointer data) {
+  RADIO *radio=(RADIO *)data;
+  radio->temperature_alarm_value=gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
+}
+
+
 static void cw_keyer_speed_value_changed_cb(GtkWidget *widget, gpointer data) {
   RADIO *radio=(RADIO *)data;
   radio->cw_keyer_speed=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
@@ -487,6 +504,8 @@ static void sat_cb(GtkWidget *widget, gpointer data) {
 static void mute_rx_cb(GtkWidget *widget, gpointer data) {
   radio->mute_rx_while_transmitting=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 }
+
+
 
 /* TO REMOVE
 static void lna_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
@@ -598,7 +617,8 @@ static void cwdaemon_cb(GtkWidget *widget, gpointer data) {
     gtk_widget_set_sensitive(cw_keyer_speed_b, FALSE);    
     gtk_widget_set_sensitive(cw_keyer_sidetone_frequency_b, FALSE);
     gtk_widget_set_sensitive(cw_keyer_weight_b, FALSE);
-    gtk_widget_set_sensitive(cw_keyer_sidetone_level_b, FALSE);        
+    gtk_widget_set_sensitive(cw_keyer_sidetone_level_b, FALSE);     
+    gtk_widget_set_sensitive(cwport, FALSE);  
     
   } 
   else {
@@ -608,11 +628,15 @@ static void cwdaemon_cb(GtkWidget *widget, gpointer data) {
     gtk_widget_set_sensitive(cw_keyer_sidetone_frequency_b, TRUE);
     gtk_widget_set_sensitive(cw_keyer_weight_b, TRUE);
     gtk_widget_set_sensitive(cw_keyer_sidetone_level_b, TRUE);    
-
+    gtk_widget_set_sensitive(cwport, TRUE); 
     //g_thread_exit(cwdaemon_thread_id);
   }
 }
 
+static void cwport_value_changed_cb(GtkWidget *widget, gpointer data) {
+  RADIO *radio=(RADIO *)data;  
+  radio->cwd_port = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
+}
 
 #endif
 
@@ -1047,6 +1071,31 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   gtk_grid_attach(GTK_GRID(config_grid),mute_rx_b,2,0,1,1);
   g_signal_connect(mute_rx_b,"toggled",G_CALLBACK(mute_rx_cb),radio);
 
+#ifndef SOAPYSDR
+  // SWR alarm threshold
+  GtkWidget *swr_alarm_label=gtk_label_new("SWR alarm at ");
+  gtk_widget_show(swr_alarm_label);
+  gtk_grid_attach(GTK_GRID(config_grid),swr_alarm_label,0,1,1,1);
+
+  swr_alarm_b=gtk_spin_button_new_with_range(1.0, 5.0, 0.1);
+  gtk_spin_button_set_value(GTK_SPIN_BUTTON(swr_alarm_b), radio->swr_alarm_value);
+  gtk_widget_show(swr_alarm_b);
+  gtk_grid_attach(GTK_GRID(config_grid),swr_alarm_b,1,1,1,1);
+  g_signal_connect(swr_alarm_b,"value_changed",G_CALLBACK(swr_alarm_changed_cb),radio);
+
+  // Temperature alarm threshold
+  if (radio->discovered->device == DEVICE_HERMES_LITE2) {
+    GtkWidget *temp_alarm_label=gtk_label_new("Temp alarm at ");
+    gtk_widget_show(temp_alarm_label);
+    gtk_grid_attach(GTK_GRID(config_grid),temp_alarm_label,2,1,1,1);
+
+    temperature_alarm_b=gtk_spin_button_new_with_range(30.0, 60.0, 1.0);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(temperature_alarm_b), (double)radio->temperature_alarm_value);
+    gtk_widget_show(temperature_alarm_b);
+    gtk_grid_attach(GTK_GRID(config_grid),temperature_alarm_b,3,1,1,1);
+    g_signal_connect(temperature_alarm_b,"value_changed",G_CALLBACK(temperature_alarm_changed_cb),radio);
+  }
+#endif
 
   GtkWidget *audio_frame=gtk_frame_new("Audio");
   GtkWidget *audio_grid=gtk_grid_new();
@@ -1137,6 +1186,17 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     gtk_widget_show(cwdaemon_tick);
     gtk_grid_attach(GTK_GRID(cw_grid),cwdaemon_tick,x++,y,1,1);
     g_signal_connect(cwdaemon_tick,"toggled",G_CALLBACK(cwdaemon_cb),radio);    
+        
+    GtkWidget *cwport_label=gtk_label_new("Port:");
+    gtk_widget_show(cwport_label);
+    gtk_grid_attach(GTK_GRID(cw_grid),cwport_label,x++,y,1,1);
+  
+    cwport=gtk_spin_button_new_with_range(50000.0,52000.0,1.0);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(cwport), radio->cwd_port);
+    gtk_grid_attach(GTK_GRID(cw_grid),cwport,x,y,1,1);
+    g_signal_connect(cwport,"value_changed",G_CALLBACK(cwport_value_changed_cb),NULL);
+   
+    
     #endif
   }
   else {
