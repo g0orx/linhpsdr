@@ -59,6 +59,13 @@
 #include "rigctl.h"
 #include "receiver_dialog.h"
 
+#ifdef MIDI
+// rather than including MIDI.h with all its internal stuff
+// (e.g. enum components) we just declare the single bit thereof
+// we need here to make a strict compiler happy.
+int MIDIstartup();
+#endif
+
 static GtkWidget *add_receiver_b;
 static GtkWidget *add_wideband_b;
 
@@ -1139,6 +1146,8 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->sat_mode=SAT_NONE;
   r->mute_rx_while_transmitting=FALSE;
 
+  r->midi = FALSE;
+  
   r->dialog=NULL;
 
 
@@ -1217,6 +1226,19 @@ g_print("create_radio for %s %d\n",d->name,d->device);
     }
   }
   */
+  
+  //
+  // MIDIstartup must not be called before the radio is completely set up, since
+  // then MIDI can asynchronously trigger actions which require the radio already
+  // running. So this is the last thing we do when starting the radio.
+  //
+#ifdef MIDI
+  int rv = MIDIstartup();
+  if (rv == 0) {
+    radio->midi = TRUE;
+  }
+#endif  
+  
   g_idle_add(radio_start,(gpointer)r);
 
 

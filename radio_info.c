@@ -175,7 +175,12 @@ void update_radio_info(RECEIVER *rx) {
     RoundedRectangle(cr, 85, top_y, 25.0, 6.0, INFO_FALSE);    
   }
   // Alsa MIDI server  
-  RoundedRectangle(cr, 125, top_y, 25.0, 6.0, INFO_FALSE);  
+  if (radio->midi) {  
+    RoundedRectangle(cr, 125, top_y, 25.0, 6.0, INFO_TRUE);  
+  } else {
+    RoundedRectangle(cr, 125, top_y, 25.0, 6.0, INFO_FALSE);  
+  }
+    
   // Sat mode 
   if (radio->sat_mode==SAT_NONE) {
     RoundedRectangle(cr, 165, top_y, 25.0, 6.0, INFO_FALSE);    
@@ -228,7 +233,7 @@ void update_radio_info(RECEIVER *rx) {
   cairo_move_to(cr, 85, top_y + 7);    
   cairo_show_text(cr, "DUP");
   // Alsa MIDI server
-  SetColour(cr, DARK_TEXT);
+  SetColour(cr, OFF_WHITE);
   cairo_move_to(cr, 123, top_y + 7);    
   cairo_show_text(cr, "MIDI"); 
   // Sat mode

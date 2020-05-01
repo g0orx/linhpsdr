@@ -48,26 +48,42 @@ endif
 
 #CWDAEMON_INCLUDE=CWDAEMON
 
-#ifeq ($(CWDAEMON_INCLUDE),CWDAEMON)
-#CWDAEMON_OPTIONS=-D CWDAEMON
-#CWDAEMON_LIBS=-lcw
-#CWDAEMON_SOURCES= \
-#cwdaemon.c
-#CWDAEMON_HEADERS= \
-#cwdaemon.h
-#CWDAEMON_OBJS= \
-#cwdaemon.o
-#endif
+ifeq ($(CWDAEMON_INCLUDE),CWDAEMON)
+CWDAEMON_OPTIONS=-D CWDAEMON
+CWDAEMON_LIBS=-lcw
+CWDAEMON_SOURCES= \
+cwdaemon.c
+CWDAEMON_HEADERS= \
+cwdaemon.h
+CWDAEMON_OBJS= \
+cwdaemon.o
+endif
 
+# MIDI code from piHPSDR written by Christoph van Wullen, DL1YCF.
+MIDI_INCLUDE=MIDI
 
-OPTIONS=-Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) \
-         $(CWDAEMON_OPTIONS)  $(OPENGL_OPTIONS) -O3 -g
+ifeq ($(MIDI_INCLUDE),MIDI)
+MIDI_OPTIONS=-D MIDI
+MIDI_SOURCES= alsa_midi.c midi2.c midi3.c
+MIDI_HEADERS= midi.h
+MIDI_OBJS= alsa_midi.o midi2.o midi3.o
+MIDI_LIBS= -lasound
+endif
+
+CFLAGS=	-g -Wno-deprecated-declarations -O3
+OPTIONS=  $(MIDI_OPTIONS) $(AUDIO_OPTIONS)  $(SOAPYSDR_OPTIONS) \
+         $(CWDAEMON_OPTIONS)  $(OPENGL_OPTIONS) \
+         -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"'
 #OPTIONS=-g -Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
-LIBS=-lrt -lm -lpthread -lwdsp
+LIBS=-lrt -lm -lpthread -lwdsp $(GTKLIBS) $(AUDIO_LIBS) $(SOAPYSDR_LIBS) $(CWDAEMON_LIBS) $(OPENGL_LIBS) $(MIDI_LIBS)
+
 INCLUDES=$(GTKINCLUDES) $(OPGL_INCLUDES)
 
-COMPILE=$(CC) $(OPTIONS) $(INCLUDES)
+COMPILE=$(CC) $(CFLAGS) $(OPTIONS) $(INCLUDES)
+
+.c.o:
+	$(COMPILE) -c -o $@ $<
 
 PROGRAM=linhpsdr
 
@@ -219,13 +235,17 @@ error_handler.o\
 radio_info.o\
 bpsk.o
 
-all: prebuild  $(PROGRAM) $(HEADERS) $(SOURCES) $(SOAPYSDR_SOURCES) $(CWDAEMON_SOURCES) 
+
+$(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(MIDI_OBJS)
+	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(MIDI_OBJS)  $(LIBS)
+
+
+all: prebuild  $(PROGRAM) $(HEADERS) $(MIDI_HEADERS) $(SOURCES) $(SOAPYSDR_SOURCES) \
+							 $(CWDAEMON_SOURCES) $(MIDI_SOURCES)
 
 prebuild:
 	rm -f version.o
 
-$(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS)
-	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(GTKLIBS) $(LIBS) $(AUDIO_LIBS) $(SOAPYSDR_LIBS) $(CWDAEMON_LIBS) $(OPENGL_LIBS)
 
 .c.o:
 	$(COMPILE) -c -o $@ $<

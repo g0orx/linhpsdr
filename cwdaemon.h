@@ -35,6 +35,7 @@
 #define MAX_DEVICE 20
 
 #include <gtk/gtk.h>
+#include <stdbool.h>
 
 typedef struct cwdev_s {
 	int (*init) (struct cwdev_s *, int fd);
@@ -64,8 +65,10 @@ enum cwdaemon_verbosity {
 extern gpointer cwdaemon_thread(gpointer data);
 
 GMutex cwdaemon_mutex;
+
 bool keytx;
-int cwdaemon_run;
+bool keysidetone;
+
 
 void cwdaemon_stop(void);
 void cwdaemon_close_socket(void);
