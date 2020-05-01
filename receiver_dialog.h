@@ -18,4 +18,4 @@
 */
 
 extern GtkWidget *create_receiver_dialog(RECEIVER *rx);
-extern void update_audio_choices(RECEIVER *rx);
+extern void update_receiver_dialog(RECEIVER *rx);

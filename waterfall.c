@@ -163,7 +163,8 @@ void update_waterfall(RECEIVER *rx) {
     guchar *p;
     p=pixels;
     samples=rx->pixel_samples;
-    int offset=((rx->zoom-1)/2)*rx->panadapter_width;
+    //int offset=((rx->zoom-1)/2)*rx->panadapter_width;
+    int offset=rx->pan;
     for(i=0;i<width;i++) {
             sample=samples[i+offset]+radio->adc[rx->adc].attenuation;
             if(i>1 || i<(width-1)) {

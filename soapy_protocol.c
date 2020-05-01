@@ -427,30 +427,30 @@ void soapy_protocol_set_tx_antenna(TRANSMITTER *tx,int ant) {
   }
 }
 
-void soapy_protocol_set_gain(RECEIVER *rx,char *name,int gain) {
+void soapy_protocol_set_gain(ADC *adc) {
   int rc;
-  rc=SoapySDRDevice_setGainElement(soapy_device,SOAPY_SDR_RX,rx->adc,name,(double)gain);
+  rc=SoapySDRDevice_setGain(soapy_device,SOAPY_SDR_RX,adc->id,adc->gain);
   if(rc!=0) {
-    fprintf(stderr,"soapy_protocol: SoapySDRDevice_setGain %s failed: %s\n",name,SoapySDR_errToStr(rc));
+    fprintf(stderr,"soapy_protocol: SoapySDRDevice_setGain failed: %s\n",SoapySDR_errToStr(rc));
   }
 }
 
-void soapy_protocol_set_tx_gain(TRANSMITTER *tx,char *name,int gain) {
+void soapy_protocol_set_tx_gain(DAC *dac) {
   int rc;
-  rc=SoapySDRDevice_setGainElement(soapy_device,SOAPY_SDR_TX,tx->dac,name,(double)gain);
+  rc=SoapySDRDevice_setGain(soapy_device,SOAPY_SDR_TX,dac->id,dac->gain);
   if(rc!=0) {
-    fprintf(stderr,"soapy_protocol: SoapySDRDevice_setGain %s failed: %s\n",name,SoapySDR_errToStr(rc));
+    fprintf(stderr,"soapy_protocol: SoapySDRDevice_setGain failed: %s\n",SoapySDR_errToStr(rc));
   }
 }
 
-int soapy_protocol_get_gain(RECEIVER *rx,char *name) {
+int soapy_protocol_get_gain(ADC *adc) {
   double gain;
-  gain=SoapySDRDevice_getGainElement(soapy_device,SOAPY_SDR_RX,rx->adc,name);
+  gain=SoapySDRDevice_getGain(soapy_device,SOAPY_SDR_RX,adc->id);
   return (int)gain;
 }
 
-gboolean soapy_protocol_get_automatic_gain(RECEIVER *rx) {
-  gboolean mode=SoapySDRDevice_getGainMode(soapy_device, SOAPY_SDR_RX, rx->adc);
+gboolean soapy_protocol_get_automatic_gain(ADC *adc) {
+  gboolean mode=SoapySDRDevice_getGainMode(soapy_device, SOAPY_SDR_RX, adc->id);
   return mode;
 }
 

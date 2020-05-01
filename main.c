@@ -41,6 +41,7 @@
 #include "dac.h"
 #include "radio.h"
 #include "main.h"
+#include "audio.h"
 #include "protocol1.h"
 #include "protocol2.h"
 #ifdef SOAPYSDR
@@ -343,7 +344,7 @@ static int check_wisdom(void *data) {
 
       dialog=gtk_dialog_new();
       g_signal_connect (dialog, "delete-event", G_CALLBACK (wisdom_delete), NULL);
-      gtk_window_set_title(GTK_WINDOW(dialog),"Linux HPSDR: Creating FFTW3 wisdom file");
+      gtk_window_set_title(GTK_WINDOW(dialog),"LinHPSDR: Creating FFTW3 wisdom file");
       GtkWidget *content=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
       GtkWidget *grid=gtk_grid_new();
       gtk_grid_set_row_spacing(GTK_GRID(grid),10);
@@ -428,7 +429,7 @@ gboolean start_cb(GtkWidget *widget,gpointer data) {
         strcpy(iface,d->info.network.interface_name);
         break;
     }
-    g_snprintf((gchar *)&title,sizeof(title),"Linux HPSDR (%s): %s %s v%s %s (%s) on %s",
+    g_snprintf((gchar *)&title,sizeof(title),"LinHPSDR (%s): %s %s v%s %s (%s) on %s",
       version,
       d->name,
       protocol,
@@ -499,7 +500,7 @@ static void activate_hpsdr(GtkApplication *app, gpointer data) {
   sprintf(png_path,"/usr/share/linhpsdr/hpsdr.png");
 #endif
   main_window = gtk_application_window_new (app);
-  sprintf(title,"Linux HPSDR (%s)",version);
+  sprintf(title,"LinHPSDR (%s)",version);
   gtk_window_set_title (GTK_WINDOW (main_window), title);
   gtk_window_set_resizable(GTK_WINDOW(main_window), FALSE);
   GError *error;

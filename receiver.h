@@ -60,6 +60,7 @@ typedef struct _receiver {
   gdouble display_average_time;
   
   gboolean ctun;
+  gint64 ctun_frequency;
   gint64 ctun_offset;
   gint64 ctun_min;
   gint64 ctun_max;
@@ -177,6 +178,7 @@ typedef struct _receiver {
   
   gdouble hz_per_pixel;
 
+  gboolean is_panning;
   gboolean has_moved;
   gint last_x;
 
@@ -216,6 +218,7 @@ typedef struct _receiver {
   GtkWidget *band_grid;
 
   gint zoom;
+  gint pan;
 
   gboolean enable_equalizer;
   gint equalizer[4];
@@ -243,6 +246,13 @@ typedef struct _receiver {
   gint bpsk_offset;
 
   int resample_step;
+
+  GtkWidget *local_audio_b;
+  GtkWidget *audio_choice_b;
+  GtkWidget *tx_control_b;
+  gulong audio_choice_signal_id;
+  gulong local_audio_signal_id;
+  gulong tx_control_signal_id;
 
 } RECEIVER;
 
@@ -276,6 +286,6 @@ extern void receiver_change_sample_rate(RECEIVER *rx,int sample_rate);
 extern void set_agc(RECEIVER *rx);
 extern void calculate_display_average(RECEIVER *rx);
 extern void receiver_fps_changed(RECEIVER *rx);
-
+extern void receiver_change_zoom(RECEIVER *rx,int zoom);
 extern void update_frequency(RECEIVER *rx);
 #endif

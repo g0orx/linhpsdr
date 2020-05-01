@@ -283,7 +283,8 @@ void update_rx_panadapter(RECEIVER *rx) {
 
   int display_width=gtk_widget_get_allocated_width (rx->panadapter);
   int display_height=gtk_widget_get_allocated_height (rx->panadapter);
-  int offset=((rx->zoom-1)/2)*display_width;
+  //int offset=((rx->zoom-1)/2)*display_width;
+  int offset=rx->pan;
   samples=rx->pixel_samples;
   samples[display_width-1+offset]=-200;
   double dbm_per_line=(double)display_height/((double)rx->panadapter_high-(double)rx->panadapter_low);
@@ -405,8 +406,8 @@ void update_rx_panadapter(RECEIVER *rx) {
     // filter
     //cairo_set_source_rgba (cr, 0.25, 0.25, 0.25, 0.75);
     cairo_set_source_rgba (cr, 0.5, 0.5, 0.5, 0.75);
-    double filter_left=(double)display_width/2.0+(((double)rx->filter_low+rx->ctun_offset)/rx->hz_per_pixel);
-    double filter_right=(double)display_width/2.0+(((double)rx->filter_high+rx->ctun_offset)/rx->hz_per_pixel);
+    double filter_left=((double)rx->pixels/2.0)-(double)rx->pan+(((double)rx->filter_low+rx->ctun_offset)/rx->hz_per_pixel);
+    double filter_right=((double)rx->pixels/2.0)-(double)rx->pan+(((double)rx->filter_high+rx->ctun_offset)/rx->hz_per_pixel);
     cairo_rectangle(cr, filter_left, 0.0, filter_right-filter_left, (double)display_height);
     cairo_fill(cr);
     if(rx->mode_a==CWU || rx->mode_a==CWL) {
@@ -464,7 +465,16 @@ void update_rx_panadapter(RECEIVER *rx) {
     cairo_set_source_rgb (cr, 0.1, 0.1, 0.1);
     cairo_rectangle(cr,0, (rx->panadapter_height-20), display_width, (rx->panadapter_height));
     cairo_fill(cr);        
-    
+
+    // if zoom > 1 - show the pan position
+    if(rx->zoom!=1) {
+      int pan_x=(int)((double)rx->pan/(double)rx->zoom);
+      int pan_width=(int)((double)rx->panadapter_width/(double)rx->zoom);
+      cairo_set_source_rgb (cr, 0.7, 0.7, 0.7);
+      cairo_rectangle(cr,pan_x, (rx->panadapter_height-4), pan_width, (rx->panadapter_height));
+      cairo_fill(cr);        
+    }
+
     long long f1;
     long long f2;
     long long divisor1=20000;
@@ -691,8 +701,8 @@ void update_rx_panadapter(RECEIVER *rx) {
     // cursor
     if(rx->mode_a!=CWU && rx->mode_a!=CWL) {    
       SetColour(cr, TEXT_A);
-      cairo_move_to(cr,(double)(display_width/2.0)+(rx->ctun_offset/rx->hz_per_pixel),0.0);
-      cairo_line_to(cr,(double)(display_width/2.0)+(rx->ctun_offset/rx->hz_per_pixel),(double)display_height-20);
+      cairo_move_to(cr,(double)(rx->pixels/2.0)-(double)rx->pan+(rx->ctun_offset/rx->hz_per_pixel),0.0);
+      cairo_line_to(cr,(double)(rx->pixels/2.0)-(double)rx->pan+(rx->ctun_offset/rx->hz_per_pixel),(double)display_height-20);
       cairo_stroke(cr);
     } 
     
@@ -740,27 +750,6 @@ void update_rx_panadapter(RECEIVER *rx) {
       cairo_set_font_size(cr, 18);
       cairo_move_to(cr, 0.0, (double)display_height+20.0-2.0);
       cairo_show_text(cr, rx->freedv_text_data);
-    }
-#endif
-
-#ifdef GPIO
-    if(active) {
-      cairo_set_source_rgb(cr,1.0,1.0,0.0);
-      cairo_set_font_size(cr,16);
-      if(ENABLE_E1_ENCODER) {
-        cairo_move_to(cr, display_width-150,30);
-        cairo_show_text(cr, encoder_string[e1_encoder_action]);
-      }
-  
-      if(ENABLE_E2_ENCODER) {
-        cairo_move_to(cr, display_width-150,50);
-        cairo_show_text(cr, encoder_string[e2_encoder_action]);
-      }
-  
-      if(ENABLE_E3_ENCODER) {
-        cairo_move_to(cr, display_width-150,70);
-        cairo_show_text(cr, encoder_string[e3_encoder_action]);
-      }
     }
 #endif
 

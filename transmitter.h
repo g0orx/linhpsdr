@@ -128,6 +128,19 @@ typedef struct _transmitter {
   cairo_surface_t *ps_surface;
   gint ps_timer_id;
 
+  GtkWidget *local_audio_b;
+  GtkWidget *audio_choice_b;
+  GtkWidget *tx_control_b;
+  gulong audio_choice_signal_id;
+  gulong local_audio_signal_id;
+  gulong tx_control_signal_id;
+
+  GtkWidget *local_microphone_b;
+  GtkWidget *microphone_choice_b;
+  gulong microphone_choice_signal_id;
+  gulong local_microphone_signal_id;
+
+
 } TRANSMITTER;
 
 extern TRANSMITTER *create_transmitter(int channel);

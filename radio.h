@@ -67,6 +67,12 @@ enum {
   REGION_UK
 };
 
+enum {
+  SAT_NONE,
+  SAT_MODE,
+  RSAT_MODE
+};
+
 typedef struct _radio {
   DISCOVERED *discovered;
   gboolean can_transmit;
@@ -207,6 +213,9 @@ typedef struct _radio {
 
   gint which_audio;
   gint which_audio_backend;
+
+  gint sat_mode;
+  gboolean mute_rx_while_transmitting;
 
 } RADIO;
 

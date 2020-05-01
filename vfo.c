@@ -322,9 +322,13 @@ void agc_cb(GtkWidget *menu_item,gpointer data) {
 
 void zoom_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
+  receiver_change_zoom(choice->rx,choice->selection);
+
+/*
   choice->rx->zoom=choice->selection;
   choice->rx->pixels=choice->rx->panadapter_width*choice->rx->zoom;
   receiver_init_analyzer(choice->rx);
+*/
   update_vfo(choice->rx);
 }
 
@@ -1329,10 +1333,22 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           choice->selection=1;
           g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
           gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+          menu_item=gtk_menu_item_new_with_label("x2");
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=2;
+          g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
+          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
           menu_item=gtk_menu_item_new_with_label("x3");
           choice=g_new0(CHOICE,1);
           choice->rx=rx;
           choice->selection=3;
+          g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
+          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+          menu_item=gtk_menu_item_new_with_label("x4");
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=4;
           g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
           gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
           menu_item=gtk_menu_item_new_with_label("x5");
@@ -1341,10 +1357,22 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           choice->selection=5;
           g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
           gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+          menu_item=gtk_menu_item_new_with_label("x6");
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=6;
+          g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
+          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
           menu_item=gtk_menu_item_new_with_label("x7");
           choice=g_new0(CHOICE,1);
           choice->rx=rx;
           choice->selection=7;
+          g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
+          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+          menu_item=gtk_menu_item_new_with_label("x8");
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=8;
           g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
           gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
           gtk_widget_show_all(menu);
@@ -1711,6 +1739,15 @@ void update_vfo(RECEIVER *rx) {
     else {
       RoundedRectangle(cr, 391.0, 51.0, 18.0, 6.0, CLICK_OFF);       
     } 
+
+    // CTUN
+    if(rx->ctun) {    
+      RoundedRectangle(cr, 461.0, 51.0, 35.0, 6.0, CLICK_ON);   
+    }
+    else {
+      RoundedRectangle(cr, 461.0, 51.0, 35.0, 6.0, CLICK_OFF);       
+    } 
+
     if(rx->split) {
       RoundedRectangle(cr, 200.0, 6.0, 30.0, 5.0, CLICK_ON);    
     }  
@@ -1951,21 +1988,19 @@ void update_vfo(RECEIVER *rx) {
       cairo_show_text(cr, temp);
     }
     x+=35;
-
-    cairo_move_to(cr,x,58);
     
-    if(radio->discovered->device!=DEVICE_HERMES_LITE2) {      
-      if(rx->ctun) {
-        SetColour(cr, OFF_WHITE);
-      } else {
-        SetColour(cr, DARK_TEXT);
-      }
-      cairo_show_text(cr, "CTUN");
+    cairo_move_to(cr,x,58);
+    if(rx->ctun) {
+      SetColour(cr, OFF_WHITE);
+    } else {
+      SetColour(cr, DARK_TEXT);
     }
-    x+=35;
+    cairo_show_text(cr, "CTUN");
+    x+=70;
 
     cairo_move_to(cr,x,58);
     
+/*
     if(radio->discovered->device!=DEVICE_HERMES_LITE2) {      
       if(rx->bpsk) {
         cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
@@ -1974,7 +2009,8 @@ void update_vfo(RECEIVER *rx) {
       }
       cairo_show_text(cr, "BPSK");
     }
-    x+=35;
+    x+=40;
+*/
 
     x=70;
     SetColour(cr, OFF_WHITE);

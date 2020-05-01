@@ -90,20 +90,18 @@ static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) 
   return FALSE;
 }
 
-// TO REMOVE?
 static gboolean switch_page_event(GtkNotebook *notebook,GtkWidget *page,guint page_num,gpointer data) {
   GtkWidget *label=gtk_notebook_get_tab_label(notebook,page);
   const char *text=gtk_label_get_text(GTK_LABEL(label));
   g_print("switch_page: %d %s\n",page_num,text);
   if(strncmp("RX",text,2)==0) {
     int rx=atoi(&text[3]);
-    g_print("switch_page: %d %s rx=%d\n",page_num,text,rx);
-    //update_audio_choices(radio->receiver[rx]);
+    //g_print("switch_page: %d %s rx=%d\n",page_num,text,rx);
+    update_receiver_dialog(radio->receiver[rx]);
   }
   if(strncmp("TX",text,2)==0) {
-    //update_transmitter_audio_choices(radio->transmitter);
+    update_transmitter_dialog(radio->transmitter);
   }
-  
   return TRUE;
 }
 

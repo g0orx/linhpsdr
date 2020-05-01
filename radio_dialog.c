@@ -54,6 +54,8 @@ static GtkWidget *adc0_filters_combo_box;
 static GtkWidget *adc0_hpf_combo_box;
 static GtkWidget *adc0_lpf_combo_box;
 static GtkWidget *duplex_b;
+static GtkWidget *sat_combo;
+static GtkWidget *mute_rx_b;
 static GtkWidget *dither_b;
 static GtkWidget *random_b;
 static GtkWidget *preamp_b;
@@ -477,6 +479,15 @@ static void duplex_cb(GtkWidget *widget, gpointer data) {
   radio->duplex = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 }
 
+static void sat_cb(GtkWidget *widget, gpointer data) {
+  RADIO *radio=(RADIO *)data;
+  radio->sat_mode=gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
+}
+
+static void mute_rx_cb(GtkWidget *widget, gpointer data) {
+  radio->mute_rx_while_transmitting=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+}
+
 /* TO REMOVE
 static void lna_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   ADC *adc=(ADC *)data;
@@ -488,21 +499,14 @@ static void lna_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
 */ 
 
 #ifdef SOAPYSDR
-static void gain_value_changed_cb(GtkWidget *widget, gpointer data) {
+static void adc_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   ADC *adc=(ADC *)data;
-  int gain;
-  if(radio->model==SOAPYSDR_USB) {
-    //adc->pga=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
-    gain=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
-    soapy_protocol_set_gain(radio->receiver[0],(char *)gtk_widget_get_name(widget),gain);
-    for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
-      if(strcmp(radio->discovered->info.soapy.rx_gain[i],(char *)gtk_widget_get_name(widget))==0) {
-        radio->adc[0].rx_gain[i]=gain;
-        break;
-      }
-    }
+  adc->gain=gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
+  if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
+    soapy_protocol_set_gain(adc);
   }
 }
+
 
 static void agc_changed_cb(GtkWidget *widget, gpointer data) {
   ADC *adc=(ADC *)data;
@@ -512,16 +516,9 @@ static void agc_changed_cb(GtkWidget *widget, gpointer data) {
 
 static void dac0_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   DAC *dac=(DAC *)data;
-  int gain;
   if(radio->model==SOAPYSDR_USB) {
-    gain=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
-    soapy_protocol_set_tx_gain(radio->transmitter,(char *)gtk_widget_get_name(widget),gain);
-    for(int i=0;i<radio->discovered->info.soapy.tx_gains;i++) {
-      if(strcmp(radio->discovered->info.soapy.tx_gain[i],(char *)gtk_widget_get_name(widget))==0) {
-        radio->dac[0].tx_gain[i]=gain;
-        break;
-      }
-    }
+    dac->gain=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
+    soapy_protocol_set_tx_gain(dac);
   }
 }
 #endif
@@ -736,36 +733,28 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
 
       gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_antenna_combo_box),radio->adc[0].antenna);
       g_signal_connect(adc0_antenna_combo_box,"changed",G_CALLBACK(adc0_antenna_cb),radio);
-      gtk_grid_attach(GTK_GRID(adc0_grid),adc0_antenna_combo_box,1,row,1,1);
-      row++;
+      gtk_grid_attach(GTK_GRID(adc0_grid),adc0_antenna_combo_box,1,0,1,1);
 
-      if(radio->discovered->info.soapy.rx_gains>0) {
-        GtkWidget *gain=gtk_label_new("Gains:");
-        gtk_grid_attach(GTK_GRID(adc0_grid),gain,0,row,1,1);
-        row++;
+      GtkWidget *adc_gain_label=gtk_label_new(NULL);
+      gtk_label_set_markup(GTK_LABEL(adc_gain_label), "<b>Gain</b>");
+      gtk_grid_attach(GTK_GRID(adc0_grid),adc_gain_label,0,1,1,1);
+
+      double max=100;
+      if(strcmp(radio->discovered->name,"lime")==0) {
+        max=60.0;
+      } else if(strcmp(radio->discovered->name,"plutosdr")==0) {
+        max=73.0;
       }
+      GtkWidget *adc_gain_b=gtk_spin_button_new_with_range(0.0,max,1.0);
+      gtk_spin_button_set_value(GTK_SPIN_BUTTON(adc_gain_b),radio->adc[0].gain);
+      gtk_grid_attach(GTK_GRID(adc0_grid),adc_gain_b,1,1,1,1);
+      g_signal_connect(adc_gain_b,"value_changed",G_CALLBACK(adc_gain_value_changed_cb),&radio->adc[0]);
 
       if(radio->discovered->info.soapy.rx_has_automatic_gain) {
         GtkWidget *agc=gtk_check_button_new_with_label("Hardware AGC: ");
-        gtk_grid_attach(GTK_GRID(adc0_grid),agc,1,row,1,1);
+        gtk_grid_attach(GTK_GRID(adc0_grid),agc,1,2,1,1);
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(agc),radio->adc[0].agc);
         g_signal_connect(agc,"toggled",G_CALLBACK(agc_changed_cb),&radio->adc[0]);
-        row++;
-      }
-
-      for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
-        GtkWidget *gain_label=gtk_label_new(radio->discovered->info.soapy.rx_gain[i]);
-        gtk_grid_attach(GTK_GRID(adc0_grid),gain_label,0,row,1,1);
-        SoapySDRRange range=radio->discovered->info.soapy.rx_range[i];
-        if(range.step==0.0) {
-          range.step=1.0;
-        }
-        GtkWidget *gain_b=gtk_spin_button_new_with_range(range.minimum,range.maximum,range.step);
-        gtk_widget_set_name (gain_b, radio->discovered->info.soapy.rx_gain[i]);
-        gtk_spin_button_set_value(GTK_SPIN_BUTTON(gain_b),(double)radio->adc[0].rx_gain[i]);
-        gtk_grid_attach(GTK_GRID(adc0_grid),gain_b,1,row,1,1);
-        g_signal_connect(gain_b,"value_changed",G_CALLBACK(gain_value_changed_cb),&radio->adc[0]);
-        row++;
       }
       }
       break;
@@ -782,12 +771,6 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (disable_fpgaclk_b), radio->psu_clk);
       gtk_grid_attach(GTK_GRID(adc0_grid),disable_fpgaclk_b,0,1,1,1);
       g_signal_connect(disable_fpgaclk_b,"toggled",G_CALLBACK(psu_clk_cb),radio);
-      
-      duplex_b=gtk_check_button_new_with_label("Duplex");
-      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (duplex_b), radio->duplex);
-      gtk_grid_attach(GTK_GRID(adc0_grid),duplex_b,1,1,1,1);
-      g_signal_connect(duplex_b,"toggled",G_CALLBACK(duplex_cb),radio);  
-
       break;    
 
     case DEVICE_HERMES_LITE:
@@ -797,13 +780,6 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       gtk_spin_button_set_value(GTK_SPIN_BUTTON(attenuation_b),(double)radio->adc[0].attenuation);
       gtk_grid_attach(GTK_GRID(adc0_grid),attenuation_b,2,0,1,1);
       g_signal_connect(attenuation_b,"value_changed",G_CALLBACK(attenuation_value_changed_cb),&radio->adc[0]);
-      
-      /*
-      duplex_b=gtk_check_button_new_with_label("Duplex");
-      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (duplex_b), radio->duplex);
-      gtk_grid_attach(GTK_GRID(adc0_grid),duplex_b,1,1,1,1);
-      g_signal_connect(duplex_b,"toggled",G_CALLBACK(duplex_cb),radio);      
-      */
       
       enable_attenuation_b=gtk_check_button_new_with_label("Enable 20dB Attenuation");
       gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (enable_attenuation_b), radio->adc[0].dither);
@@ -855,11 +831,6 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       gtk_combo_box_set_active(GTK_COMBO_BOX(adc0_lpf_combo_box),radio->adc[0].lpf);
       g_signal_connect(adc0_lpf_combo_box,"changed",G_CALLBACK(adc0_lpf_cb),radio);
       gtk_grid_attach(GTK_GRID(adc0_grid),adc0_lpf_combo_box,3,0,1,1);
-
-      duplex_b=gtk_check_button_new_with_label("Duplex");
-      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (duplex_b), radio->duplex);
-      gtk_grid_attach(GTK_GRID(adc0_grid),duplex_b,4,0,1,1);
-      g_signal_connect(duplex_b,"toggled",G_CALLBACK(duplex_cb),&radio->duplex);
 
       // Row 2
       dither_b=gtk_check_button_new_with_label("Dither");
@@ -989,29 +960,21 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
         gtk_grid_attach(GTK_GRID(dac0_grid),dac0_antenna_combo_box,1,r,1,1);
         r++;
 
-      if(radio->discovered->info.soapy.tx_gains>0) {
-        GtkWidget *gain=gtk_label_new("Gains:");
-        gtk_grid_attach(GTK_GRID(dac0_grid),gain,0,r,1,1);
-        r++;
-      }
-
-      for(int i=0;i<radio->discovered->info.soapy.tx_gains;i++) {
-        GtkWidget *gain_label=gtk_label_new(radio->discovered->info.soapy.tx_gain[i]);
+        GtkWidget *gain_label=gtk_label_new("Gain");
         gtk_grid_attach(GTK_GRID(dac0_grid),gain_label,0,r,1,1);
-        SoapySDRRange range=radio->discovered->info.soapy.tx_range[i];
-        if(range.step==0.0) {
-          range.step=1.0;
+
+        double max=100.0;
+        if(strcmp(radio->discovered->name,"lime")==0) {
+          max=64.0;
+        } else if(strcmp(radio->discovered->name,"plutosdr")==0) {
+          max=89.0;
         }
-        GtkWidget *gain_b=gtk_spin_button_new_with_range(range.minimum,range.maximum,range.step);
-        gtk_widget_set_name (gain_b, radio->discovered->info.soapy.tx_gain[i]);
-        gtk_spin_button_set_value(GTK_SPIN_BUTTON(gain_b),(double)radio->dac[0].tx_gain[i]);
+
+        GtkWidget *gain_b=gtk_spin_button_new_with_range(0.0,max,1.0);
+        gtk_spin_button_set_value(GTK_SPIN_BUTTON(gain_b),radio->dac[0].gain);
         gtk_grid_attach(GTK_GRID(dac0_grid),gain_b,1,r,1,1);
         g_signal_connect(gain_b,"value_changed",G_CALLBACK(dac0_gain_value_changed_cb),&radio->dac[0]);
         r++;
-      }
-
-
-
       }
       break;
 #endif
@@ -1058,6 +1021,32 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     gtk_grid_attach(GTK_GRID(mic_grid),boost_b,x,y++,1,1);
     g_signal_connect(boost_b,"toggled",G_CALLBACK(boost_cb),radio);
   }
+
+  GtkWidget *config_frame=gtk_frame_new("Configuration");
+  GtkWidget *config_grid=gtk_grid_new();
+  gtk_grid_set_row_homogeneous(GTK_GRID(config_grid),TRUE);
+  gtk_grid_set_column_homogeneous(GTK_GRID(config_grid),FALSE);
+  gtk_container_add(GTK_CONTAINER(config_frame),config_grid);
+  gtk_grid_attach(GTK_GRID(grid),config_frame,col,row++,1,1);
+
+  duplex_b=gtk_check_button_new_with_label("Duplex");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (duplex_b), radio->duplex);
+  gtk_grid_attach(GTK_GRID(config_grid),duplex_b,0,0,1,1);
+  g_signal_connect(duplex_b,"toggled",G_CALLBACK(duplex_cb),radio);
+  
+  sat_combo=gtk_combo_box_text_new();
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sat_combo),NULL,"SAT Off");
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sat_combo),NULL,"SAT");
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sat_combo),NULL,"RSAT");
+  gtk_combo_box_set_active(GTK_COMBO_BOX(sat_combo),radio->sat_mode);
+  gtk_grid_attach(GTK_GRID(config_grid),sat_combo,1,0,1,1);
+  g_signal_connect(sat_combo,"changed",G_CALLBACK(sat_cb),radio);
+
+  mute_rx_b=gtk_check_button_new_with_label("Mute RX when TX");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (mute_rx_b), radio->mute_rx_while_transmitting);
+  gtk_grid_attach(GTK_GRID(config_grid),mute_rx_b,2,0,1,1);
+  g_signal_connect(mute_rx_b,"toggled",G_CALLBACK(mute_rx_cb),radio);
+
 
   GtkWidget *audio_frame=gtk_frame_new("Audio");
   GtkWidget *audio_grid=gtk_grid_new();
