@@ -673,14 +673,14 @@ long long receiver_move_a(RECEIVER *rx,long long hz,gboolean round) {
   long long delta;
   if(rx->ctun) {
     delta=rx->ctun_frequency;
-    rx->ctun_frequency=rx->ctun_frequency-hz;
+    rx->ctun_frequency=rx->ctun_frequency+hz;
     if(round && (rx->mode_a!=CWL || rx->mode_a!=CWU)) {
       rx->ctun_frequency=(rx->ctun_frequency/rx->step)*rx->step;
     }
     delta=rx->ctun_frequency-delta;
   } else {
     delta=rx->frequency_a;
-    rx->frequency_a=rx->frequency_a-hz;
+    rx->frequency_a=rx->frequency_a+hz;
     if(round && (rx->mode_a!=CWL || rx->mode_a!=CWU)) {
       rx->frequency_a=(rx->frequency_a/rx->step)*rx->step;
     }
@@ -997,9 +997,9 @@ gboolean receiver_scroll_event_cb(GtkWidget *widget, GdkEventScroll *event, gpoi
         }
       }
     } else if(event->direction==GDK_SCROLL_UP) {
-      receiver_move(rx,-rx->step,TRUE);
-    } else {
       receiver_move(rx,rx->step,TRUE);
+    } else {
+      receiver_move(rx,-rx->step,TRUE);
     }
   }
   return TRUE;

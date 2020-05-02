@@ -1647,7 +1647,7 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
           if(digit<13) {
             step=ll_step[digit];
           }
-          if(event->direction==GDK_SCROLL_UP) {
+          if(event->direction==GDK_SCROLL_DOWN) {
             step=-step;
           }                    
           receiver_move(rx,step,FALSE);
