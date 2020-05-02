@@ -141,7 +141,7 @@ void update_tx_panadapter(RADIO *r) {
     cairo_set_source_rgba (cr, 0.5, 0.5, 0.5, 0.75);
     double filter_left=(double)width/2.0+((double)tx->actual_filter_low/hz_per_pixel);
     double filter_right=(double)width/2.0+((double)tx->actual_filter_high/hz_per_pixel);
-    cairo_rectangle(cr, filter_left, 0.0, filter_right-filter_left, (double)height);
+    cairo_rectangle(cr, filter_left, 20.0, filter_right-filter_left, (double)height-20.0);
     cairo_fill(cr);
 
     // levels
@@ -249,7 +249,7 @@ void update_tx_panadapter(RADIO *r) {
         f=tx->rx->frequency_b;
       }
       char temp[32];
-      sprintf(temp,"%0lld.%03lld.%03lld",f/(long long)1000000,(f%(long long)1000000)/(long long)1000,f%(long long)1000);
+      sprintf(temp,"%5lld.%03lld.%03lld",f/(long long)1000000,(f%(long long)1000000)/(long long)1000,f%(long long)1000);
       if(isTransmitting(radio)) {
         SetColour(cr, WARNING);
       } else {
@@ -271,5 +271,7 @@ void update_tx_panadapter(RADIO *r) {
     cairo_stroke(cr);    
     cairo_destroy(cr);
     gtk_widget_queue_draw(tx->panadapter);
+
+    tx->updated=TRUE;
   }
 }

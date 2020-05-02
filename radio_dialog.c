@@ -70,7 +70,6 @@ static GtkWidget *adc1_frame;
 static GtkWidget *adc1_antenna_combo_box;
 static GtkWidget *adc1_filters_combo_box;
 static GtkWidget *adc1_hpf_combo_box;
-static GtkWidget *adc1_lpf_combo_box;
 
 static GtkWidget *cw_keyer_sidetone_frequency_b;
 static GtkWidget *cw_keyer_speed_b;
@@ -148,11 +147,9 @@ static void update_controls() {
       gtk_widget_set_sensitive(adc1_antenna_combo_box, TRUE);
       gtk_widget_set_sensitive(adc1_filters_combo_box, TRUE);
       if(radio->adc[1].filters==AUTOMATIC) {
-        gtk_widget_set_sensitive(adc1_lpf_combo_box, FALSE);
         gtk_widget_set_sensitive(adc1_hpf_combo_box, FALSE);
       } else {
         gtk_widget_set_sensitive(adc1_hpf_combo_box, TRUE);
-        gtk_widget_set_sensitive(adc1_lpf_combo_box, TRUE);
       }
       break;
     case ANAN_100:
@@ -187,7 +184,6 @@ static void update_controls() {
       gtk_widget_set_sensitive(adc1_antenna_combo_box, FALSE);
       gtk_widget_set_sensitive(adc1_filters_combo_box, FALSE);
       gtk_widget_set_sensitive(adc1_hpf_combo_box, FALSE);
-      gtk_widget_set_sensitive(adc1_lpf_combo_box, FALSE);
       break;
   }
 
@@ -314,10 +310,8 @@ static void adc1_filters_cb(GtkComboBox *widget,gpointer data) {
   radio->adc[1].filters=gtk_combo_box_get_active(widget);
   if(radio->adc[1].filters==MANUAL) {
     gtk_widget_set_sensitive(adc1_hpf_combo_box, TRUE);
-    gtk_widget_set_sensitive(adc1_lpf_combo_box, TRUE);
   } else {
     gtk_widget_set_sensitive(adc1_hpf_combo_box, FALSE);
-    gtk_widget_set_sensitive(adc1_lpf_combo_box, FALSE);
   }
   if(radio->discovered->protocol==PROTOCOL_2) {
     protocol2_high_priority();
@@ -332,16 +326,6 @@ static void adc1_hpf_cb(GtkComboBox *widget,gpointer data) {
     protocol2_high_priority();
   }
 }
-
-/* UNUSED - this may be a bug
-static void adc1_lpf_cb(GtkComboBox *widget,gpointer data) {
-  RADIO *radio=(RADIO *)data;
-  radio->adc[1].lpf=gtk_combo_box_get_active(widget);
-  if(radio->discovered->protocol==PROTOCOL_2) {
-    protocol2_high_priority();
-  }
-}
-*/
 
 static void ptt_cb(GtkWidget *widget, gpointer data) {
   RADIO *radio=(RADIO *)data;
@@ -917,19 +901,6 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       gtk_combo_box_set_active(GTK_COMBO_BOX(adc1_hpf_combo_box),radio->adc[1].hpf);
       g_signal_connect(adc1_hpf_combo_box,"changed",G_CALLBACK(adc1_hpf_cb),radio);
       gtk_grid_attach(GTK_GRID(adc1_grid),adc1_hpf_combo_box,2,0,1,1);
-
-      adc1_lpf_combo_box=gtk_combo_box_text_new();
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc1_lpf_combo_box),NULL,"160m LPF");
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc1_lpf_combo_box),NULL,"80m LPF");
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc1_lpf_combo_box),NULL,"60/40m LPF");
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc1_lpf_combo_box),NULL,"30/20m LPF");
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc1_lpf_combo_box),NULL,"17/15m LPF");
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc1_lpf_combo_box),NULL,"12/10m LPF");
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(adc1_lpf_combo_box),NULL,"6m LPF");
-      gtk_combo_box_set_active(GTK_COMBO_BOX(adc1_lpf_combo_box),radio->adc[1].lpf);
-      // Should this be G_CALLBACK(adc1_lpf_cb)?
-      g_signal_connect(adc1_lpf_combo_box,"changed",G_CALLBACK(adc0_lpf_cb),radio);
-      gtk_grid_attach(GTK_GRID(adc1_grid),adc1_lpf_combo_box,3,0,1,1);
 
       dither_b=gtk_check_button_new_with_label("Dither");
       gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (dither_b), radio->adc[1].dither);

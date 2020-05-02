@@ -202,6 +202,16 @@ void transmitter_save_state(TRANSMITTER *tx) {
   sprintf(name,"transmitter[%d].eer_pwm_max",tx->channel);
   sprintf(value,"%i",tx->eer_pwm_max);
   setProperty(name,value);
+
+  sprintf(name,"transmitter[%d].xit_enabled",tx->channel);
+  sprintf(value,"%d",tx->xit_enabled);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].xit",tx->channel);
+  sprintf(value,"%ld",tx->xit);
+  setProperty(name,value);
+  sprintf(name,"transmitter[%d].xit_step",tx->channel);
+  sprintf(value,"%ld",tx->xit_step);
+  setProperty(name,value);
 }
 
 void transmitter_restore_state(TRANSMITTER *tx) {
@@ -327,6 +337,17 @@ void transmitter_restore_state(TRANSMITTER *tx) {
   sprintf(name,"transmitter[%d].eer_pwm_max",tx->channel);
   value=getProperty(name);
   if(value) tx->eer_pwm_max=atoi(value);
+
+  sprintf(name,"transmitter[%d].xit_enabled",tx->channel);
+  value=getProperty(name);
+  if(value) tx->xit_enabled=atoi(value);
+  sprintf(name,"transmitter[%d].xit",tx->channel);
+  value=getProperty(name);
+  if(value) tx->xit=atol(value);
+  sprintf(name,"transmitter[%d].xit_step",tx->channel);
+  value=getProperty(name);
+  if(value) tx->xit_step=atol(value);
+
 }
 
 static gboolean update_timer_cb(void *data) {
@@ -1106,6 +1127,12 @@ g_print("create_transmitter: channel=%d\n",channel);
   tx->ps_single=FALSE;
 
   tx->dialog=NULL;
+
+  tx->xit_enabled=FALSE;
+  tx->xit=0;
+  tx->xit_step=1000;
+
+  tx->updated=FALSE;
 
   gint mode=USB;
 

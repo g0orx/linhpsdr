@@ -140,6 +140,11 @@ typedef struct _transmitter {
   gulong microphone_choice_signal_id;
   gulong local_microphone_signal_id;
 
+  gboolean xit_enabled;
+  gint64 xit;
+  gint64 xit_step;
+
+  gboolean updated;
 
 } TRANSMITTER;
 

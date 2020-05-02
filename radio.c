@@ -79,6 +79,7 @@ fprintf(stderr,"radio_start\n");
       protocol1_run(r);
       break;
   }
+  update_tx_panadapter(r);
   return 0;
 }
 
@@ -501,8 +502,8 @@ void vox_changed(RADIO *r) {
 }
 
 void frequency_changed(RECEIVER *rx) {
-//fprintf(stderr,"frequency_changed: channel=%d frequency=%ld lo=%ld error=%ld ctun=%d ctun_offset=%ld\n",rx->channel,rx->frequency_a,rx->lo_a,rx->error_a,rx->ctun,rx->ctun_offset);
   if(rx->ctun) {
+    rx->ctun_offset=rx->ctun_frequency-rx->frequency_a;
     SetRXAShiftFreq(rx->channel, (double)rx->ctun_offset);
     RXANBPSetShiftFrequency(rx->channel, (double)rx->ctun_offset);
 #ifdef SOAPYSDR

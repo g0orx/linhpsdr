@@ -182,6 +182,9 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].ctun_offset",rx->channel);
   sprintf(value,"%ld",rx->ctun_offset);
   setProperty(name,value);
+  sprintf(name,"receiver[%d].ctun_frequency",rx->channel);
+  sprintf(value,"%ld",rx->ctun_frequency);
+  setProperty(name,value);
   sprintf(name,"receiver[%d].ctun_min",rx->channel);
   sprintf(value,"%ld",rx->ctun_min);
   setProperty(name,value);
@@ -403,6 +406,9 @@ void receiver_restore_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].ctun_offset",rx->channel);
   value=getProperty(name);
   if(value) rx->ctun_offset=atol(value);
+  sprintf(name,"receiver[%d].ctun_frequency",rx->channel);
+  value=getProperty(name);
+  if(value) rx->ctun_frequency=atol(value);
   sprintf(name,"receiver[%d].ctun_min",rx->channel);
   value=getProperty(name);
   if(value) rx->ctun_min=atol(value);
@@ -662,6 +668,92 @@ void update_frequency(RECEIVER *rx) {
   }
 }
 
+long long receiver_move_a(RECEIVER *rx,long long hz,gboolean round) {
+  long long delta;
+  if(rx->ctun) {
+    delta=rx->ctun_frequency;
+    rx->ctun_frequency=rx->ctun_frequency-hz;
+    if(round && (rx->mode_a!=CWL || rx->mode_a!=CWU)) {
+      rx->ctun_frequency=(rx->ctun_frequency/rx->step)*rx->step;
+    }
+    delta=rx->ctun_frequency-delta;
+  } else {
+    delta=rx->frequency_a;
+    rx->frequency_a=rx->frequency_a-hz;
+    if(round && (rx->mode_a!=CWL || rx->mode_a!=CWU)) {
+      rx->frequency_a=(rx->frequency_a/rx->step)*rx->step;
+    }
+    delta=rx->frequency_a-delta;
+  }
+  return delta;
+}
+
+void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only) {
+  switch(radio->sat_mode) {
+    case SAT_NONE:
+      rx->frequency_b=rx->frequency_b+hz;
+      break;
+    case SAT_MODE:
+      rx->frequency_b=rx->frequency_b+hz;
+      if(!b_only) receiver_move_a(rx,hz,FALSE);
+      break;
+    case RSAT_MODE:
+      rx->frequency_b=rx->frequency_b-hz;
+      if(!b_only) receiver_move_a(rx,-hz,FALSE);
+      break;
+  }
+}
+
+void receiver_move(RECEIVER *rx,long long hz,gboolean round) {
+  long long delta=receiver_move_a(rx,hz,round);
+  switch(radio->sat_mode) {
+    case SAT_NONE:
+      break;
+    case SAT_MODE:
+    case RSAT_MODE:
+      receiver_move_b(rx,delta,TRUE);
+      break;
+  }
+
+  frequency_changed(rx);
+  update_frequency(rx);
+}
+
+void receiver_move_to(RECEIVER *rx,long long hz) {
+  long long delta;
+  long long half=(long long)(rx->sample_rate/2);
+  long long offset=hz;
+  long long f;
+
+  if(rx->mode_a!=CWL && rx->mode_a!=CWU) {
+    offset=(hz/rx->step)*rx->step;
+  }
+  f=(rx->frequency_a-half)+offset+(long long)((double)rx->pan*rx->hz_per_pixel);
+  if(rx->ctun) {
+    delta=rx->ctun_frequency;
+    rx->ctun_frequency=f;
+    delta=rx->ctun_frequency-delta;
+  } else {
+    delta=rx->frequency_a;
+    rx->frequency_a=f;
+    delta=rx->frequency_a-delta;
+  }
+
+  switch(radio->sat_mode) {
+    case SAT_NONE:
+      break;
+    case SAT_MODE:
+      receiver_move_b(rx,delta,TRUE);
+      break;
+    case RSAT_MODE:
+      receiver_move_b(rx,-delta,TRUE);
+      break;
+  }
+
+  frequency_changed(rx);
+  update_frequency(rx);
+}
+
 gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
   gint64 hz;
   RECEIVER *rx=(RECEIVER *)data;
@@ -671,11 +763,11 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
   x=event->x;
   y=event->y;
   state=event->state;
-  int moved=rx->last_x-x;
+  int moved=x-rx->last_x;
   switch(event->button) {
     case 1: // left button
       if(rx->is_panning) {
-        int pan=rx->pan-(moved*rx->zoom);
+        int pan=rx->pan+(moved*rx->zoom);
         if(pan<0) {
           pan=0;
         } else if(pan>(rx->pixels-rx->panadapter_width)) {
@@ -688,6 +780,22 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
       } else if(!rx->locked) {
         if(rx->has_moved) {
           // drag
+          receiver_move(rx,(long long)((double)(moved*rx->hz_per_pixel)),TRUE);
+        } else {
+          // move to this frequency
+          receiver_move_to(rx,(long long)((float)x*rx->hz_per_pixel));
+        }
+        rx->last_x=x;
+        rx->has_moved=FALSE;
+    }
+  }
+
+  return TRUE;
+}
+
+/*
+
+          // drag
           hz=(gint64)((double)(x-rx->last_x)*rx->hz_per_pixel);
           if(rx->ctun) {
             rx->ctun_offset=(rx->ctun_offset-hz)/rx->step*rx->step;
@@ -697,6 +805,21 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
           }
           else {
             rx->frequency_a=(rx->frequency_a+hz)/rx->step*rx->step;
+          }
+          if(rx->split) {
+            switch(radio->sat_mode) { 
+              case SAT_NONE:
+                if ((rx->split) && (rx->mode_a==CWU || rx->mode_a==CWL)) {            
+                  rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step; 
+                }
+                break;
+              case SAT_MODE:
+                rx->frequency_b=(rx->frequency_b-hz)/rx->step*rx->step;
+                break;
+              case RSAT_MODE:
+                rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
+                break;
+            }
           }
         } else {
           // move to this frequency
@@ -739,6 +862,21 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
               rx->pan=center_pan;
             }
           }
+          if(rx->split) {
+            switch(radio->sat_mode) {
+              case SAT_NONE:
+                if ((rx->split) && ((rx->mode_a==CWU) || (rx->mode_a==CWL))) {
+                  rx->frequency_b = (rx->frequency_b + hz) / rx->step*rx->step;
+                }
+                break;
+              case SAT_MODE:
+                rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
+                break;
+              case RSAT_MODE:
+                rx->frequency_b=(rx->frequency_b-hz)/rx->step*rx->step;
+                break;
+            }
+          }
         }
         if(rx->ctun) {
           if(rx->ctun_offset < rx->ctun_min) rx->ctun_offset=rx->ctun_min;
@@ -757,19 +895,20 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
   }
   return TRUE;
 }
+*/
 
 gboolean receiver_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
   gint x,y;
   GdkModifierType state;
   RECEIVER *rx=(RECEIVER *)data;
+  long long delta;
 
   x=event->x;
   y=event->y;
   state=event->state;
-  //gdk_window_get_device_position(event->window,event->device,&x,&y,&state);
-  int moved=rx->last_x-x;
+  int moved=x-rx->last_x;
   if(rx->is_panning) {
-    int pan=rx->pan-(moved*rx->zoom);
+    int pan=rx->pan+(moved*rx->zoom);
     if(pan<0) {
       pan=0;
     } else if(pan>(rx->pixels-rx->panadapter_width)) {
@@ -779,11 +918,32 @@ gboolean receiver_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *even
     rx->last_x=x;
   } else if(!rx->locked) {
     if((state & GDK_BUTTON1_MASK) == GDK_BUTTON1_MASK) {
+      receiver_move(rx,(long long)((double)(moved*rx->hz_per_pixel)),FALSE);
+      rx->last_x=x;
+      rx->has_moved=TRUE;
+    }
+  }
+  return TRUE;
+}
+
+/*
       gint64 hz=(gint64)((double)moved*rx->hz_per_pixel);
       if(rx->ctun) {
         rx->ctun_offset=(rx->ctun_offset-hz)/rx->step*rx->step;
       } else {
         rx->frequency_a=(rx->frequency_a+hz)/rx->step*rx->step;
+      }
+      if(rx->split) {
+        switch(radio->sat_mode) {
+          case SAT_NONE:
+            break;
+          case SAT_MODE:
+            rx->frequency_b=(rx->frequency_b-hz)/rx->step*rx->step;
+            break;
+          case RSAT_MODE:
+            rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
+            break;
+        }
       }
       if(rx->ctun) {
         if(rx->ctun_offset < rx->ctun_min) rx->ctun_offset=rx->ctun_min;
@@ -798,6 +958,7 @@ gboolean receiver_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *even
   }
   return TRUE;
 }
+*/
 
 gboolean receiver_scroll_event_cb(GtkWidget *widget, GdkEventScroll *event, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
@@ -822,42 +983,115 @@ gboolean receiver_scroll_event_cb(GtkWidget *widget, GdkEventScroll *event, gpoi
   } else if(!rx->locked) {
     if((x>4 && x<35) && (widget==rx->panadapter)) {
       if(event->direction==GDK_SCROLL_UP) {
-
         if(y<half) {
           rx->panadapter_high=rx->panadapter_high-5;
         } else {
           rx->panadapter_low=rx->panadapter_low-5;
         }
-        return TRUE;
       } else {
         if(y<half) {
           rx->panadapter_high=rx->panadapter_high+5;
         } else {
           rx->panadapter_low=rx->panadapter_low+5;
         }
-        return TRUE;
       }
+    } else if(event->direction==GDK_SCROLL_UP) {
+      receiver_move(rx,-rx->step,TRUE);
+    } else {
+      receiver_move(rx,rx->step,TRUE);
     }
-
-    if(event->direction==GDK_SCROLL_UP) {
+  }
+  return TRUE;
+}
+        
+/*
       if(rx->ctun) {
         rx->ctun_offset+=rx->step;
+        if(rx->split) {
+          switch(radio->sat_mode) {
+            case SAT_NONE:
+              break;
+            case SAT_MODE:
+              rx->frequency_b=rx->frequency_b+rx->step;
+              break;
+            case RSAT_MODE:
+              rx->frequency_b=rx->frequency_b-rx->step;
+              break;
+          }
+        }
       }
       else if ((rx->split) && (rx->mode_a==CWU || rx->mode_a==CWL)) {
-        rx->frequency_b=rx->frequency_b+rx->step;      
+        switch(radio->sat_mode) {
+          case SAT_NONE:
+            rx->frequency_b=rx->frequency_b+rx->step;      
+            break;
+          case SAT_MODE:
+            rx->frequency_b=rx->frequency_b+rx->step;
+            break;
+          case RSAT_MODE:
+            rx->frequency_b=rx->frequency_b-rx->step;
+            break;
+        }
       }
       else {
         rx->frequency_a=rx->frequency_a+rx->step;
+        if(rx->split) {
+          switch(radio->sat_mode) {
+            case SAT_NONE:
+              break;
+            case SAT_MODE:
+              rx->frequency_b=rx->frequency_b+rx->step;
+              break;
+            case RSAT_MODE:
+              rx->frequency_b=rx->frequency_b-rx->step;
+              break;
+          }
+        }
       }
     } else {
       if(rx->ctun) {
         rx->ctun_offset-=rx->step;
+        if(rx->split) {
+          switch(radio->sat_mode) {
+            case SAT_NONE:
+              break;
+            case SAT_MODE:
+              rx->frequency_b=rx->frequency_b-rx->step;
+              break;
+            case RSAT_MODE:
+              rx->frequency_b=rx->frequency_b+rx->step;
+              break;
+          }
+        }
       } 
       else if ((rx->split) && (rx->mode_a==CWU || rx->mode_a==CWL)) {
         rx->frequency_b=rx->frequency_b-rx->step;        
+        switch(radio->sat_mode) {
+          case SAT_NONE:
+            rx->frequency_b=rx->frequency_b-rx->step;
+            break;
+          case SAT_MODE:
+            rx->frequency_b=rx->frequency_b-rx->step;
+            break;
+          case RSAT_MODE:
+            rx->frequency_b=rx->frequency_b+rx->step;
+            break;
+        }
       }
       else {
         rx->frequency_a=rx->frequency_a-rx->step;
+        if(rx->split) {
+          switch(radio->sat_mode) {
+            case SAT_NONE:
+              break;
+            case SAT_MODE:
+              rx->frequency_b=rx->frequency_b-rx->step;
+              break;
+            case RSAT_MODE:
+              rx->frequency_b=rx->frequency_b+rx->step;
+              break;
+          }
+        }
       }
     }
     if(rx->ctun) {
@@ -869,6 +1103,7 @@ gboolean receiver_scroll_event_cb(GtkWidget *widget, GdkEventScroll *event, gpoi
   }
   return TRUE;
 }
+*/
 
 static gboolean update_timer_cb(void *data) {
   int rc;
@@ -887,28 +1122,23 @@ static gboolean update_timer_cb(void *data) {
     update_meter(rx,m);
   }
   update_radio_info(rx);
-
   
   if(rx->bpsk) {
     process_bpsk(rx);
+  }
+
+  if(radio->transmitter!=NULL && !radio->transmitter->updated) {
+    update_tx_panadapter(radio);
   }
   g_mutex_unlock(&rx->mutex);
   return TRUE;
 }
  
 static void set_mode(RECEIVER *rx,int m) {
-//fprintf(stderr,"set_mode: %d\n",m);
   int previous_mode;
   previous_mode=rx->mode_a;
   rx->mode_a=m;
   SetRXAMode(rx->channel, m);
-/*
-  if(rx->mode_a==FMN && previous_mode!=FMN) {
-    SetDSPSamplerate (rx->channel, 192000);
-  } else if(rx->mode_a!=FMN && previous_mode==FMN) {
-    SetDSPSamplerate (rx->channel, 48000);
-  }
-*/
 }
 
 void set_filter(RECEIVER *rx,int low,int high) {
@@ -974,7 +1204,6 @@ void receiver_filter_changed(RECEIVER *rx,int filter) {
 }
 
 void receiver_mode_changed(RECEIVER *rx,int mode) {
-//fprintf(stderr,"receiver_mode_changed: %d\n",mode);
   set_mode(rx,mode);
   receiver_filter_changed(rx,rx->filter_a);
 }

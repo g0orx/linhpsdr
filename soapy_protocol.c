@@ -385,7 +385,6 @@ void soapy_protocol_set_rx_frequency(RECEIVER *rx) {
 
   if(soapy_device!=NULL) {
     double f=(double)(rx->frequency_a-rx->lo_a+rx->error_a);
-g_print("soapy_protocol_set_rx_frequency: %f\n",f);
     rc=SoapySDRDevice_setFrequency(soapy_device,SOAPY_SDR_RX,rx->adc,f,NULL);
     if(rc!=0) {
       fprintf(stderr,"soapy_protocol: SoapySDRDevice_setFrequency(RX) failed: %s\n",SoapySDR_errToStr(rc));

@@ -133,6 +133,13 @@ typedef struct _receiver {
   GtkWidget *radio_info;
   cairo_surface_t *radio_info_surface;  
   
+  gint vfo_a_x;
+  gint vfo_a_digits;
+  gint vfo_a_width;
+
+  gint vfo_b_x;
+  gint vfo_b_digits;
+  gint vfo_b_width;
 
   GtkWidget *bookmark_dialog;
 
@@ -288,4 +295,7 @@ extern void calculate_display_average(RECEIVER *rx);
 extern void receiver_fps_changed(RECEIVER *rx);
 extern void receiver_change_zoom(RECEIVER *rx,int zoom);
 extern void update_frequency(RECEIVER *rx);
+extern void receiver_move(RECEIVER *rx,long long hz,gboolean round);
+extern void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only);
+extern void receiver_move_to(RECEIVER *rx,long long hz);
 #endif

@@ -1213,7 +1213,7 @@ void ozy_send_buffer() {
     switch(command) {
       case 1: // tx frequency
         output_buffer[C0]=0x02;
-        long long tx_frequency;
+        long long tx_frequency=0LL;
 
         tx_receiver=radio->transmitter->rx;
         if(tx_receiver!=NULL) {
@@ -1222,6 +1222,9 @@ void ozy_send_buffer() {
           } else {
             tx_frequency=tx_receiver->frequency_a;
           }
+        }
+        if(radio->transmitter->xit_enabled) {
+          tx_frequency+=radio->transmitter->xit;
         }
         output_buffer[C1]=tx_frequency>>24;
         output_buffer[C2]=tx_frequency>>16;
