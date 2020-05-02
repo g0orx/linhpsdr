@@ -79,7 +79,9 @@ fprintf(stderr,"radio_start\n");
       protocol1_run(r);
       break;
   }
-  update_tx_panadapter(r);
+  if(r->transmitter!=NULL) {
+    update_tx_panadapter(r);
+  }
   return 0;
 }
 

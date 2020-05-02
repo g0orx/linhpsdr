@@ -964,10 +964,12 @@ void update_receiver_dialog(RECEIVER *rx) {
   g_signal_handler_unblock(G_OBJECT(rx->local_audio_b),rx->local_audio_signal_id);
   g_signal_handler_unblock(G_OBJECT(rx->audio_choice_b),rx->audio_choice_signal_id);
 
-  // update TX Frequency
-  g_signal_handler_block(G_OBJECT(rx->tx_control_b),rx->tx_control_signal_id);
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->tx_control_b), radio->transmitter->rx==rx);
-  g_signal_handler_unblock(G_OBJECT(rx->tx_control_b),rx->tx_control_signal_id);
+  if(radio->transmitter!=NULL) {
+    // update TX Frequency
+    g_signal_handler_block(G_OBJECT(rx->tx_control_b),rx->tx_control_signal_id);
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->tx_control_b), radio->transmitter->rx==rx);
+    g_signal_handler_unblock(G_OBJECT(rx->tx_control_b),rx->tx_control_signal_id);
+  }
 
 }
 

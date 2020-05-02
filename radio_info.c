@@ -143,7 +143,7 @@ void update_radio_info(RECEIVER *rx) {
   }
   x+=40; 
   // SWR is above a threshold   
-  if (radio->transmitter->swr > radio->swr_alarm_value) {
+  if (radio->transmitter!=NULL && radio->transmitter->swr > radio->swr_alarm_value) {
     RoundedRectangle(cr, x, top_y, 25.0, 6.0, WARNING_ON);   
   } else {
     RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);       
