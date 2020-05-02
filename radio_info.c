@@ -33,9 +33,6 @@
 #include "main.h"
 #include "vfo.h"
 
-//static int meter_width;
-//static int meter_height;
-
 typedef struct _choice {
   RECEIVER *rx;
   int selection;
@@ -46,7 +43,6 @@ static gboolean info_configure_event_cb(GtkWidget *widget,GdkEventConfigure *eve
   RECEIVER *rx=(RECEIVER *)data;
   int meter_width = gtk_widget_get_allocated_width(widget);
   int meter_height = gtk_widget_get_allocated_height(widget);
-//g_print("meter_configure_event_cb: width=%d height=%d\n",meter_width,meter_height);
   if (rx->radio_info_surface) {
     cairo_surface_destroy (rx->radio_info_surface);
   }
@@ -131,113 +127,132 @@ void update_radio_info(RECEIVER *rx) {
   
   double top_y = 18;
   double y_space = 24;
-  // ---------- TX  
+  double x = 5;
   
   // ********** WARNINGS ****************************
   // HL2 Buffer over/underflow
-  RoundedRectangle(cr, 5, top_y, 25.0, 6.0, INFO_FALSE);    
+  if (radio->discovered->device == DEVICE_HERMES_LITE2) {  
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);  
+    x+=40;  
+  }
   // HERMES/HL2 ADC Clipping
   if ((radio->adc_overload) && (!isTransmitting(radio))) {
-    RoundedRectangle(cr, 45, top_y, 25.0, 6.0, WARNING_ON);     
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, WARNING_ON);     
   } else {
-    RoundedRectangle(cr, 45, top_y, 25.0, 6.0, INFO_FALSE);  
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);  
   }
+  x+=40; 
   // SWR is above a threshold   
-  if (radio->transmitter->swr > 2.0) {
-    RoundedRectangle(cr, 85, top_y, 25.0, 6.0, WARNING_ON);   
+  if (radio->transmitter->swr > radio->swr_alarm_value) {
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, WARNING_ON);   
   } else {
-    RoundedRectangle(cr, 85, top_y, 25.0, 6.0, INFO_FALSE);       
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);       
   }
-  // Temperature   
-  if (radio->transmitter->temperature > 40) {  
-    RoundedRectangle(cr, 125, top_y, 25.0, 6.0, WARNING_ON);     
-  } else {
-    RoundedRectangle(cr, 125, top_y, 25.0, 6.0, INFO_FALSE);     
+  x+=40;   
+  if (radio->discovered->device == DEVICE_HERMES_LITE2) {
+    // Temperature   
+    if (radio->transmitter->temperature > radio->temperature_alarm_value) {  
+      RoundedRectangle(cr, x, top_y, 25.0, 6.0, WARNING_ON);     
+    } else {
+      RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);     
+    }
   }
   // ********** Radio Info/Settings *****************
+  x = 5;
   top_y += y_space;
-  // CWdaemon CWX mode (only HL2 for now)
-  if (radio->cwdaemon) {
-    RoundedRectangle(cr, 5, top_y, 25.0, 6.0, INFO_TRUE);
-  } else {
-    RoundedRectangle(cr, 5, top_y, 25.0, 6.0, INFO_FALSE);    
-  }
+    
   // Rigctl CAT control
   if (rx->cat_control>-1) {  
-    RoundedRectangle(cr, 45, top_y, 25.0, 6.0, INFO_TRUE);  
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_TRUE);  
   } else {
-    RoundedRectangle(cr, 45, top_y, 25.0, 6.0, INFO_FALSE);    
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);    
   }
+  x+=40;  
   // Duplex mode 
   if (radio->duplex) {
-    RoundedRectangle(cr, 85, top_y, 25.0, 6.0, INFO_TRUE);
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_TRUE);
   } else {
-    RoundedRectangle(cr, 85, top_y, 25.0, 6.0, INFO_FALSE);    
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);    
   }
+  x+=40;  
   // Alsa MIDI server  
   if (radio->midi) {  
-    RoundedRectangle(cr, 125, top_y, 25.0, 6.0, INFO_TRUE);  
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_TRUE);  
   } else {
-    RoundedRectangle(cr, 125, top_y, 25.0, 6.0, INFO_FALSE);  
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);  
   }
-    
+  x+=40;
   // Sat mode 
   if (radio->sat_mode==SAT_NONE) {
-    RoundedRectangle(cr, 165, top_y, 25.0, 6.0, INFO_FALSE);    
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);    
   } else {
-    RoundedRectangle(cr, 165, top_y, 25.0, 6.0, INFO_TRUE);
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_TRUE);
   }
+  x+=40;  
   // Mute RX while transmitting (when in duplex mode)
   if (radio->mute_rx_while_transmitting) {
-    RoundedRectangle(cr, 205, top_y, 25.0, 6.0, INFO_TRUE);
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_TRUE);
   } else {
-    RoundedRectangle(cr, 205, top_y, 25.0, 6.0, INFO_FALSE);
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);
   }
+  x+=40;    
+  #ifdef CWDAEMON
+  // CWdaemon CWX mode (only HL2 for now)
+  if (radio->cwdaemon) {
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_TRUE);
+  } else {
+    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);    
+  }
+  #endif  
 
 
 
-  top_y = 18;
+
   // ********** WARNINGS ****************************
+  top_y = 18;
+  x = 5;  
   // HL2 Buffer over/underflow 
-  SetColour(cr, BACKGROUND);
-  cairo_move_to(cr, 5, top_y + 7);  
-  cairo_show_text(cr, "BUF");
-  
+  if (radio->discovered->device == DEVICE_HERMES_LITE2) {
+    SetColour(cr, BACKGROUND);
+    cairo_move_to(cr, x, top_y + 7);  
+    cairo_show_text(cr, "BUF");
+    x += 40;
+  }
   // HERMES/HL2 ADC Clipping   
   SetColour(cr, BACKGROUND);
-  cairo_move_to(cr, 45, top_y + 7);  
+  cairo_move_to(cr, x, top_y + 7);  
   cairo_show_text(cr, "ADC");  
-  
+  x += 40;  
   // SWR is above a threshold  
   SetColour(cr, BACKGROUND);
-  cairo_move_to(cr, 85, top_y + 7);  
+  cairo_move_to(cr, x, top_y + 7);  
   cairo_show_text(cr, "SWR");  
-  
+  x += 40;  
   // INFO  
-  SetColour(cr, BACKGROUND);
-  cairo_move_to(cr, 122, top_y + 7);  
-  cairo_show_text(cr, "TEMP");  
-    
+  if (radio->discovered->device == DEVICE_HERMES_LITE2) {  
+    SetColour(cr, BACKGROUND);
+    cairo_move_to(cr, x-3, top_y + 7);  
+    cairo_show_text(cr, "TEMP");  
+  }
   // ********** Radio Info/Settings *****************
   top_y += y_space;
-  // CWdaemon CWX mode (only HL2 for now)
-  SetColour(cr, OFF_WHITE);
-  cairo_move_to(cr, 3, top_y + 7);    
-  cairo_show_text(cr, "CWX");  
+  x = 5;
+  // CWdaemon CWX mode (only HL2+Hermes for now)
+
   // Rigctl CAT control  
   SetColour(cr, OFF_WHITE);
-  cairo_move_to(cr, 45, top_y + 7);    
+  cairo_move_to(cr, 5, top_y + 7);    
   cairo_show_text(cr, "CAT");
   // Duplex mode    
   SetColour(cr, OFF_WHITE);
-  cairo_move_to(cr, 85, top_y + 7);    
+  cairo_move_to(cr, 45, top_y + 7);    
   cairo_show_text(cr, "DUP");
   // Alsa MIDI server
   SetColour(cr, OFF_WHITE);
-  cairo_move_to(cr, 123, top_y + 7);    
+  cairo_move_to(cr, 83, top_y + 7);    
   cairo_show_text(cr, "MIDI"); 
   // Sat mode
-  cairo_move_to(cr, 163, top_y + 7);    
+  cairo_move_to(cr, 126, top_y + 7);    
   switch(radio->sat_mode) {
     case SAT_NONE:
       SetColour(cr, DARK_TEXT);
@@ -248,14 +263,21 @@ void update_radio_info(RECEIVER *rx) {
       cairo_show_text(cr, "SAT"); 
       break;
     case RSAT_MODE:
+      cairo_move_to(cr, 123, top_y + 7);     
       SetColour(cr, OFF_WHITE);
       cairo_show_text(cr, "RSAT"); 
       break;
   }
   // Mute RX while transmitting    
   SetColour(cr, OFF_WHITE);
-  cairo_move_to(cr, 203, top_y + 7);    
+  cairo_move_to(cr, 162, top_y + 7);    
   cairo_show_text(cr, "MUTE");
+
+  #ifdef CWDAEMON
+  SetColour(cr, OFF_WHITE);
+  cairo_move_to(cr, 203, top_y + 7);    
+  cairo_show_text(cr, "CWX"); 
+  #endif 
 
   cairo_destroy(cr);
   gtk_widget_queue_draw(rx->radio_info);

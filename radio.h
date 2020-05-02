@@ -87,6 +87,8 @@ typedef struct _radio {
   gint alex_tx_antenna;
   gdouble meter_calibration;
   gdouble panadapter_calibration;
+  gdouble swr_alarm_value;
+  gint temperature_alarm_value;
   
   gint cw_keyer_sidetone_frequency;
   gint cw_keyer_sidetone_volume;
@@ -103,7 +105,7 @@ typedef struct _radio {
   
   #ifdef CWDAEMON
   gint cwdaemon_running;
-  int cwd_port;
+  gint cwd_port;
 
   struct sockaddr_in request_addr;
   socklen_t request_addrlen;

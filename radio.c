@@ -222,6 +222,11 @@ g_print("radio_save_state: %s\n",filename);
   sprintf(value,"%d",radio->mute_rx_while_transmitting);
   setProperty("radio.mute_rx_while_transmitting",value);
 
+  sprintf(value,"%d",radio->temperature_alarm_value);
+  setProperty("radio.temp_alarm",value);
+  sprintf(value,"%f",radio->swr_alarm_value);
+  setProperty("radio.swr_alarm",value);
+
   sprintf(value,"%d",rigctl_enable);
   setProperty("rigctl_enable",value);
   sprintf(value,"%d",rigctl_port_base);
@@ -394,6 +399,11 @@ void radio_restore_state(RADIO *radio) {
   if(value!=NULL) radio->sat_mode=atoi(value);
   value=getProperty("radio.mute_rx_while_transmitting");
   if(value!=NULL) radio->mute_rx_while_transmitting=atoi(value);
+
+  value=getProperty("radio.temp_alarm");
+  if(value!=NULL) radio->temperature_alarm_value=atoi(value);
+  value=getProperty("radio.swr_alarm");
+  if(value!=NULL) radio->swr_alarm_value=atof(value);
 
   value=getProperty("radio.iqswap");
   if(value) radio->iqswap=atoi(value);
@@ -1058,10 +1068,10 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->cw_breakin=FALSE;
   
   r->cwdaemon=FALSE;
-
+  
   #ifdef CWDAEMON
   r->cwdaemon_running=FALSE;
-  r->cwd_port = 6789;
+  r->cwd_port = 51000;
   #endif
   
   r->display_filled=TRUE;
@@ -1146,6 +1156,8 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->sat_mode=SAT_NONE;
   r->mute_rx_while_transmitting=FALSE;
 
+  r->swr_alarm_value = 2.0;
+  r->temperature_alarm_value = 42;  
   r->midi = FALSE;
   
   r->dialog=NULL;
