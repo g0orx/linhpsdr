@@ -1060,10 +1060,11 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
       select->choice=384000;
       g_signal_connect(sample_rate_384,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
 
+      if((radio->discovered->protocol==PROTOCOL_2)
 #ifdef SOAPYSDR
-      if((radio->discovered->protocol==PROTOCOL_2) ||
-         ((radio->discovered->protocol==PROTOCOL_SOAPYSDR) && (radio->discovered->info.soapy.sample_rate>384000))) {
+          || (radio->discovered->protocol==PROTOCOL_SOAPYSDR)
 #endif
+      ) {
         GtkWidget *sample_rate_768=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_384),"768000");
         gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_768), rx->sample_rate==768000);
         gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_768,x,y++,1,1);
@@ -1072,17 +1073,17 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
         select->choice=768000;
         g_signal_connect(sample_rate_768,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
 
-        GtkWidget *sample_rate_1536=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_768),"1536000");
-        gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_1536), rx->sample_rate==1536000);
-        gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_1536,x,y++,1,1);
-        select=g_new0(SELECT,1);
-        select->rx=rx;
-        select->choice=1536000;
-        g_signal_connect(sample_rate_1536,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
-#ifdef SOAPYSDR
+        if(radio->discovered->protocol==PROTOCOL_2) {
+          GtkWidget *sample_rate_1536=gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(sample_rate_768),"1536000");
+          gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_1536), rx->sample_rate==1536000);
+          gtk_grid_attach(GTK_GRID(sample_rate_grid),sample_rate_1536,x,y++,1,1);
+          select=g_new0(SELECT,1);
+          select->rx=rx;
+          select->choice=1536000;
+          g_signal_connect(sample_rate_1536,"pressed",G_CALLBACK(sample_rate_cb),(gpointer)select);
+        }
       }
-#endif
-      }
+    }
     break;
   }
 

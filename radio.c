@@ -1003,7 +1003,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
     case SOAPYSDR_USB:
       r->sample_rate=r->discovered->info.soapy.sample_rate;
       if(r->sample_rate==0) {
-        r->sample_rate=384000;
+        r->sample_rate=768000;
       }
       r->buffer_size=2048;
       r->alex_rx_antenna=3; // LNAW

@@ -48,7 +48,7 @@
 #include "protocol1.h"
 #include "protocol2.h"
 #include "audio.h"
-//#include "receiver_dialog.h"
+#include "receiver_dialog.h"
 #include "configure_dialog.h"
 #include "property.h"
 #include "rigctl.h"
@@ -653,6 +653,7 @@ gboolean receiver_button_press_event_cb(GtkWidget *widget, GdkEventButton *event
           }
         }
         radio->dialog=create_configure_dialog(radio,i+rx_base);
+        update_receiver_dialog(rx);
       }
       break;
   }
