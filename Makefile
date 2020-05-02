@@ -247,10 +247,6 @@ prebuild:
 	rm -f version.o
 
 
-.c.o:
-	$(COMPILE) -c -o $@ $<
-
-
 clean:
 	-rm -f *.o
 	-rm -f $(PROGRAM)
