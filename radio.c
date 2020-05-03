@@ -205,6 +205,9 @@ g_print("radio_save_state: %s\n",filename);
       sprintf(name,"radio.dac[%d].gain",i);
       sprintf(value,"%f", radio->dac[0].gain);
       setProperty(name,value);
+      sprintf(name,"radio.dac[%d].antenna",i);
+      sprintf(value,"%d", radio->dac[0].antenna);
+      setProperty(name,value);
     }
 #endif
   }
@@ -367,6 +370,9 @@ void radio_restore_state(RADIO *radio) {
         sprintf(name,"radio.dac[%d].gain",i);
         value=getProperty(name);
         if(value!=NULL) radio->dac[i].gain=atof(value);
+        sprintf(name,"radio.dac[%d].antenna",i);
+        value=getProperty(name);
+        if(value!=NULL) radio->dac[i].antenna=atoi(value);
       }
     }
 #endif
@@ -505,13 +511,19 @@ void vox_changed(RADIO *r) {
 
 void frequency_changed(RECEIVER *rx) {
   if(rx->ctun) {
+    gint64 offset;
     rx->ctun_offset=rx->ctun_frequency-rx->frequency_a;
-    if(rx->rit_enabled) {
-      SetRXAShiftFreq(rx->channel, (double)(rx->ctun_offset+rx->rit));
-    } else {
-      SetRXAShiftFreq(rx->channel, (double)rx->ctun_offset);
+    offset=rx->ctun_offset;
+    if(rx->mode_a==CWU) {
+      offset+=(gint64)radio->cw_keyer_sidetone_frequency;
+    } else if(rx->mode_a==CWL) {
+      offset-=(gint64)radio->cw_keyer_sidetone_frequency;
     }
-    RXANBPSetShiftFrequency(rx->channel, (double)rx->ctun_offset);
+    if(rx->rit_enabled) {
+      offset+=rx->rit;
+    }
+    SetRXAShiftFreq(rx->channel, (double)offset);
+    RXANBPSetShiftFrequency(rx->channel, (double)offset);
 #ifdef SOAPYSDR
     if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
       if(radio->can_transmit) {
@@ -624,7 +636,8 @@ static void rxtx(RADIO *r) {
         break;
 #ifdef SOAPYSDR
       case PROTOCOL_SOAPYSDR:
-        soapy_protocol_start_transmitter(r->transmitter);
+        soapy_protocol_set_tx_frequency(r->transmitter);
+        //soapy_protocol_start_transmitter(r->transmitter);
         break;
 #endif
     }
@@ -646,7 +659,7 @@ static void rxtx(RADIO *r) {
         break;
 #ifdef SOAPYSDR
       case PROTOCOL_SOAPYSDR:
-        soapy_protocol_stop_transmitter(r->transmitter);
+        //soapy_protocol_stop_transmitter(r->transmitter);
         break;
 #endif
     }
@@ -1122,7 +1135,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
     r->adc[0].gain=20;
     r->adc[0].agc=FALSE;
     if(r->can_transmit) {
-      r->dac[0].antenna=1;
+      r->dac[0].antenna=radio->discovered->info.soapy.rx_antennas-1;
       r->dac[0].gain=20;
     }
   }
@@ -1141,6 +1154,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
     r->adc[1].gain=20;
     r->adc[1].agc=FALSE;
     if(r->can_transmit) {
+      r->dac[0].antenna=radio->discovered->info.soapy.rx_antennas-1;
       r->dac[1].gain=20;
     }
   }

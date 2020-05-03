@@ -439,7 +439,7 @@ void soapy_protocol_set_tx_antenna(TRANSMITTER *tx,int ant) {
   int rc;
   if(soapy_device!=NULL) {
     fprintf(stderr,"soapy_protocol: set_tx_antenna: %s\n",radio->discovered->info.soapy.tx_antenna[ant]);
-    rc=SoapySDRDevice_setAntenna(soapy_device,SOAPY_SDR_TX,tx->rx->adc,radio->discovered->info.soapy.tx_antenna[ant]);
+    rc=SoapySDRDevice_setAntenna(soapy_device,SOAPY_SDR_TX,tx->dac,radio->discovered->info.soapy.tx_antenna[ant]);
     if(rc!=0) {
       fprintf(stderr,"soapy_protocol: SoapySDRDevice_setAntenna TX failed: %s\n",SoapySDR_errToStr(rc));
     }

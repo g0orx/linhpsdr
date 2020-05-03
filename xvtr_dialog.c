@@ -97,13 +97,11 @@ void update_receiver(int band,gboolean error) {
   int i;
   RECEIVER *rx;
   gboolean saved_ctun;
-g_print("update_receiver: band=%d error=%d\n",band,error);
   for(i=0;i<MAX_RECEIVERS;i++) {
     rx=radio->receiver[i];
     if(rx!=NULL) {
       if(rx->band_a==band) {
         BAND *xvtr=band_get_band(band);
-g_print("update_receiver: found band: %s\n",xvtr->title);
         rx->lo_a=xvtr->frequencyLO;
         rx->error_a=xvtr->errorLO;
         saved_ctun=rx->ctun;
@@ -120,7 +118,15 @@ g_print("update_receiver: found band: %s\n",xvtr->title);
             update_tx_panadapter(radio);
           }
         }
-
+      } else if(rx->band_b==band) {
+        BAND *xvtr=band_get_band(band);
+        rx->lo_b=xvtr->frequencyLO;
+        rx->error_b=xvtr->errorLO;
+        if(radio->transmitter!=NULL) {
+          if(radio->transmitter->rx==rx) {
+            update_tx_panadapter(radio);
+          }
+        }
       }
     }
   }

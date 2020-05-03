@@ -1226,9 +1226,15 @@ g_print("update_timer: fps=%d\n",tx->fps);
   switch(radio->discovered->protocol) {
     case PROTOCOL_1:
       break;
+    case PROTOCOL_2:
+      break;
 #ifdef SOAPYSDR
     case PROTOCOL_SOAPYSDR:
       soapy_protocol_create_transmitter(tx);
+      soapy_protocol_set_tx_antenna(tx,radio->dac[0].antenna);
+      soapy_protocol_set_tx_gain(&radio->dac[0]);
+      soapy_protocol_set_tx_frequency(tx);
+      soapy_protocol_start_transmitter(tx);
       break;
 #endif
   }
