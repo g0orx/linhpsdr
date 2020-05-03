@@ -385,6 +385,11 @@ void soapy_protocol_set_rx_frequency(RECEIVER *rx) {
 
   if(soapy_device!=NULL) {
     double f=(double)(rx->frequency_a-rx->lo_a+rx->error_a);
+    if(!rx->ctun) {
+      if(rx->rit_enabled) {
+        f+=(double)rx->rit;
+      }
+    }
     rc=SoapySDRDevice_setFrequency(soapy_device,SOAPY_SDR_RX,rx->adc,f,NULL);
     if(rc!=0) {
       fprintf(stderr,"soapy_protocol: SoapySDRDevice_setFrequency(RX) failed: %s\n",SoapySDR_errToStr(rc));
@@ -394,12 +399,27 @@ void soapy_protocol_set_rx_frequency(RECEIVER *rx) {
 
 void soapy_protocol_set_tx_frequency(TRANSMITTER *tx) {
   int rc;
+  double f;
 
   if(soapy_device!=NULL) {
-    double f=(double)(tx->rx->frequency_a+tx->rx->ctun_offset-tx->rx->lo_tx);
-    rc=SoapySDRDevice_setFrequency(soapy_device,SOAPY_SDR_TX,tx->rx->adc,f,NULL);
-    if(rc!=0) {
-      fprintf(stderr,"soapy_protocol: SoapySDRDevice_setFrequency(TX) failed: %s\n",SoapySDR_errToStr(rc));
+    RECEIVER* rx=tx->rx;
+    if(rx!=NULL) {
+      if(rx->split) {
+        f=rx->frequency_b-rx->lo_b+rx->error_b;
+      } else {
+        if(rx->ctun) {
+          f=rx->ctun_frequency-rx->lo_a+rx->error_a;
+        } else {
+          f=rx->frequency_a-rx->lo_a+rx->error_a;
+        }
+      }
+      if(tx->xit_enabled) {
+        f+=(double)tx->xit;
+      }
+      rc=SoapySDRDevice_setFrequency(soapy_device,SOAPY_SDR_TX,rx->adc,f,NULL);
+      if(rc!=0) {
+        fprintf(stderr,"soapy_protocol: SoapySDRDevice_setFrequency(TX) failed: %s\n",SoapySDR_errToStr(rc));
+      }
     }
   }
 }

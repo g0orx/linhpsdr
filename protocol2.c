@@ -464,11 +464,22 @@ void protocol2_high_priority() {
 
       // tx
       if(radio->transmitter->rx!=NULL) {
-        txFrequency=radio->transmitter->rx->frequency_a-radio->transmitter->rx->lo_a+radio->transmitter->rx->error_a;
-        if(radio->transmitter->rx->split) {
-          txFrequency=radio->transmitter->rx->frequency_b-radio->transmitter->rx->lo_b+radio->transmitter->rx->error_b;
-        }
+        RECEIVER *rx=radio->transmitter->rx;
+        if(rx!=NULL) {
+          if(rx->split) {
+            txFrequency=rx->frequency_b-rx->lo_b+rx->error_b;
+          } else {
+            if(rx->ctun) {
+              txFrequency=rx->ctun_frequency-rx->lo_a+rx->error_a;
+            } else {
+              txFrequency=rx->frequency_a-rx->lo_a+rx->error_a;
+            }
+          }
 
+          if(radio->transmitter->xit_enabled) {
+            txFrequency+=radio->transmitter->xit;
+          }
+        }
         switch(radio->transmitter->rx->mode_a) {
           case CWU:
             txFrequency+=radio->cw_keyer_sidetone_frequency;

@@ -1213,23 +1213,28 @@ void ozy_send_buffer() {
     switch(command) {
       case 1: // tx frequency
         output_buffer[C0]=0x02;
-        long long tx_frequency=0LL;
+        long long f=0LL;
 
-        tx_receiver=radio->transmitter->rx;
-        if(tx_receiver!=NULL) {
-          if(radio->transmitter->rx->split) {
-            tx_frequency=tx_receiver->frequency_b;
+        RECEIVER *rx=radio->transmitter->rx;
+        if(rx!=NULL) {
+          if(rx->split) {
+            f=rx->frequency_b-rx->lo_b+rx->error_b;
           } else {
-            tx_frequency=tx_receiver->frequency_a;
+            if(rx->ctun) {
+              f=rx->ctun_frequency-rx->lo_a+rx->error_a;
+            } else {
+              f=rx->frequency_a-rx->lo_a+rx->error_a;
+            }
+          }
+
+          if(radio->transmitter->xit_enabled) {
+            f+=radio->transmitter->xit;
           }
         }
-        if(radio->transmitter->xit_enabled) {
-          tx_frequency+=radio->transmitter->xit;
-        }
-        output_buffer[C1]=tx_frequency>>24;
-        output_buffer[C2]=tx_frequency>>16;
-        output_buffer[C3]=tx_frequency>>8;
-        output_buffer[C4]=tx_frequency;
+        output_buffer[C1]=f>>24;
+        output_buffer[C2]=f>>16;
+        output_buffer[C3]=f>>8;
+        output_buffer[C4]=f;
         break;
       case 2: // rx frequency
 #ifdef PURESIGNAL

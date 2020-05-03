@@ -506,7 +506,11 @@ void vox_changed(RADIO *r) {
 void frequency_changed(RECEIVER *rx) {
   if(rx->ctun) {
     rx->ctun_offset=rx->ctun_frequency-rx->frequency_a;
-    SetRXAShiftFreq(rx->channel, (double)rx->ctun_offset);
+    if(rx->rit_enabled) {
+      SetRXAShiftFreq(rx->channel, (double)(rx->ctun_offset+rx->rit));
+    } else {
+      SetRXAShiftFreq(rx->channel, (double)rx->ctun_offset);
+    }
     RXANBPSetShiftFrequency(rx->channel, (double)rx->ctun_offset);
 #ifdef SOAPYSDR
     if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {

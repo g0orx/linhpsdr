@@ -796,8 +796,12 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
   GtkWidget *menu;
   GtkWidget *menu_item;
   RECEIVER *rx=(RECEIVER *)data;
-  long long temp_frequency;
-  int temp_mode;
+  gint temp_band;
+  gint64 temp_frequency;
+  gint temp_mode;
+  gint temp_filter;
+  gint64 temp_lo;
+  gint64 temp_error;
   int i;
   CHOICE *choice;
   FILTER *mode_filters;
@@ -1049,6 +1053,8 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
       switch(event->button) {
         case 1:  // LEFT
           rx->rit_enabled=!rx->rit_enabled;
+          frequency_changed(rx);
+          update_frequency(rx);
           break;
         case 3:  // RIGHT
           menu=gtk_menu_new();
@@ -1105,13 +1111,17 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           break;
         case 3:  // RIGHT
           rx->rit=0;
+          frequency_changed(rx);
+          update_frequency(rx);
           break;
       }
       break;
     case BUTTON_XIT:
       switch(event->button) {
         case 1:  // LEFT
-          radio->transmitter->xit_enabled=!radio->transmitter->xit_enabled;
+          if(radio->transmitter!=NULL) {
+            radio->transmitter->xit_enabled=!radio->transmitter->xit_enabled;
+          }
           break;
         case 3:  // RIGHT
           menu=gtk_menu_new();
@@ -1215,8 +1225,13 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
     case BUTTON_ATOB:
       switch(event->button) {
         case 1:  // LEFT
+          rx->band_b=rx->band_a;
           rx->frequency_b=rx->frequency_a;
           rx->mode_b=rx->mode_a;
+          rx->filter_b=rx->filter_a;
+          rx->lo_b=rx->lo_a;
+          rx->error_b=rx->error_a;
+          frequency_changed(rx);
           break;
         case 3:  // RIGHT
           break;
@@ -1225,8 +1240,12 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
     case BUTTON_BTOA:
       switch(event->button) {
         case 1:  // LEFT
+          rx->band_a=rx->band_b;
           rx->frequency_a=rx->frequency_b;
           rx->mode_a=rx->mode_b;
+          rx->filter_a=rx->filter_b;
+          rx->lo_a=rx->lo_b;
+          rx->error_a=rx->error_b;
           frequency_changed(rx);
           break;
         case 3:  // RIGHT
@@ -1236,12 +1255,27 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
     case BUTTON_ASWAPB:
       switch(event->button) {
         case 1:  // LEFT
+          temp_band=rx->band_a;
           temp_frequency=rx->frequency_a;
           temp_mode=rx->mode_a;
+          temp_filter=rx->filter_a;
+          temp_lo=rx->lo_a;
+          temp_error=rx->error_a;
+
+          rx->band_a=rx->band_b;
           rx->frequency_a=rx->frequency_b;
           rx->mode_a=rx->mode_b;
+          rx->filter_a=rx->filter_b;
+          rx->lo_a=rx->lo_b;
+          rx->error_a=rx->error_b;
+
+          rx->band_b=temp_band;
           rx->frequency_b=temp_frequency;
           rx->mode_b=temp_mode;
+          rx->filter_b=temp_filter;
+          rx->lo_b=temp_lo;
+          rx->error_b=temp_error;
+
           frequency_changed(rx);
           receiver_mode_changed(rx,rx->mode_a);
           if(radio->transmitter->rx==rx) {
@@ -1599,6 +1633,8 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
           rx->rit=rx->rit-rx->rit_step;
           if(rx->rit<-10000) rx->rit=-10000;
         }
+        frequency_changed(rx);
+        update_frequency(rx);
       }
       break;
     case VALUE_XIT1:
@@ -1813,12 +1849,14 @@ void update_vfo(RECEIVER *rx) {
     } 
 
     // XIT
-    if(radio->transmitter!=NULL && radio->transmitter->xit_enabled) {    
-      RoundedRectangle(cr, 535.0, 51.0, 18.0, 6.0, CLICK_ON);   
+    if(radio->transmitter!=NULL) {
+      if(radio->transmitter->xit_enabled) {    
+        RoundedRectangle(cr, 535.0, 51.0, 18.0, 6.0, CLICK_ON);   
+      }
+      else {
+        RoundedRectangle(cr, 535.0, 51.0, 18.0, 6.0, CLICK_OFF);       
+      } 
     }
-    else {
-      RoundedRectangle(cr, 535.0, 51.0, 18.0, 6.0, CLICK_OFF);       
-    } 
 
     // UP 1,2 or 5,10
     if(rx->split) {
