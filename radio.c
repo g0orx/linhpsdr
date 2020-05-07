@@ -1107,7 +1107,9 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->local_microphone_buffer_size=256;
   r->local_microphone_buffer_offset=0;
   r->local_microphone_buffer=NULL;
+#ifndef __APPLE__
   r->record_handle=NULL;
+#endif
 
   g_mutex_init(&r->local_microphone_mutex);
 
