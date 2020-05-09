@@ -73,7 +73,7 @@ struct _DISCOVERED {
     int protocol;
     int device;
     char name[64];
-    int software_version;
+    char software_version[128];
     int status;
     int supported_receivers;
     int supported_transmitters;
@@ -108,6 +108,9 @@ struct _DISCOVERED {
         SoapySDRRange *tx_range;
         size_t tx_antennas;
         char **tx_antenna;
+        size_t sensors;
+        char **sensor;
+        gboolean has_temp;
       } soapy;
 #endif
     } info;

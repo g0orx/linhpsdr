@@ -49,7 +49,7 @@ static GThread *discover_thread_id;
 gpointer protocol2_discover_receive_thread(gpointer data);
 
 void print_device(int i) {
-    g_print("discovery: found protocol=%d device=%d software_version=%d status=%d address=%s (%02X:%02X:%02X:%02X:%02X:%02X) on %s\n", 
+    g_print("discovery: found protocol=%d device=%d software_version=%s status=%d address=%s (%02X:%02X:%02X:%02X:%02X:%02X) on %s\n", 
         discovered[i].protocol,
         discovered[i].device,
         discovered[i].software_version,
@@ -189,9 +189,11 @@ gpointer protocol2_discover_receive_thread(gpointer data) {
     int bytes_read;
     struct timeval tv;
     int i;
+    int version;
 
     tv.tv_sec = 2;
     tv.tv_usec = 0;
+    version=0;
 
     setsockopt(discovery_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
 
@@ -277,7 +279,8 @@ gpointer protocol2_discover_receive_thread(gpointer data) {
                     discovered[devices].supported_receivers=buffer[20]&0xFF;
                     discovered[devices].supported_transmitters=1;
 
-                    discovered[devices].software_version=buffer[13]&0xFF;
+                    version=buffer[13]&0xFF;
+                    sprintf(discovered[devices].software_version,"%d",version);
                     for(i=0;i<6;i++) {
                         discovered[devices].info.network.mac_address[i]=buffer[i+5];
                     }
@@ -288,7 +291,7 @@ gpointer protocol2_discover_receive_thread(gpointer data) {
                     memcpy((void*)&discovered[devices].info.network.interface_netmask,(void*)&interface_netmask,sizeof(interface_netmask));
                     discovered[devices].info.network.interface_length=sizeof(interface_addr);
                     strcpy(discovered[devices].info.network.interface_name,interface_name);
-                    g_print("protocol2_discover: found %d protocol=%d device=%d software_version=%d status=%d address=%s (%02X:%02X:%02X:%02X:%02X:%02X) on %s DDCs=%d\n", 
+                    g_print("protocol2_discover: found %d protocol=%d device=%d software_version=%s status=%d address=%s (%02X:%02X:%02X:%02X:%02X:%02X) on %s DDCs=%d\n", 
                             devices,
                             discovered[devices].protocol,
                             discovered[devices].device,

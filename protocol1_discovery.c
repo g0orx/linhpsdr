@@ -139,11 +139,13 @@ static gpointer discover_receive_thread(gpointer data) {
     int bytes_read;
     struct timeval tv;
     int i;
+    int version;
 
 g_print("discover_receive_thread\n");
 
     tv.tv_sec = 2;
     tv.tv_usec = 0;
+    version=0;
 
     setsockopt(discovery_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
 
@@ -161,7 +163,8 @@ g_print("discover_receive_thread\n");
             if (status == 2 || status == 3) {
                 if(devices<MAX_DEVICES) {
                     discovered[devices].protocol=PROTOCOL_1;
-                    discovered[devices].software_version=buffer[9]&0xFF;                    
+                    version=buffer[9]&0xFF;                    
+                    sprintf(discovered[devices].software_version,"%d",version);
                     switch(buffer[10]&0xFF) {
                         case OLD_DEVICE_METIS:
                             discovered[devices].device=DEVICE_METIS;
@@ -201,8 +204,7 @@ g_print("discover_receive_thread\n");
                             break;
                         case OLD_DEVICE_HERMES_LITE:
                             discovered[devices].device=DEVICE_HERMES_LITE;
-                            g_print("%d", discovered[devices].software_version);
-			                      if (discovered[devices].software_version < 42) {
+			                      if (version < 42) {
                               strcpy(discovered[devices].name,"Hermes Lite V1");
                               discovered[devices].supported_receivers = 2;                                
 			                      } else {
@@ -246,7 +248,7 @@ g_print("discover_receive_thread\n");
                     memcpy((void*)&discovered[devices].info.network.interface_netmask,(void*)&interface_netmask,sizeof(interface_netmask));
                     discovered[devices].info.network.interface_length=sizeof(interface_addr);
                     strcpy(discovered[devices].info.network.interface_name,interface_name);
-                    g_print("discovery: found device=%d software_version=%d status=%d address=%s (%02X:%02X:%02X:%02X:%02X:%02X) on %s\n",
+                    g_print("discovery: found device=%d software_version=%s status=%d address=%s (%02X:%02X:%02X:%02X:%02X:%02X) on %s\n",
                             discovered[devices].device,
                             discovered[devices].software_version,
                             discovered[devices].status,
@@ -292,7 +294,7 @@ g_print("protocol1_discovery\n");
 
     int i;
     for(i=0;i<devices;i++) {
-                    g_print("discovery: found device=%d software_version=%d status=%d address=%s (%02X:%02X:%02X:%02X:%02X:%02X) on %s\n",
+                    g_print("discovery: found device=%d software_version=%s status=%d address=%s (%02X:%02X:%02X:%02X:%02X:%02X) on %s\n",
                             discovered[i].device,
                             discovered[i].software_version,
                             discovered[i].status,

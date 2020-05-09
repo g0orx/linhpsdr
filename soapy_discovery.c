@@ -32,7 +32,7 @@ static void get_info(char *driver) {
   size_t rx_rates_length, tx_rates_length, rx_gains_length, tx_gains_length, ranges_length, rx_antennas_length, tx_antennas_length, rx_bandwidth_length, tx_bandwidth_length;
   int i;
   SoapySDRKwargs args={};
-  int version=0;
+  char *version;
   int rtlsdr_val=0;
 
   fprintf(stderr,"soapy_discovery: get_info: %s\n", driver);
@@ -56,16 +56,14 @@ static void get_info(char *driver) {
   fprintf(stderr,"HardwareKey=%s\n",hardwarekey);
 
   SoapySDRKwargs info=SoapySDRDevice_getHardwareInfo(sdr);
+  version="";
   for(i=0;i<info.size;i++) {
     fprintf(stderr,"soapy_discovery: hardware info key=%s val=%s\n",info.keys[i], info.vals[i]);
     if(strcmp(info.keys[i],"firmwareVersion")==0) {
-      version+=atoi(info.vals[i])*100;
+      version=info.vals[i];
     }
-    if(strcmp(info.keys[i],"hardwareVersion")==0) {
-      version+=atoi(info.vals[i])*10;
-    }
-    if(strcmp(info.keys[i],"protocolVersion")==0) {
-      version+=atoi(info.vals[i]);
+    if(strcmp(info.keys[i],"fw_version")==0) {
+      version=info.vals[i];
     }
   }
 
@@ -169,6 +167,19 @@ static void get_info(char *driver) {
 
   fprintf(stderr,"float=%lu double=%lu\n",sizeof(float),sizeof(double));
 
+  size_t sensors;
+  char **sensor = SoapySDRDevice_listSensors(sdr, &sensors);
+  gboolean has_temp=FALSE;
+  char *ptr;
+  fprintf(stderr, "Sensors:\n");
+  for (size_t i = 0; i < sensors; i++) {
+    char *value=SoapySDRDevice_readSensor(sdr, sensor[i]);
+    fprintf(stderr, "    %s=%s\n", sensor[i],value);
+    if((ptr=strstr(sensor[i],"temp"))!=NULL) {
+      has_temp=TRUE;
+    }
+  }
+
   if(devices<MAX_DEVICES) {
     discovered[devices].device=DEVICE_SOAPYSDR_USB;
     discovered[devices].protocol=PROTOCOL_SOAPYSDR;
@@ -177,7 +188,7 @@ static void get_info(char *driver) {
     discovered[devices].supported_transmitters=tx_channels;
     discovered[devices].adcs=rx_channels;
     discovered[devices].status=STATE_AVAILABLE;
-    discovered[devices].software_version=version;
+    strcpy(discovered[devices].software_version,version);
     discovered[devices].frequency_min=ranges[0].minimum;
     discovered[devices].frequency_max=ranges[0].maximum;
     discovered[devices].info.soapy.sample_rate=sample_rate;
@@ -215,6 +226,10 @@ fprintf(stderr,"Tx gains: \n");
     }
     discovered[devices].info.soapy.tx_antennas=tx_antennas_length;
     discovered[devices].info.soapy.tx_antenna=tx_antennas;
+    discovered[devices].info.soapy.sensors=sensors;
+    discovered[devices].info.soapy.sensor=sensor;
+    discovered[devices].info.soapy.has_temp=has_temp;
+
     devices++;
   }
 
@@ -226,10 +241,12 @@ fprintf(stderr,"Tx gains: \n");
 void soapy_discovery() {
   size_t length;
   int i,j;
+  SoapySDRKwargs input_args={};
   SoapySDRKwargs args={};
 
 fprintf(stderr,"soapy_discovery\n");
-  SoapySDRKwargs *results = SoapySDRDevice_enumerate(NULL, &length);
+  SoapySDRKwargs_set(&input_args, "hostname", "pluto.local");
+  SoapySDRKwargs *results = SoapySDRDevice_enumerate(&input_args, &length);
   for (i = 0; i < length; i++) {
     for (size_t j = 0; j < results[i].size; j++) {
       if(strcmp(results[i].keys[j],"driver")==0 && strcmp(results[i].vals[j],"audio")!=0) {

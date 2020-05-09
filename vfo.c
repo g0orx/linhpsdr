@@ -53,6 +53,7 @@ enum {
   BUTTON_BMK,
   BUTTON_CTUN1,
   BUTTON_CTUN2,
+  BUTTON_DUP,
   BUTTON_RIT,
   VALUE_RIT1,
   VALUE_RIT2,
@@ -98,7 +99,15 @@ const long long ll_step[13]= {
    10LL,
    1LL
 };
+
+#define STEPS 25
+const int steps[STEPS] = {1,10,25,50,100,250,500,1000,2000,2500,5000,6250,9000,10000,12500,15000,20000,25000,30000,50000,100000,250000,500000,1000000,10000000};
+
    
+static gint slider=BUTTON_NONE;
+static gboolean slider_moved=FALSE;
+static gint slider_lastx;
+
 static gboolean vfo_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   gint width=gtk_widget_get_allocated_width(widget);
@@ -127,112 +136,6 @@ static gboolean vfo_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
   }
   return FALSE;
 }
-
-/* TO REMOVE
-static int next_step(int current_step) {
-  int next=100;
-  switch(current_step) {
-    case 1:
-      next=5;
-      break;
-    case 5:
-      next=10;
-      break;
-    case 10:
-      next=25;
-      break;
-    case 25:
-      next=50;
-      break;
-    case 50:
-      next=100;
-      break;
-    case 100:
-      next=250;
-      break;
-    case 250:
-      next=500;
-      break;
-    case 500:
-      next=1000;
-      break;
-    case 1000:
-      next=2500;
-      break;
-    case 2500:
-      next=5000;
-      break;
-    case 5000:
-      next=6250;
-      break;
-    case 6250:
-      next=9000;
-      break;
-    case 9000:
-      next=10000;
-      break;
-    case 10000:
-      next=100000;
-      break;
-    case 100000:
-      next=1;
-      break;
-  }
-  return next;
-}
-
-static int previous_step(int current_step) {
-  int previous=100;
-  switch(current_step) {
-    case 1:
-      previous=100000;
-      break;
-    case 5:
-      previous=1;
-      break;
-    case 10:
-      previous=5;
-      break;
-    case 25:
-      previous=10;
-      break;
-    case 50:
-      previous=25;
-      break;
-    case 100:
-      previous=50;
-      break;
-    case 250:
-      previous=100;
-      break;
-    case 500:
-      previous=250;
-      break;
-    case 1000:
-      previous=500;
-      break;
-    case 2500:
-      previous=1000;
-      break;
-    case 5000:
-      previous=2500;
-      break;
-    case 6250:
-      previous=5000;
-      break;
-    case 9000:
-      previous=6250;
-      break;
-    case 10000:
-      previous=9000;
-      break;
-    case 100000:
-      previous=10000;
-      break;
-  }
-  return previous;
-}
-*/
 
 static int which_button(RECEIVER *rx,int x,int y) {
   int button=BUTTON_NONE;
@@ -270,23 +173,25 @@ static int which_button(RECEIVER *rx,int x,int y) {
 void mode_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
   receiver_mode_changed(choice->rx,choice->selection);
-  if(choice->rx->split) {
+  if(choice->rx->split!=SPLIT_OFF) {
     choice->rx->mode_b=choice->selection;
   }
   if(radio->transmitter->rx==choice->rx) {
-    if(choice->rx->split) {
+    if(choice->rx->split!=SPLIT_OFF) {
       transmitter_set_mode(radio->transmitter,choice->rx->mode_b);
     } else {
       transmitter_set_mode(radio->transmitter,choice->rx->mode_a);
     }
   }
   update_vfo(choice->rx);
+  g_free(choice);
 }
 
 void filter_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
   receiver_filter_changed(choice->rx,choice->selection);
   update_vfo(choice->rx);
+  g_free(choice);
 }
 
 void nb_cb(GtkWidget *menu_item,gpointer data) {
@@ -306,6 +211,7 @@ void nb_cb(GtkWidget *menu_item,gpointer data) {
       break;
   }
   update_noise(choice->rx);
+  g_free(choice);
 }
 
 void nr_cb(GtkWidget *menu_item,gpointer data) {
@@ -325,6 +231,7 @@ void nr_cb(GtkWidget *menu_item,gpointer data) {
       break;
   }
   update_noise(choice->rx);
+  g_free(choice);
 }
 
 void agc_cb(GtkWidget *menu_item,gpointer data) {
@@ -332,18 +239,14 @@ void agc_cb(GtkWidget *menu_item,gpointer data) {
   choice->rx->agc=choice->selection;
   set_agc(choice->rx);
   update_vfo(choice->rx);
+  g_free(choice);
 }
 
 void zoom_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
   receiver_change_zoom(choice->rx,choice->selection);
-
-/*
-  choice->rx->zoom=choice->selection;
-  choice->rx->pixels=choice->rx->panadapter_width*choice->rx->zoom;
-  receiver_init_analyzer(choice->rx);
-*/
   update_vfo(choice->rx);
+  g_free(choice);
 }
 
 void band_cb(GtkWidget *menu_item,gpointer data) {
@@ -761,34 +664,65 @@ void band_cb(GtkWidget *menu_item,gpointer data) {
   receiver_band_changed(choice->rx,band);
   if(radio->transmitter) {
     if(radio->transmitter->rx==choice->rx) {
-      if(choice->rx->split) {
+      if(choice->rx->split!=SPLIT_OFF) {
         transmitter_set_mode(radio->transmitter,choice->rx->mode_b);
       } else {
         transmitter_set_mode(radio->transmitter,choice->rx->mode_a);
       }
     }
   }
+  g_free(choice);
+}
 
+void split_cb(GtkWidget *menu_item,gpointer data) {
+  CHOICE *choice=(CHOICE *)data;
+  RECEIVER *rx=choice->rx;
+  rx->split=choice->selection;
+  frequency_changed(rx);
+  if(radio->transmitter->rx==rx) {
+    switch(rx->split) {
+      case SPLIT_OFF:
+        transmitter_set_mode(radio->transmitter,rx->mode_a);
+        break;
+      case SPLIT_ON:
+        // Split mode in CW, RX on VFO A, TX on VFO B.
+        // When mode turned on, default to VFO A +1 kHz
+        if (rx->mode_a == CWL || rx->mode_a ==CWU) {
+          // Most pile-ups start with UP 1
+          rx->frequency_b = rx->frequency_a + 1000; 
+          rx->mode_b=rx->mode_a;
+        }
+        transmitter_set_mode(radio->transmitter,rx->mode_b);
+        break;
+      case SPLIT_SAT:
+      case SPLIT_RSAT:
+        transmitter_set_mode(radio->transmitter,rx->mode_b);
+        break;
+    }
+  }
+  update_vfo(rx);
+  g_free(choice);
 }
 
 void step_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
   choice->rx->step=choice->selection;
   update_vfo(choice->rx);
+  g_free(choice);
 }
 
 void rit_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
   choice->rx->rit_step=choice->selection;
-  //receiver_init_analyzer(choice->rx);
   update_vfo(choice->rx);
+  g_free(choice);
 }
 
 void xit_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
   radio->transmitter->xit_step=choice->selection;
-  //receiver_init_analyzer(choice->rx);
   update_vfo(choice->rx);
+  g_free(choice);
 }
 
 
@@ -1215,6 +1149,9 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
       frequency_changed(rx);
       update_frequency(rx);
       break;
+    case BUTTON_DUP:
+      rx->duplex=!rx->duplex;
+      break;
     case BUTTON_BPSK:
       if(rx->bpsk) {
         destroy_bpsk(rx);
@@ -1279,7 +1216,7 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
           frequency_changed(rx);
           receiver_mode_changed(rx,rx->mode_a);
           if(radio->transmitter->rx==rx) {
-            if(rx->split) {
+            if(rx->split!=SPLIT_OFF) {
               transmitter_set_mode(radio->transmitter,rx->mode_b);
             } else {
               transmitter_set_mode(radio->transmitter,rx->mode_a);
@@ -1292,27 +1229,53 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
       break;
     case BUTTON_SPLIT:
       switch(event->button) {
-        case 1:  // LEFT
-          rx->split=!rx->split;
-          frequency_changed(rx);
-          if(radio->transmitter->rx==rx) {
-            if(rx->split) {
-/*
-              // Split mode in CW, RX on VFO A, TX on VFO B.
-              // When mode turned on, default to VFO A +1 kHz
-              if (rx->mode_a == CWL || rx->mode_a ==CWU) {
-                // Most pile-ups start with UP 1
-                rx->frequency_b = rx->frequency_a + 1000;
-                rx->mode_b=rx->mode_a;
-              }
-*/
-              transmitter_set_mode(radio->transmitter,rx->mode_b);              
-            } else {
-              transmitter_set_mode(radio->transmitter,rx->mode_a);
-            }
+        case 1:  // RIGHT
+          if(rx->split==SPLIT_OFF) {
+            // turn on standard SPLIT
+            CHOICE *choice=g_new0(CHOICE,1);
+            choice->rx=rx;
+            choice->selection=SPLIT_ON;
+            split_cb(NULL,(void *)choice);
+          } else {
+            // turns off regardless of split mode
+            CHOICE *choice=g_new0(CHOICE,1);
+            choice->rx=rx;
+            choice->selection=SPLIT_OFF;
+            split_cb(NULL,(void *)choice);
           }
           break;
         case 3:  // RIGHT
+          menu=gtk_menu_new();
+          menu_item=gtk_menu_item_new_with_label("Off");
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=SPLIT_OFF;
+          g_signal_connect(menu_item,"activate",G_CALLBACK(split_cb),choice);
+          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+          menu_item=gtk_menu_item_new_with_label("SPLIT");
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=SPLIT_ON;
+          g_signal_connect(menu_item,"activate",G_CALLBACK(split_cb),choice);
+          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+          menu_item=gtk_menu_item_new_with_label("SAT");
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=SPLIT_SAT;
+          g_signal_connect(menu_item,"activate",G_CALLBACK(split_cb),choice);
+          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+          menu_item=gtk_menu_item_new_with_label("RSAT");
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=SPLIT_RSAT;
+          g_signal_connect(menu_item,"activate",G_CALLBACK(split_cb),choice);
+          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+          gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
+          gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
           break;
       }
       break;
@@ -1583,23 +1546,21 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
       }
       break;
     case SLIDER_AF:
-      rx->volume=(double)(x-560)/100.0;
-      if(rx->volume>1.0) rx->volume=1.0;
-      if(rx->volume<0.0) rx->volume=0.0;
-      if(rx->volume==0.0) {
-        SetRXAPanelRun(rx->channel,0);
-      } else {
-        SetRXAPanelRun(rx->channel,1);
-        SetRXAPanelGain1(rx->channel,rx->volume);
-      }
-      update_vfo(rx);
+      slider=SLIDER_AF;
+      slider_moved=FALSE;
+      slider_lastx=x;
       break;
     case SLIDER_AGC:
+      slider=SLIDER_AGC;
+      slider_moved=FALSE;
+      slider_lastx=x;
+/*
       rx->agc_gain=(double)(x-560)-20.0;
       if(rx->agc_gain>120.0) rx->agc_gain=120.0;
       if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
       SetRXAAGCTop(rx->channel, rx->agc_gain);
       update_vfo(rx);
+*/
       break;
     default:
       switch(event->button) {
@@ -1617,12 +1578,115 @@ static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpoin
   return TRUE;
 }
 
-static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
+static gboolean vfo_release_event_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   int x=(int)event->x;
   int y=(int)event->y;
 
+  switch(slider) {
+    case SLIDER_AF:
+      if(slider_moved) {
+        int moved=x-slider_lastx;
+        rx->volume+=(double)moved/100.0;
+      } else {
+        rx->volume=(double)(x-560)/100.0;
+      }
+      if(rx->volume>1.0) rx->volume=1.0;
+      if(rx->volume<0.0) rx->volume=0.0;
+      if(rx->volume==0.0) {
+        SetRXAPanelRun(rx->channel,0);
+      } else {
+        SetRXAPanelRun(rx->channel,1);
+        SetRXAPanelGain1(rx->channel,rx->volume);
+      }
+      slider=BUTTON_NONE;
+      slider_moved=FALSE;
+      update_vfo(rx);
+      break;
+    case SLIDER_AGC:
+      if(slider_moved) {
+        int moved=x-slider_lastx;
+        rx->agc_gain+=(double)moved;
+      } else {
+        rx->agc_gain=(double)(x-560)-20.0;
+      }
+      if(rx->agc_gain>120.0) rx->agc_gain=120.0;
+      if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
+      SetRXAAGCTop(rx->channel, rx->agc_gain);
+      slider=BUTTON_NONE;
+      slider_moved=FALSE;
+      update_vfo(rx);
+      break;
+  }
+
+  return TRUE;
+}
+
+static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  CHOICE *choice;
+  int x=(int)event->x;
+  int y=(int)event->y;
+  int i;
+
   switch(which_button(rx,x,y)) {
+    case BUTTON_STEP:
+      for(i=0;i<STEPS;i++) {
+        if(steps[i]==rx->step) {
+          if(event->direction==GDK_SCROLL_UP) {
+            if(i<STEPS-1) {
+              choice=g_new0(CHOICE,1);
+              choice->rx=rx;
+              choice->selection=steps[i+1];
+              step_cb(widget,choice);
+            }
+          } else {
+            if(i>0) {
+              choice=g_new0(CHOICE,1);
+              choice->rx=rx;
+              choice->selection=steps[i-1];
+              step_cb(widget,choice);
+            }
+          }
+          break;
+        }
+      }
+      break;
+    case BUTTON_ZOOM:
+      if(event->direction==GDK_SCROLL_UP) {
+        if(rx->zoom<8) {
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=rx->zoom+1;
+          zoom_cb(widget,choice);
+        }
+      } else {
+        if(rx->zoom>1) {
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=rx->zoom-1;
+          zoom_cb(widget,choice);
+        }
+      }
+      break;
+    case BUTTON_SPLIT:
+      if(event->direction==GDK_SCROLL_UP) {
+        if(rx->split<SPLIT_RSAT) {
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=rx->split+1;
+          split_cb(widget,choice);
+        }
+      } else {
+        if(rx->split>SPLIT_OFF) {
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=rx->split-1;
+          split_cb(widget,choice);
+        }
+      }
+      break;
+    case BUTTON_RIT:
     case VALUE_RIT1:
     case VALUE_RIT2:
       if(rx->rit_enabled) {
@@ -1637,6 +1701,7 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
         update_frequency(rx);
       }
       break;
+    case BUTTON_XIT:
     case VALUE_XIT1:
     case VALUE_XIT2:
       if(radio->transmitter->xit_enabled) {
@@ -1683,10 +1748,13 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
           if(digit<13) {
             step=ll_step[digit];
           }
-          if(event->direction==GDK_SCROLL_DOWN) {
+          if(event->direction==GDK_SCROLL_DOWN && rx->ctun) {
             step=-step;
           }                    
-          receiver_move(rx,step,FALSE);
+          if(event->direction==GDK_SCROLL_UP && !rx->ctun) {
+            step=-step;
+          }                    
+          receiver_move(rx,step,TRUE);
         }
       } else if(x>=rx->vfo_b_x && x<(rx->vfo_b_x+rx->vfo_b_width)) {
         // VFO B
@@ -1699,8 +1767,17 @@ static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpoi
           if (event->direction==GDK_SCROLL_DOWN) {
             step=-step;
           }
-
-          receiver_move_b(rx,step,FALSE);
+          //receiver_move_b(rx,step,FALSE);
+          switch(rx->split) {
+            case SPLIT_OFF:
+            case SPLIT_ON:
+              receiver_move_b(rx,step,TRUE);
+              break;
+            case SPLIT_SAT:
+            case SPLIT_RSAT:
+              receiver_move_b(rx,step,FALSE);
+              break;
+          }
         }
       }
       break;
@@ -1716,37 +1793,65 @@ static gboolean vfo_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *ev
   RECEIVER *rx=(RECEIVER *)data;
   int digit;
 
-  if(!rx->locked) {
-    //gdk_window_get_device_position(event->window,event->device,&x,&y,&state);
-    switch(which_button(rx,x,y)) {
-      case BUTTON_VFO:
-        if(!rx->locked) {
-          if(x>=rx->vfo_a_x && x<(rx->vfo_a_x+rx->vfo_a_width)) {
-            // VFO A
-            digit=(x-rx->vfo_a_x)/(rx->vfo_a_width/rx->vfo_a_digits);
-          } else if(x>=rx->vfo_b_x && x<(rx->vfo_b_x+rx->vfo_b_width)) {
-            // VFO B
-            digit=(x-rx->vfo_b_x)/(rx->vfo_b_width/rx->vfo_b_digits);
-          } else {
-            // between the vfo frequencies
-            digit=-1;
-          }
-          if(digit>=0 && digit<13) {
-            long long step=ll_step[digit];
-            if(step==0LL) {
-              gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_ARROW));
-            } else {
-              gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_DOUBLE_ARROW));
+  switch(slider) {
+    case BUTTON_NONE:
+      if(!rx->locked) {
+        //gdk_window_get_device_position(event->window,event->device,&x,&y,&state);
+        switch(which_button(rx,x,y)) {
+          case BUTTON_VFO:
+            if(!rx->locked) {
+              if(x>=rx->vfo_a_x && x<(rx->vfo_a_x+rx->vfo_a_width)) {
+                // VFO A
+                digit=(x-rx->vfo_a_x)/(rx->vfo_a_width/rx->vfo_a_digits);
+              } else if(x>=rx->vfo_b_x && x<(rx->vfo_b_x+rx->vfo_b_width)) {
+                // VFO B
+                digit=(x-rx->vfo_b_x)/(rx->vfo_b_width/rx->vfo_b_digits);
+              } else {
+                // between the vfo frequencies
+                digit=-1;
+              }
+              if(digit>=0 && digit<13) {
+                long long step=ll_step[digit];
+                if(step==0LL) {
+                  gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_ARROW));
+                } else {
+                  gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_DOUBLE_ARROW));
+                }
+              } else {
+                gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_ARROW));
+                  }
             }
-          } else {
+            break;
+          default:
             gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_ARROW));
-          }
+            break;
         }
-        break;
-      default:
-        gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_ARROW));
-        break;
-    }
+      }
+      break;
+    case SLIDER_AF:
+      rx->volume+=(double)(x-slider_lastx)/100.0;
+      if(rx->volume>1.0) rx->volume=1.0;
+      if(rx->volume<0.0) rx->volume=0.0;
+      if(rx->volume==0.0) {
+        SetRXAPanelRun(rx->channel,0);
+      } else {
+        SetRXAPanelRun(rx->channel,1);
+        SetRXAPanelGain1(rx->channel,rx->volume);
+      }
+      slider_moved=TRUE;
+      slider_lastx=x;
+      update_vfo(rx);
+      break;
+    case SLIDER_AGC:
+      rx->agc_gain+=(double)(x-slider_lastx);
+      rx->agc_gain=(double)(x-560)-20.0;
+      if(rx->agc_gain>120.0) rx->agc_gain=120.0;
+      if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
+      SetRXAAGCTop(rx->channel, rx->agc_gain);
+      slider_moved=TRUE;
+      slider_lastx=x;
+      update_vfo(rx);
+      break;
   }
   return TRUE;
 }
@@ -1759,9 +1864,11 @@ GtkWidget *create_vfo(RECEIVER *rx) {
   g_signal_connect (vfo,"draw",G_CALLBACK(vfo_draw_cb),(gpointer)rx);
   g_signal_connect(vfo,"motion-notify-event",G_CALLBACK(vfo_motion_notify_event_cb),rx);
   g_signal_connect (vfo,"button-press-event",G_CALLBACK(vfo_press_event_cb),(gpointer)rx);
+  g_signal_connect (vfo,"button-release-event",G_CALLBACK(vfo_release_event_cb),(gpointer)rx);
   g_signal_connect(vfo,"scroll_event",G_CALLBACK(vfo_scroll_event_cb),(gpointer)rx);
   gtk_widget_set_events (vfo, gtk_widget_get_events (vfo)
                      | GDK_BUTTON_PRESS_MASK
+                     | GDK_BUTTON_RELEASE_MASK
                      | GDK_SCROLL_MASK
                      | GDK_POINTER_MOTION_MASK
                      | GDK_POINTER_MOTION_HINT_MASK);
@@ -1840,31 +1947,33 @@ void update_vfo(RECEIVER *rx) {
       RoundedRectangle(cr, 360.0, 51.0, 35.0, 6.0, CLICK_OFF);       
     } 
 
-    // RIT
-    if(rx->rit_enabled) {    
+    // DUP
+    if(rx->duplex) {    
       RoundedRectangle(cr, 430.0, 51.0, 18.0, 6.0, CLICK_ON);   
     }
     else {
       RoundedRectangle(cr, 430.0, 51.0, 18.0, 6.0, CLICK_OFF);       
     } 
 
+    // RIT
+    if(rx->rit_enabled) {    
+      RoundedRectangle(cr, 465.0, 51.0, 18.0, 6.0, CLICK_ON);   
+    }
+    else {
+      RoundedRectangle(cr, 465.0, 51.0, 18.0, 6.0, CLICK_OFF);       
+    } 
+
     // XIT
     if(radio->transmitter!=NULL) {
       if(radio->transmitter->xit_enabled) {    
-        RoundedRectangle(cr, 535.0, 51.0, 18.0, 6.0, CLICK_ON);   
+        RoundedRectangle(cr, 570.0, 51.0, 18.0, 6.0, CLICK_ON);   
       }
       else {
-        RoundedRectangle(cr, 535.0, 51.0, 18.0, 6.0, CLICK_OFF);       
+        RoundedRectangle(cr, 570.0, 51.0, 18.0, 6.0, CLICK_OFF);       
       } 
     }
 
-    // UP 1,2 or 5,10
-    if(rx->split) {
-      RoundedRectangle(cr, 640.0, 51.0, 25.0, 6.0, CLICK_OFF);   
-      RoundedRectangle(cr, 680.0, 51.0, 25.0, 6.0, CLICK_OFF);   
-    }
-
-    if(rx->split) {
+    if(rx->split!=SPLIT_OFF) {
       RoundedRectangle(cr, 200.0, 6.0, 30.0, 5.0, CLICK_ON);    
     }  
     else {
@@ -1873,7 +1982,7 @@ void update_vfo(RECEIVER *rx) {
 
 
     //****************************** VFO A and B frequencies
-    if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && !radio->transmitter->rx->split) {
+    if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split!=SPLIT_OFF) {
       SetColour(cr, TEXT_B);
     } else {
       SetColour(cr, TEXT_B);
@@ -1883,7 +1992,7 @@ void update_vfo(RECEIVER *rx) {
     cairo_set_font_size(cr, 12);
     cairo_show_text(cr, "VFO A");
 
-    if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && !radio->transmitter->rx->split && isTransmitting(radio)) {
+    if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split==SPLIT_OFF && isTransmitting(radio)) {
       SetColour(cr, WARNING);
     } else {
       SetColour(cr, TEXT_B);
@@ -1905,7 +2014,7 @@ void update_vfo(RECEIVER *rx) {
     
     cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 
-    if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split) {
+    if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split!=SPLIT_OFF) {
       SetColour(cr, WARNING);
     } else {
       SetColour(cr, TEXT_C);
@@ -1914,7 +2023,7 @@ void update_vfo(RECEIVER *rx) {
     cairo_set_font_size(cr, 12);
     cairo_show_text(cr, "VFO B");
 
-    if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split && isTransmitting(radio)) {
+    if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split!=SPLIT_OFF && isTransmitting(radio)) {
       SetColour(cr, WARNING);
     } else {
       SetColour(cr, TEXT_C);
@@ -2052,6 +2161,15 @@ void update_vfo(RECEIVER *rx) {
     x+=70;
 
     cairo_move_to(cr,x,58);
+    if(rx->duplex) {
+      SetColour(cr, OFF_WHITE);
+    } else {
+      SetColour(cr, DARK_TEXT);
+    }
+    cairo_show_text(cr, "DUP");
+    x+=35;
+
+    cairo_move_to(cr,x,58);
     if(rx->rit_enabled) {
       SetColour(cr, OFF_WHITE);
     } else {
@@ -2087,26 +2205,6 @@ void update_vfo(RECEIVER *rx) {
       }
       x+=35;
       x+=35;
-
-      if(rx->split) {
-        cairo_move_to(cr,x,58);
-        SetColour(cr, DARK_TEXT);
-        if(rx->mode_b==CWL || rx->mode_b==CWU) {
-          cairo_show_text(cr, "UP 1");
-        } else {
-          cairo_show_text(cr, "UP 5");
-        }
-        x+=40;
-
-        cairo_move_to(cr,x,58);
-        SetColour(cr, DARK_TEXT);
-        if(rx->mode_b==CWL || rx->mode_b==CWU) {
-          cairo_show_text(cr, "UP 2");
-        } else {
-          cairo_show_text(cr, "UP 10");
-        }
-        x+=35;
-      }
     }
 
     
@@ -2125,14 +2223,23 @@ void update_vfo(RECEIVER *rx) {
     x+=57;
 
     cairo_move_to(cr, x, 12);
-    if(rx->split) {
+    if(rx->split!=SPLIT_OFF) {
       SetColour(cr, OFF_WHITE);
     } else {
       SetColour(cr, DARK_TEXT); 
     }
-    cairo_show_text(cr, "SPLIT");
-    //x+=10;
-
+    switch(rx->split) {
+      case SPLIT_OFF:
+      case SPLIT_ON:
+        cairo_show_text(cr, "SPLIT");
+        break;
+      case SPLIT_SAT:
+        cairo_show_text(cr, "SAT");
+        break;
+      case SPLIT_RSAT:
+        cairo_show_text(cr, "RSAT");
+        break;
+    }
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_move_to(cr,285,12);
     sprintf(temp,"ZOOM x%d",rx->zoom);

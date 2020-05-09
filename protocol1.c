@@ -53,13 +53,6 @@
 #include "signal.h"
 #include "vfo.h"
 #include "transmitter.h"
-
-#ifdef FREEDV
-#include "freedv.h"
-#endif
-#ifdef PSK
-#include "psk.h"
-#endif
 //#include "vox.h"
 #include "ext.h"
 #include "error_handler.h"
@@ -133,13 +126,6 @@ static int current_rx=0;
 
 static int mic_samples=0;
 static int mic_sample_divisor=1;
-#ifdef FREEDV
-static int freedv_divisor=6;
-#endif
-#ifdef PSK
-static int psk_samples=0;
-static int psk_divisor=6;
-#endif
 
 static unsigned char output_buffer[OZY_BUFFER_SIZE];
 static int output_buffer_index=8;
@@ -653,15 +639,7 @@ static void process_ozy_byte(int b) {
       if(!radio->local_microphone) {
         mic_samples++;
         if(mic_samples>=mic_sample_divisor) { // reduce to 48000
-#ifdef FREEDV
-          if(active_receiver->freedv) {
-            add_freedv_mic_sample(radio->transmitter,mic_sample);
-          } else {
-#endif
-            add_mic_sample(radio->transmitter,mic_sample);
-#ifdef FREEDV
-          }
-#endif
+          add_mic_sample(radio->transmitter,(float)mic_sample/32768.0);
           mic_samples=0;
         }
       }
@@ -875,15 +853,7 @@ static void process_ozy_input_buffer(char  *buffer) {
       if(!radio->local_microphone) {
         mic_samples++;
         if(mic_samples>=mic_sample_divisor) { // reduce to 48000
-#ifdef FREEDV
-          if(active_receiver->freedv) {
-            add_freedv_mic_sample(radio->transmitter,mic_sample);
-          } else {
-#endif
-            add_mic_sample(radio->transmitter,mic_sample);
-#ifdef FREEDV
-          }
-#endif
+          add_mic_sample(radio->transmitter,(float)mic_sample/32768);
           mic_samples=0;
         }
       }
@@ -1009,19 +979,8 @@ void protocol1_eer_iq_samples(int isample,int qsample,int lasample,int rasample)
 // Microphone buffer dump called from audio.c
 void protocol1_process_local_mic(RADIO *r) {
   int i;
-  short sample;
-
   for(i=0;i<r->local_microphone_buffer_size;i++) {
-    sample=(short)(r->local_microphone_buffer[i]*32767.0);
-#ifdef FREEDV
-    if(active_receiver->freedv) {
-      add_freedv_mic_sample(r->transmitter,sample);
-    } else {
-#endif
-      add_mic_sample(r->transmitter,sample);
-#ifdef FREEDV
-    }
-#endif
+    add_mic_sample(r->transmitter,r->local_microphone_buffer[i]);
   }
 }
 

@@ -46,4 +46,5 @@ void soapy_protocol_set_tx_gain(DAC *dac);
 void soapy_protocol_process_local_mic(RADIO *r);
 void soapy_protocol_iq_samples(float isample,float qsample);
 void soapy_protocol_set_mic_sample_rate(int rate);
+char *soapy_protocol_read_sensor(char *name);
 #endif

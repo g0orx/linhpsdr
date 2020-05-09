@@ -49,12 +49,6 @@
 #include "audio.h"
 #include "signal.h"
 #include "vfo.h"
-#ifdef FREEDV
-#include "freedv.h"
-#endif
-#ifdef PSK
-#include "psk.h"
-#endif
 #include "ext.h"
 #include "error_handler.h"
 
@@ -341,16 +335,7 @@ void soapy_protocol_process_local_mic(RADIO *r) {
 // always 48000 samples per second
   b=0;
   for(i=0;i<r->local_microphone_buffer_size;i++) {
-    sample=(short)(r->local_microphone_buffer[i]*32767.0);
-#ifdef FREEDV
-    if(active_receiver->freedv) {
-      add_freedv_mic_sample(r->transmitter,sample);
-    } else {
-#endif
-      add_mic_sample(r->transmitter,sample);
-#ifdef FREEDV
-    }
-#endif
+    add_mic_sample(r->transmitter,r->local_microphone_buffer[i]);
   }
 }
 
@@ -480,4 +465,8 @@ void soapy_protocol_set_automatic_gain(RECEIVER *rx,gboolean mode) {
 
     fprintf(stderr,"soapy_protocol: SoapySDRDevice_getGainMode failed: %s\n", SoapySDR_errToStr(rc));
   }
+}
+
+char *soapy_protocol_read_sensor(char *name) {
+  return SoapySDRDevice_readSensor(soapy_device, name);
 }

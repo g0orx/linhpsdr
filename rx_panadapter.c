@@ -328,13 +328,6 @@ void update_rx_panadapter(RECEIVER *rx) {
       return;
     }
 
-#ifdef FREEDV
-    if(rx->freedv) {
-      display_height=display_height-20;
-    }
-#endif
-
-
     //clear_panadater_surface();
     cairo_t *cr;
     cr = cairo_create (rx->panadapter_surface);
@@ -419,13 +412,13 @@ void update_rx_panadapter(RECEIVER *rx) {
     }
     
     // Show VFO B (tx) for split mode
-    if(rx->split) {    
+    if(rx->split==SPLIT_ON) {    
       if(rx->mode_a==CWU || rx->mode_a==CWL) {
-        long long diff = (rx->frequency_b - rx->frequency_a);       
+        double diff = (double)(rx->frequency_b - rx->frequency_a)/rx->hz_per_pixel;       
         SetColour(cr, WARNING);
         double cw_frequency=filter_left+((filter_right-filter_left)/2.0);
-        cairo_move_to(cr, (cw_frequency + diff / rx->hz_per_pixel),10.0);
-        cairo_line_to(cr, (cw_frequency + diff / rx->hz_per_pixel),(double)display_height-20);
+        cairo_move_to(cr, cw_frequency + diff,10.0);
+        cairo_line_to(cr, cw_frequency + diff,(double)display_height-20);
         cairo_stroke(cr);
       }
   }
@@ -739,19 +732,6 @@ void update_rx_panadapter(RECEIVER *rx) {
     //SetColour(cr, BACKGROUND);
     //cairo_rectangle(cr,0,(rx->panadapter_height - 18),display_width,18);
     //cairo_fill(cr);
-
-#ifdef FREEDV
-    if(rx->freedv) {
-      cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
-      cairo_rectangle(cr,0,display_height,display_width,display_height+20);
-      cairo_fill(cr);
-
-      cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
-      cairo_set_font_size(cr, 18);
-      cairo_move_to(cr, 0.0, (double)display_height+20.0-2.0);
-      cairo_show_text(cr, rx->freedv_text_data);
-    }
-#endif
 
     cairo_destroy (cr);
     gtk_widget_queue_draw (rx->panadapter);

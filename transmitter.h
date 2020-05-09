@@ -152,7 +152,7 @@ extern TRANSMITTER *create_transmitter(int channel);
 extern void transmitter_init_analyzer(TRANSMITTER *tx);
 extern void transmitter_save_state(TRANSMITTER *tx);
 extern void transmitter_restore_state(TRANSMITTER *tx);
-extern void add_mic_sample(TRANSMITTER *tx,short sample);
+extern void add_mic_sample(TRANSMITTER *tx,float sample);
 extern void transmitter_set_filter(TRANSMITTER *tx,int low,int high);
 extern void transmitter_set_pre_emphasize(TRANSMITTER *tx,int state);
 extern void transmitter_set_mode(TRANSMITTER *tx,int mode);

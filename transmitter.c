@@ -131,9 +131,9 @@ void transmitter_save_state(TRANSMITTER *tx) {
   sprintf(name,"transmitter[%d].buffer_size",tx->channel);
   sprintf(value,"%d",tx->buffer_size);
   setProperty(name,value);
-  sprintf(name,"transmitter[%d].mic_samples",tx->channel);
-  sprintf(value,"%d",tx->mic_samples);
-  setProperty(name,value);
+//  sprintf(name,"transmitter[%d].mic_samples",tx->channel);
+//  sprintf(value,"%d",tx->mic_samples);
+//  setProperty(name,value);
   sprintf(name,"transmitter[%d].mic_sample_rate",tx->channel);
   sprintf(value,"%d",tx->mic_sample_rate);
   setProperty(name,value);
@@ -264,9 +264,9 @@ void transmitter_restore_state(TRANSMITTER *tx) {
   sprintf(name,"transmitter[%d].buffer_size",tx->channel);
   value=getProperty(name);
   if(value) tx->buffer_size=atoi(value);
-  sprintf(name,"transmitter[%d].mic_samples",tx->channel);
-  value=getProperty(name);
-  if(value) tx->mic_samples=atoi(value);
+//  sprintf(name,"transmitter[%d].mic_samples",tx->channel);
+//  value=getProperty(name);
+//  if(value) tx->mic_samples=atoi(value);
   sprintf(name,"transmitter[%d].mic_sample_rate",tx->channel);
   value=getProperty(name);
   if(value) tx->mic_sample_rate=atoi(value);
@@ -731,8 +731,13 @@ void full_tx_buffer_process(TRANSMITTER *tx) {
         lsample=ROUNDHTZ(tx->outMI[j]);
         rsample=ROUNDHTZ(tx->outMQ[j]);
       } else {
-        isample=ROUNDHTZ(tx->iq_output_buffer[j*2]);
-        qsample=ROUNDHTZ(tx->iq_output_buffer[(j*2)+1]);
+        if(radio->iqswap) {
+          qsample=ROUNDHTZ(tx->iq_output_buffer[j*2]);
+          isample=ROUNDHTZ(tx->iq_output_buffer[(j*2)+1]);
+        } else {
+          isample=ROUNDHTZ(tx->iq_output_buffer[j*2]);
+          qsample=ROUNDHTZ(tx->iq_output_buffer[(j*2)+1]);
+        }
       }
       switch(radio->discovered->protocol) {
         case PROTOCOL_1:
@@ -749,7 +754,8 @@ void full_tx_buffer_process(TRANSMITTER *tx) {
           break;
 #ifdef SOAPYSDR
         case PROTOCOL_SOAPYSDR:
-          soapy_protocol_iq_samples((float)tx->iq_output_buffer[j*2],(float)tx->iq_output_buffer[(j*2)+1]);
+          //soapy_protocol_iq_samples((float)tx->iq_output_buffer[j*2],(float)tx->iq_output_buffer[(j*2)+1]);
+          soapy_protocol_iq_samples((float)isample,(float)qsample);
           break;
 #endif
 /*
@@ -765,7 +771,7 @@ void full_tx_buffer_process(TRANSMITTER *tx) {
 #undef ROUNDHTZ
 }
 
-void add_mic_sample(TRANSMITTER *tx,short mic_sample) {
+void add_mic_sample(TRANSMITTER *tx,float mic_sample) {
   int mode;
   double mic_sample_double;
  
@@ -775,7 +781,7 @@ void add_mic_sample(TRANSMITTER *tx,short mic_sample) {
     if(mode==CWL || mode==CWU || radio->tune) {
       mic_sample_double=0.0;
     } else {
-      mic_sample_double=(double)mic_sample/32768.0;
+      mic_sample_double=(double)mic_sample;
     }
     tx->mic_input_buffer[tx->mic_samples*2]=mic_sample_double;
     tx->mic_input_buffer[(tx->mic_samples*2)+1]=0.0; //mic_sample_double;
@@ -785,22 +791,6 @@ void add_mic_sample(TRANSMITTER *tx,short mic_sample) {
       full_tx_buffer_process(tx);
       tx->mic_samples=0;
     }
-#ifdef AUDIO_WATERFALL
-    if(audio_samples!=NULL && isTransmitting(radio)) {
-      if(waterfall_samples==0) {
-         audio_samples[audio_samples_index]=(float)mic_sample;
-         audio_samples_index++;
-         if(audio_samples_index>=AUDIO_WATERFALL_SAMPLES) {
-           //Spectrum(CHANNEL_AUDIO,0,0,audio_samples,audio_samples);
-           audio_samples_index=0;
-       }
-       }
-       waterfall_samples++;
-       if(waterfall_samples==waterfall_resample) {
-         waterfall_samples=0;
-       }
-    }
-#endif
   }
 }
 
@@ -819,11 +809,11 @@ void transmitter_set_filter(TRANSMITTER *tx,int low,int high) {
     FILTER *mode_filters=filters[mode];
     FILTER *filter=&mode_filters[F5];
     if(rx!=NULL) {
-      if(rx->split) {
-        filter=&mode_filters[rx->filter_b];
-      } else {
+      //if(rx->split) {
+      //  filter=&mode_filters[rx->filter_b];
+      //} else {
         filter=&mode_filters[rx->filter_a];
-      }
+      //}
     }
     if(mode==CWL) {
       tx->actual_filter_low=-radio->cw_keyer_sidetone_frequency-filter->low;
@@ -1072,7 +1062,7 @@ g_print("create_transmitter: channel=%d\n",channel);
     case PROTOCOL_SOAPYSDR:
       tx->mic_sample_rate=48000;
       tx->mic_dsp_rate=96000;
-      tx->iq_output_rate=radio->receiver[0]->sample_rate; // default to first receiver
+      tx->iq_output_rate=radio->sample_rate;
       tx->buffer_size=1024;
       tx->output_samples=1024*(tx->iq_output_rate/tx->mic_sample_rate);
       break;
@@ -1237,6 +1227,12 @@ g_print("update_timer: fps=%d\n",tx->fps);
       soapy_protocol_start_transmitter(tx);
       break;
 #endif
+  }
+
+  if(radio->local_microphone) {
+    if(audio_open_input(radio)<0) {
+      radio->local_microphone=FALSE;
+    }
   }
 
   return tx;

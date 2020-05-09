@@ -752,6 +752,7 @@ g_print("audio_close_input: free mic buffer\n");
       
       g_free(r->local_microphone_buffer);
       r->local_microphone_buffer=NULL;
+      g_mutex_unlock(&r->local_microphone_mutex);
       break;
     }
 #endif
@@ -905,14 +906,15 @@ int audio_write(RECEIVER *rx,float left_sample,float right_sample) {
 
           trim=0;
 
-          int max_delay=rx->local_audio_buffer_size*4;
+/*
+          int max_delay=rx->local_audio_buffer_size*6;
           if(snd_pcm_delay(rx->playback_handle,&delay)==0) {
             if(delay>max_delay) {
               trim=delay-max_delay;
 g_print("audio delay=%ld trim=%ld audio_buffer_size=%d\n",delay,trim,rx->local_audio_buffer_size);
             }
           }
-
+*/
           if(trim<rx->local_audio_buffer_size) {
             if ((rc = snd_pcm_writei (rx->playback_handle, rx->local_audio_buffer, rx->local_audio_buffer_size-trim)) != rx->local_audio_buffer_size-trim) {
               if(rc<0) {
@@ -1013,22 +1015,30 @@ static void *mic_read_thread(gpointer arg) {
       {
       int rc;
       if ((rc = snd_pcm_start (r->record_handle)) < 0) {
-    g_print("mic_read_thread: cannot start audio interface for use (%s)\n",
+    g_print("mic_read_thread: ALSA: cannot start audio interface for use (%s)\n",
             snd_strerror (rc));
 
         return NULL;
       }
-fprintf(stderr,"mic_read_thread: mic_buffer_size=%d\n",radio->local_microphone_buffer_size);
+fprintf(stderr,"mic_read_thread: ALSA: mic_buffer_size=%d\n",radio->local_microphone_buffer_size);
       running=TRUE;
       while(running) {
         if ((rc = snd_pcm_readi (r->record_handle, r->local_microphone_buffer, r->local_microphone_buffer_size)) != r->local_microphone_buffer_size) {
           if(running) {
             if(rc<0) {
-              fprintf (stderr, "mic_read_thread: read from audio interface failed (%s)\n",
+              if(rc==-EPIPE) {
+                //g_print("mic_read_thread: -EPIPE: snd_pcm_prepare\n");
+                if ((rc = snd_pcm_prepare (r->record_handle)) < 0) {
+                    g_print("mic_read_thread: ALSA: cannot prepare audio interface for use %d (%s)\n", rc, snd_strerror (rc));
+                    return rc;
+                }
+              } else {
+                fprintf (stderr, "mic_read_thread: ALSA: read from audio interface failed (%s)\n",
                       snd_strerror (rc));
-              running=FALSE;
+                running=FALSE;
+              }
             } else {
-              fprintf(stderr,"mic_read_thread: read %d\n",rc);
+              fprintf(stderr,"mic_read_thread: ALSA: read %d\n",rc);
             }
           }
         } else {

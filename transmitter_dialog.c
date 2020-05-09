@@ -40,6 +40,7 @@
 #include "protocol2.h"
 #include "audio.h"
 #include "band.h"
+#include "tx_panadapter.h"
 
 
 static GtkWidget *microphone_frame;
@@ -134,10 +135,14 @@ static void tune_use_drive_cb(GtkWidget *widget,gpointer data) {
 static void use_rx_filter_cb(GtkWidget *widget,gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
   tx->use_rx_filter=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
-  transmitter_set_filter(tx,tx->filter_low,tx->filter_high);
-
+  if(tx->use_rx_filter) {
+    transmitter_set_filter(tx,tx->rx->filter_low,tx->rx->filter_high);
+  } else {
+    transmitter_set_filter(tx,tx->filter_low,tx->filter_high);
+  }
   gtk_widget_set_sensitive(tx_spin_low,!tx->use_rx_filter);
   gtk_widget_set_sensitive(tx_spin_high,!tx->use_rx_filter);
+  update_tx_panadapter(radio);
 }
 
 static void tx_spin_low_cb (GtkWidget *widget, gpointer data) {

@@ -27,6 +27,8 @@
 #include <alsa/asoundlib.h>
 #endif
 
+typedef enum {SPLIT_OFF, SPLIT_ON, SPLIT_SAT, SPLIT_RSAT} split_type;
+
 typedef struct _receiver {
   
   gint channel; // WDSP channel
@@ -90,7 +92,9 @@ typedef struct _receiver {
   gint mode_b;
   gint filter_b;
 
-  gboolean split;
+  split_type split;
+  gboolean mute_while_transmitting;
+  gboolean duplex;
 
   gint filter_low;
   gint filter_high;

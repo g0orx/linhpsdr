@@ -243,7 +243,6 @@ g_print("discovered: %d device=%d\n",i,discovered[i].device);
       switch(d->device) {
 #ifdef SOAPYSDR
         case DEVICE_SOAPYSDR_USB:
-          sprintf(v,"%d.%d.%d", d->software_version/100,(d->software_version%100)/10, d->software_version%10);
           if(strcmp(d->name,"rtlsdr")==0) {
             sprintf(mac,"%d",d->info.soapy.rtlsdr_count);
           } else {
@@ -254,7 +253,6 @@ g_print("discovered: %d device=%d\n",i,discovered[i].device);
           break;
 #endif
         default:
-          sprintf(v,"%d.%d", d->software_version/10, d->software_version%10);
           sprintf(mac,"%02X:%02X:%02X:%02X:%02X:%02X",
             d->info.network.mac_address[0],
             d->info.network.mac_address[1],
@@ -285,7 +283,7 @@ g_print("adding %s\n",d->name);
       gtk_list_store_set(store,i==0?&iter0:&iter,
         NAME_COLUMN, d->name,
         PROTOCOL_COLUMN, protocol,
-        VERSION_COLUMN, v,
+        VERSION_COLUMN, d->software_version,
         IP_COLUMN, ip,
         MAC_COLUMN, mac,
         INTERFACE_COLUMN, iface,
@@ -400,7 +398,6 @@ gboolean start_cb(GtkWidget *widget,gpointer data) {
     switch(d->device) {
 #ifdef SOAPYSDR
       case DEVICE_SOAPYSDR_USB:
-        g_snprintf(v,sizeof(v),"%d.%d.%d", d->software_version/100, (d->software_version%100)/10, d->software_version%10);
         if(strcmp(d->name,"rtlsdr")==0) {
           g_snprintf(mac,sizeof(mac),"%d",d->info.soapy.rtlsdr_count);
         } else {
@@ -412,7 +409,6 @@ gboolean start_cb(GtkWidget *widget,gpointer data) {
         break;
 #endif
       default:
-        g_snprintf(v,sizeof(v),"%d.%d", d->software_version/10, d->software_version%10);
         g_snprintf(mac,sizeof(mac),"%02X:%02X:%02X:%02X:%02X:%02X",
           d->info.network.mac_address[0],
           d->info.network.mac_address[1],
@@ -433,7 +429,7 @@ gboolean start_cb(GtkWidget *widget,gpointer data) {
       version,
       d->name,
       protocol,
-      v,
+      d->software_version,
       ip,
       mac,
       iface);

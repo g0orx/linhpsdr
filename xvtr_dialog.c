@@ -157,7 +157,6 @@ void lo_frequency_cb(GtkEditable *editable,gpointer user_data) {
 }
 
 void lo_error_cb(GtkEditable *editable,gpointer user_data) {
-g_print("lo_error_cb\n");
   int band=GPOINTER_TO_INT(user_data);
   BAND *xvtr=band_get_band(band);
   const char* errorf=gtk_entry_get_text(GTK_ENTRY(lo_error[band]));
@@ -166,7 +165,6 @@ g_print("lo_error_cb\n");
 }
 
 void lo_error_update(RECEIVER *rx,long long offset) {
-g_print("lo_error_update: band=%d\n",rx->band_a);
   BAND *xvtr=band_get_band(rx->band_a);
   if(radio->dialog!=NULL) {
     char temp[32];

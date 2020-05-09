@@ -222,13 +222,6 @@ g_print("radio_save_state: %s\n",filename);
   sprintf(value,"%d",radio->classE);
   setProperty("radio.classE",value);
 
-  sprintf(value,"%d",radio->duplex);
-  setProperty("radio.duplex",value);
-  sprintf(value,"%d",radio->sat_mode);
-  setProperty("radio.sat_mode",value);
-  sprintf(value,"%d",radio->mute_rx_while_transmitting);
-  setProperty("radio.mute_rx_while_transmitting",value);
-
   sprintf(value,"%d",radio->temperature_alarm_value);
   setProperty("radio.temp_alarm",value);
   sprintf(value,"%f",radio->swr_alarm_value);
@@ -403,13 +396,6 @@ void radio_restore_state(RADIO *radio) {
   value=getProperty("radio.classE");
   if(value!=NULL) radio->classE=atoi(value);
 
-  value=getProperty("radio.duplex");
-  if(value!=NULL) radio->duplex=atoi(value);
-  value=getProperty("radio.sat_mode");
-  if(value!=NULL) radio->sat_mode=atoi(value);
-  value=getProperty("radio.mute_rx_while_transmitting");
-  if(value!=NULL) radio->mute_rx_while_transmitting=atoi(value);
-
   value=getProperty("radio.temp_alarm");
   if(value!=NULL) radio->temperature_alarm_value=atoi(value);
   value=getProperty("radio.swr_alarm");
@@ -528,7 +514,7 @@ void frequency_changed(RECEIVER *rx) {
 #ifdef SOAPYSDR
     if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
       if(radio->can_transmit) {
-        if(radio->transmitter!=NULL && radio->transmitter->rx==rx) {
+        if(radio->transmitter!=NULL && radio->transmitter->rx==rx && isTransmitting(radio)) {
           soapy_protocol_set_tx_frequency(radio->transmitter);
         }
       }
@@ -541,7 +527,7 @@ void frequency_changed(RECEIVER *rx) {
     } else if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
       soapy_protocol_set_rx_frequency(rx);
       if(radio->can_transmit) {
-        if(radio->transmitter!=NULL && radio->transmitter->rx==rx) {
+        if(radio->transmitter!=NULL && radio->transmitter->rx==rx && isTransmitting(radio)) {
           soapy_protocol_set_tx_frequency(radio->transmitter);
         }
       }
@@ -616,17 +602,14 @@ g_print("delete_receiver: receivers now %d\n",radio->receivers);
 
 static void rxtx(RADIO *r) {
   int i;
-  int nrx=0;
-  if(isTransmitting(r) && !r->duplex) {
-//g_print("rxtx: switch to tx: disable receivers\n");
+  if(isTransmitting(r)) {
     for(i=0;i<r->discovered->supported_receivers;i++) {
       if(r->receiver[i]!=NULL) {
-        nrx++;
-        //SetChannelState(r->receiver[i]->channel,0,nrx==r->receivers);
-        SetChannelState(r->receiver[i]->channel,0,1);        
+        if(!r->receiver[i]->duplex) {
+          SetChannelState(r->receiver[i]->channel,0,1);        
+        }
       }
     }
-//g_print("rxtx: switch to tx: enable transmitter\n");
     SetChannelState(r->transmitter->channel,1,0);
     switch(r->discovered->protocol) {
       case PROTOCOL_1:
@@ -638,19 +621,18 @@ static void rxtx(RADIO *r) {
 #ifdef SOAPYSDR
       case PROTOCOL_SOAPYSDR:
         soapy_protocol_set_tx_frequency(r->transmitter);
-        //soapy_protocol_start_transmitter(r->transmitter);
         break;
 #endif
     }
   } else {
-//g_print("rxtx: switch to rx: disable transmitter\n");
     SetChannelState(r->transmitter->channel,0,1);
     for(i=0;i<r->discovered->supported_receivers;i++) {
       if(r->receiver[i]!=NULL) {
-        SetChannelState(r->receiver[i]->channel,1,0);
+        if(!r->receiver[i]->duplex) {
+          SetChannelState(r->receiver[i]->channel,1,0);
+        }
       }
     }
-//g_print("rxtx: switch to rx: receivers enabled\n");
     switch(r->discovered->protocol) {
       case PROTOCOL_1:
         break;
@@ -667,7 +649,6 @@ static void rxtx(RADIO *r) {
     update_tx_panadapter(r);
   }
   update_vfo(r->transmitter->rx);
-//g_print("rxtx: done\n");
 }
 
 void set_mox(RADIO *r,gboolean state) {
@@ -1107,9 +1088,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->local_microphone_buffer_size=256;
   r->local_microphone_buffer_offset=0;
   r->local_microphone_buffer=NULL;
-#ifndef __APPLE__
   r->record_handle=NULL;
-#endif
 
   g_mutex_init(&r->local_microphone_mutex);
 
@@ -1172,13 +1151,9 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->region=REGION_OTHER;
 
   r->iqswap=FALSE;
-  r->duplex = FALSE;
 
   r->which_audio=USE_SOUNDIO;
   r->which_audio_backend=0;
-
-  r->sat_mode=SAT_NONE;
-  r->mute_rx_while_transmitting=FALSE;
 
   r->swr_alarm_value = 2.0;
   r->temperature_alarm_value = 42;  

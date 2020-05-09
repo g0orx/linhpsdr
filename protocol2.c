@@ -57,9 +57,6 @@
 #include "signal.h"
 #include "vfo.h"
 #include "audio.h"
-#ifdef FREEDV
-#include "freedv.h"
-#endif
 #ifdef LOCALCW
 #include "iambic.h"
 #endif
@@ -131,11 +128,6 @@ static int outputsamples;
 static long audiosequence;
 static unsigned char audiobuffer[260]; // was 1444
 static int audioindex;
-
-#ifdef PSK
-static int psk_samples=0;
-static int psk_resample=6;  // convert from 48000 to 8000
-#endif
 
 #define NET_BUFFER_SIZE 2048
 // Network buffers
@@ -1439,15 +1431,7 @@ static void process_mic_data(int bytes,unsigned char *buffer) {
   for(i=0;i<MIC_SAMPLES;i++) {
     sample=(short)(buffer[b++]<<8);
     sample|=(buffer[b++]&0xFF);
-#ifdef FREEDV
-    if(radio->transmitter->rx->freedv) {
-      add_freedv_mic_sample(radio->transmitter,sample);
-    } else {
-#endif
-      add_mic_sample(radio->transmitter,sample);
-#ifdef FREEDV
-    }
-#endif
+    add_mic_sample(radio->transmitter,(float)sample/32768.0);
   }
 }
 
@@ -1456,16 +1440,7 @@ void protocol2_process_local_mic(RADIO *r) {
   short sample;
 
   for(i=0;i<r->local_microphone_buffer_size;i++) {
-    sample = (short)(r->local_microphone_buffer[i]*32768.0);
-#ifdef FREEDV
-    if(radio->transmitter->rx->freedv) {
-      add_freedv_mic_sample(r->transmitter,sample);
-    } else {
-#endif
-      add_mic_sample(r->transmitter,sample);
-#ifdef FREEDV
-    }
-#endif
+    add_mic_sample(r->transmitter,r->local_microphone_buffer[i]);
   }
 }
 

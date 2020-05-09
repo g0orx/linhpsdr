@@ -33,6 +33,9 @@
 //#include "transmitter_dialog.h"
 #include "configure_dialog.h"
 #include "main.h"
+#ifdef SOAPYSDR
+#include "soapy_protocol.h"
+#endif
 
 static gboolean transmitter_button_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
   switch(event->button) {
@@ -176,10 +179,13 @@ void update_tx_panadapter(RADIO *r) {
     
     // signal
     if(isTransmitting(radio)) {
+/*
       int offset=tx->pixels/3;
       if(radio->discovered->protocol==PROTOCOL_2) {
         offset=(tx->pixels/24)*11;
       }
+*/
+      int offset=(tx->pixels/2)-(width/2);
       double s1,s2;
       samples[offset]=-200.0;
       samples[(offset+width)-1]=-200.0;
@@ -266,8 +272,33 @@ void update_tx_panadapter(RADIO *r) {
       sprintf(text,"%2.0f degC",tx->temperature);
       cairo_move_to(cr, 206, 157);
       cairo_show_text(cr, text);
-
     }
+#ifdef SOAPYSDR
+    if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {   
+      if(radio->discovered->info.soapy.has_temp) {
+        cairo_set_font_size(cr, 12);       
+        SetColour(cr, TEXT_C);
+        int y=height-40;
+        for (size_t i = 0; i < radio->discovered->info.soapy.sensors; i++) {
+          if(strstr(radio->discovered->info.soapy.sensor[i],"temp")!=NULL) {
+            char *value=soapy_protocol_read_sensor(radio->discovered->info.soapy.sensor[i]);
+            int v=(int)atof(value);
+            if(strcmp(radio->discovered->info.soapy.sensor[i],"xadc_temp0")==0) {
+              sprintf(text,"zynq = %dC",v);
+            } else if(strcmp(radio->discovered->info.soapy.sensor[i],"ad9361-phy_temp0")==0) {
+              sprintf(text,"pluto = %dC",v);
+            } else {
+              sprintf(text,"%s = %dC",radio->discovered->info.soapy.sensor[i],v);;
+            }
+            cairo_move_to(cr, width-(width/4), y);
+            cairo_show_text(cr, text);
+            y+=15;
+          }
+        }
+      }
+    }
+#endif
+
     cairo_stroke(cr);    
     cairo_destroy(cr);
     gtk_widget_queue_draw(tx->panadapter);

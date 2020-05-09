@@ -475,32 +475,6 @@ static void preamp_cb(GtkWidget *widget, gpointer data) {
   adc->preamp=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 }
 
-static void duplex_cb(GtkWidget *widget, gpointer data) {
-  RADIO *radio=(RADIO *)data;
-  radio->duplex = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
-}
-
-static void sat_cb(GtkWidget *widget, gpointer data) {
-  RADIO *radio=(RADIO *)data;
-  radio->sat_mode=gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
-}
-
-static void mute_rx_cb(GtkWidget *widget, gpointer data) {
-  radio->mute_rx_while_transmitting=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
-}
-
-
-
-/* TO REMOVE
-static void lna_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
-  ADC *adc=(ADC *)data;
-  adc->attenuation=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
-  if(radio->discovered->protocol==PROTOCOL_2) {
-    protocol2_high_priority();
-  }
-}
-*/ 
-
 #ifdef SOAPYSDR
 static void adc_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   ADC *adc=(ADC *)data;
@@ -1024,46 +998,28 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   gtk_container_add(GTK_CONTAINER(config_frame),config_grid);
   gtk_grid_attach(GTK_GRID(grid),config_frame,col,row++,1,1);
 
-  duplex_b=gtk_check_button_new_with_label("Duplex");
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (duplex_b), radio->duplex);
-  gtk_grid_attach(GTK_GRID(config_grid),duplex_b,0,0,1,1);
-  g_signal_connect(duplex_b,"toggled",G_CALLBACK(duplex_cb),radio);
-  
-  sat_combo=gtk_combo_box_text_new();
-  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sat_combo),NULL,"SAT Off");
-  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sat_combo),NULL,"SAT");
-  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sat_combo),NULL,"RSAT");
-  gtk_combo_box_set_active(GTK_COMBO_BOX(sat_combo),radio->sat_mode);
-  gtk_grid_attach(GTK_GRID(config_grid),sat_combo,1,0,1,1);
-  g_signal_connect(sat_combo,"changed",G_CALLBACK(sat_cb),radio);
-
-  mute_rx_b=gtk_check_button_new_with_label("Mute RX when TX");
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (mute_rx_b), radio->mute_rx_while_transmitting);
-  gtk_grid_attach(GTK_GRID(config_grid),mute_rx_b,2,0,1,1);
-  g_signal_connect(mute_rx_b,"toggled",G_CALLBACK(mute_rx_cb),radio);
-
 #ifndef SOAPYSDR
   // SWR alarm threshold
   GtkWidget *swr_alarm_label=gtk_label_new("SWR alarm at ");
   gtk_widget_show(swr_alarm_label);
-  gtk_grid_attach(GTK_GRID(config_grid),swr_alarm_label,0,1,1,1);
+  gtk_grid_attach(GTK_GRID(config_grid),swr_alarm_label,0,0,1,1);
 
   swr_alarm_b=gtk_spin_button_new_with_range(1.0, 5.0, 0.1);
   gtk_spin_button_set_value(GTK_SPIN_BUTTON(swr_alarm_b), radio->swr_alarm_value);
   gtk_widget_show(swr_alarm_b);
-  gtk_grid_attach(GTK_GRID(config_grid),swr_alarm_b,1,1,1,1);
+  gtk_grid_attach(GTK_GRID(config_grid),swr_alarm_b,1,0,1,1);
   g_signal_connect(swr_alarm_b,"value_changed",G_CALLBACK(swr_alarm_changed_cb),radio);
 
   // Temperature alarm threshold
   if (radio->discovered->device == DEVICE_HERMES_LITE2) {
     GtkWidget *temp_alarm_label=gtk_label_new("Temp alarm at ");
     gtk_widget_show(temp_alarm_label);
-    gtk_grid_attach(GTK_GRID(config_grid),temp_alarm_label,2,1,1,1);
+    gtk_grid_attach(GTK_GRID(config_grid),temp_alarm_label,2,0,1,1);
 
     temperature_alarm_b=gtk_spin_button_new_with_range(30.0, 60.0, 1.0);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(temperature_alarm_b), (double)radio->temperature_alarm_value);
     gtk_widget_show(temperature_alarm_b);
-    gtk_grid_attach(GTK_GRID(config_grid),temperature_alarm_b,3,1,1,1);
+    gtk_grid_attach(GTK_GRID(config_grid),temperature_alarm_b,3,0,1,1);
     g_signal_connect(temperature_alarm_b,"value_changed",G_CALLBACK(temperature_alarm_changed_cb),radio);
   }
 #endif

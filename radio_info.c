@@ -168,32 +168,11 @@ void update_radio_info(RECEIVER *rx) {
     RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);    
   }
   x+=40;  
-  // Duplex mode 
-  if (radio->duplex) {
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_TRUE);
-  } else {
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);    
-  }
-  x+=40;  
   // Alsa MIDI server  
   if (radio->midi) {  
     RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_TRUE);  
   } else {
     RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);  
-  }
-  x+=40;
-  // Sat mode 
-  if (radio->sat_mode==SAT_NONE) {
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);    
-  } else {
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_TRUE);
-  }
-  x+=40;  
-  // Mute RX while transmitting (when in duplex mode)
-  if (radio->mute_rx_while_transmitting) {
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_TRUE);
-  } else {
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);
   }
   x+=40;    
   #ifdef CWDAEMON
@@ -243,39 +222,13 @@ void update_radio_info(RECEIVER *rx) {
   SetColour(cr, OFF_WHITE);
   cairo_move_to(cr, 5, top_y + 7);    
   cairo_show_text(cr, "CAT");
-  // Duplex mode    
-  SetColour(cr, OFF_WHITE);
-  cairo_move_to(cr, 45, top_y + 7);    
-  cairo_show_text(cr, "DUP");
   // Alsa MIDI server
   SetColour(cr, OFF_WHITE);
-  cairo_move_to(cr, 83, top_y + 7);    
+  cairo_move_to(cr, 43, top_y + 7);    
   cairo_show_text(cr, "MIDI"); 
-  // Sat mode
-  cairo_move_to(cr, 126, top_y + 7);    
-  switch(radio->sat_mode) {
-    case SAT_NONE:
-      SetColour(cr, DARK_TEXT);
-      cairo_show_text(cr, "SAT"); 
-      break;
-    case SAT_MODE:
-      SetColour(cr, OFF_WHITE);
-      cairo_show_text(cr, "SAT"); 
-      break;
-    case RSAT_MODE:
-      cairo_move_to(cr, 123, top_y + 7);     
-      SetColour(cr, OFF_WHITE);
-      cairo_show_text(cr, "RSAT"); 
-      break;
-  }
-  // Mute RX while transmitting    
-  SetColour(cr, OFF_WHITE);
-  cairo_move_to(cr, 162, top_y + 7);    
-  cairo_show_text(cr, "MUTE");
-
   #ifdef CWDAEMON
   SetColour(cr, OFF_WHITE);
-  cairo_move_to(cr, 203, top_y + 7);    
+  cairo_move_to(cr, 83, top_y + 7);    
   cairo_show_text(cr, "CWX"); 
   #endif 
 

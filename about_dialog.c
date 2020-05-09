@@ -110,7 +110,7 @@ GtkWidget *create_about_dialog(RADIO *r) {
       break;
 #endif
   }
-  snprintf(text,sizeof(text),"Device: %s\n%s v%d.%d",r->discovered->name,protocol,r->discovered->software_version/10,r->discovered->software_version%10);
+  snprintf(text,sizeof(text),"Device: %s %s %s",r->discovered->name,protocol,r->discovered->software_version);
   label=gtk_label_new(text);
   gtk_label_set_justify(GTK_LABEL(label),GTK_JUSTIFY_LEFT);
   gtk_grid_attach(GTK_GRID(grid),label,1,row,1,1);
