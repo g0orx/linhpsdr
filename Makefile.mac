@@ -97,7 +97,6 @@ button_text.c\
 wideband.c\
 vox.c\
 ext.c\
-smartsdr_server.c\
 configure_dialog.c\
 bookmark_dialog.c\
 puresignal_dialog.c\
@@ -148,7 +147,6 @@ button_text.h\
 wideband.h\
 vox.h\
 ext.h\
-smartsdr_server.h\
 configure_dialog.h\
 bookmark_dialog.h\
 puresignal_dialog.h\
@@ -198,7 +196,6 @@ button_text.o\
 wideband.o\
 vox.o\
 ext.o\
-smartsdr_server.o\
 configure_dialog.o\
 bookmark_dialog.o\
 puresignal_dialog.o\
