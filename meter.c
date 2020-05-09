@@ -206,7 +206,7 @@ void update_meter(RECEIVER *rx,gdouble value) {
     cairo_new_path(cr);
   }
 
-  cairo_set_line_width(cr, 1.0);
+  cairo_set_line_width(cr, 1.5);
   cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
 
   angle=level+127.0+offset;
@@ -219,6 +219,42 @@ void update_meter(RECEIVER *rx,gdouble value) {
   sprintf(sf,"%d dBm %s",(int)level,rx->smeter==RXA_S_AV?"Av":"Pk");
   cairo_move_to(cr, meter_width-130, meter_height-2);
   cairo_show_text(cr, sf);
+
+  SetColour(cr, TEXT_C);
+  cairo_set_font_size(cr, 36);
+
+  static double smax;
+
+  level=level+127;
+  if (level<0) {
+    level=0;
+  }
+  if (level>smax) {
+    smax=level;
+  } else {
+    if (level>54) {
+      smax=smax-((smax-level)/(3*rx->fps));
+    } else {
+      smax = smax-((smax-level)/(rx->fps/2));
+    }
+  }
+  i=(int)(smax/6);
+  if(i>9) {
+    i=9;
+  }
+
+  sprintf(sf,"S%d", i);
+  cairo_move_to(cr, meter_width-267, meter_height-20);
+  cairo_show_text(cr, sf);
+
+  i=(int)smax;
+  if(i>54) {
+    i=i-54;
+    cairo_set_font_size(cr, 24);
+    sprintf(sf, "+%d", i);
+    cairo_move_to(cr, meter_width-225, (meter_height/2)+5);
+    cairo_show_text(cr, sf);
+  }
 
   cairo_destroy(cr);
   gtk_widget_queue_draw (rx->meter);
