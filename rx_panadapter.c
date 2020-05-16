@@ -371,8 +371,9 @@ void update_rx_panadapter(RECEIVER *rx) {
 
     long long frequency=rx->frequency_a;
     long long half=(long long)rx->sample_rate/2LL;
-    long long min_display=frequency-(half/(long long)rx->zoom);
-    long long max_display=frequency+(half/(long long)rx->zoom);
+    long long min_display=(frequency - half) + (long long)((double)rx->pan*rx->hz_per_pixel);
+    long long max_display=(frequency + half) + (long long)((double)rx->pan*rx->hz_per_pixel);
+
     BAND *band=band_get_band(rx->band_a);
 
     if(rx->band_a==band60) {
@@ -403,33 +404,38 @@ void update_rx_panadapter(RECEIVER *rx) {
     double filter_right=((double)rx->pixels/2.0)-(double)rx->pan+(((double)rx->filter_high+rx->ctun_offset)/rx->hz_per_pixel);
     cairo_rectangle(cr, filter_left, 0.0, filter_right-filter_left, (double)display_height);
     cairo_fill(cr);
-    if(rx->mode_a==CWU || rx->mode_a==CWL) {
-      SetColour(cr, TEXT_B);
-      double cw_frequency=filter_left+((filter_right-filter_left)/2.0);
-      cairo_move_to(cr,cw_frequency,10.0);
-      cairo_line_to(cr,cw_frequency,(double)display_height-20);
-      cairo_stroke(cr);
-    }
     
     // Show VFO B (tx) for split mode
+    
+    double cw_offset = 0;
+    if(rx->mode_a==CWL || rx->mode_a==CWU) {  
+      if(rx->mode_a==CWU) {
+        cw_offset=-radio->cw_keyer_sidetone_frequency;
+      } else {
+        cw_offset=+radio->cw_keyer_sidetone_frequency;
+      }  
+    }
+            
     if(rx->split==SPLIT_ON) {    
       if(rx->mode_a==CWU || rx->mode_a==CWL) {
-        double diff = (double)(rx->frequency_b - rx->frequency_a)/rx->hz_per_pixel;       
-        SetColour(cr, WARNING);
-        double cw_frequency=filter_left+((filter_right-filter_left)/2.0);
-        cairo_move_to(cr, cw_frequency + diff,10.0);
-        cairo_line_to(cr, cw_frequency + diff,(double)display_height-20);
-        cairo_stroke(cr);
+        
+        SetColour(cr, WARNING);        
+
+         i=(int)(((double)rx->frequency_b-(double)min_display)/rx->hz_per_pixel);
+          i -= cw_offset / rx->hz_per_pixel;
+          cairo_move_to(cr,(double)i,0.0);
+          cairo_line_to(cr,(double)i,(double)display_height-20);
+          cairo_stroke(cr);        
       }
   }
     
     cairo_set_line_width (cr, 1);
     // plot the levels
     
-      cairo_set_source_rgb (cr, 0.1, 0.1, 0.1);
-      //cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
-      cairo_rectangle(cr,0,0,40,display_height);
-      cairo_fill(cr);    
+    cairo_set_source_rgb (cr, 0.1, 0.1, 0.1);
+    //cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
+    cairo_rectangle(cr,0,0,40,display_height);
+    cairo_fill(cr);    
     
     for(i=rx->panadapter_high;i>=rx->panadapter_low;i--) {
       SetColour(cr, DARK_LINES);
@@ -449,6 +455,7 @@ void update_rx_panadapter(RECEIVER *rx) {
         cairo_show_text(cr, temp);
       }
     }
+    SetColour(cr, DARK_LINES);      
     cairo_stroke(cr);
 
 
@@ -635,12 +642,14 @@ void update_rx_panadapter(RECEIVER *rx) {
         cairo_set_line_width(cr, 2.0);
         if((min_display<band->frequencyMin)&&(max_display>band->frequencyMin)) {
           i=(int)(((double)band->frequencyMin-(double)min_display)/rx->hz_per_pixel);
+          i -= cw_offset / rx->hz_per_pixel;
           cairo_move_to(cr,(double)i,0.0);
           cairo_line_to(cr,(double)i,(double)display_height-20);
           cairo_stroke(cr);
         }
         if((min_display<band->frequencyMax)&&(max_display>band->frequencyMax)) {
           i=(int)(((double)band->frequencyMax-(double)min_display)/rx->hz_per_pixel);
+          i -= cw_offset / rx->hz_per_pixel;
           cairo_move_to(cr,(double)i,0.0);
           cairo_line_to(cr,(double)i,(double)display_height-20);
           cairo_stroke(cr);
@@ -692,12 +701,10 @@ void update_rx_panadapter(RECEIVER *rx) {
 
 
     // cursor
-    if(rx->mode_a!=CWU && rx->mode_a!=CWL) {    
-      SetColour(cr, TEXT_A);
-      cairo_move_to(cr,(double)(rx->pixels/2.0)-(double)rx->pan+(rx->ctun_offset/rx->hz_per_pixel),0.0);
-      cairo_line_to(cr,(double)(rx->pixels/2.0)-(double)rx->pan+(rx->ctun_offset/rx->hz_per_pixel),(double)display_height-20);
-      cairo_stroke(cr);
-    } 
+    SetColour(cr, TEXT_B);  
+    cairo_move_to(cr,(double)(rx->pixels/2.0)-(double)rx->pan+(rx->ctun_offset/rx->hz_per_pixel) - (cw_offset/rx->hz_per_pixel),0.0);
+    cairo_line_to(cr,(double)(rx->pixels/2.0)-(double)rx->pan+(rx->ctun_offset/rx->hz_per_pixel) - (cw_offset/rx->hz_per_pixel),(double)display_height-20);
+    cairo_stroke(cr);    
     
     // signal
     double s2;

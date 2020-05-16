@@ -757,22 +757,28 @@ void receiver_move_to(RECEIVER *rx,long long hz) {
 
   f=start+offset+(long long)((double)rx->pan*rx->hz_per_pixel);
   f=f/rx->step*rx->step;
+  
+  double cw_offset = 0;
+  if(rx->mode_a==CWL || rx->mode_a==CWU) {  
+    if(rx->mode_a==CWU) {
+      cw_offset=-radio->cw_keyer_sidetone_frequency;
+    } else {
+      cw_offset=+radio->cw_keyer_sidetone_frequency;
+    }  
+  }
+  
+  
 g_print("receiver_move_to: f=%lld\n",f);
   if(rx->ctun) {
     delta=rx->ctun_frequency;
-    rx->ctun_frequency=f;
+    rx->ctun_frequency=f + cw_offset;
     delta=rx->ctun_frequency-delta;
   } else {
-    if(rx->split==SPLIT_ON && (rx->mode_a==CWL || rx->mode_a==CWU)) {
-      if(rx->mode_a==CWU) {
-        f=f-radio->cw_keyer_sidetone_frequency;
-      } else {
-        f=f+radio->cw_keyer_sidetone_frequency;
-      }
-      rx->frequency_b=f;
+    if((rx->split==SPLIT_ON) && (rx->mode_a==CWL || rx->mode_a==CWU)) {
+      rx->frequency_b=f + cw_offset;  
     } else {
       delta=rx->frequency_a;
-      rx->frequency_a=f;
+      rx->frequency_a=f + cw_offset;
       delta=rx->frequency_a-delta;
     }
   }
