@@ -501,11 +501,13 @@ void frequency_changed(RECEIVER *rx) {
     gint64 offset;
     rx->ctun_offset=rx->ctun_frequency-rx->frequency_a;
     offset=rx->ctun_offset;
+    /*
     if(rx->mode_a==CWU) {
       offset+=(gint64)radio->cw_keyer_sidetone_frequency;
     } else if(rx->mode_a==CWL) {
       offset-=(gint64)radio->cw_keyer_sidetone_frequency;
     }
+    */
     if(rx->rit_enabled) {
       offset+=rx->rit;
     }
