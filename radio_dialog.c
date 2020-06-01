@@ -26,6 +26,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "bpsk.h"
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"
@@ -41,7 +42,7 @@
 #endif
 #include "audio.h"
 #include "receiver_dialog.h"
-#include "rigctl.h"
+//#include "rigctl.h"
 
 #ifdef CWDAEMON
 #include "cwdaemon.h"
@@ -76,7 +77,7 @@ static GtkWidget *cw_keyer_speed_b;
 static GtkWidget *cw_keyer_weight_b;
 static GtkWidget *cw_keyer_sidetone_level_b;
 
-static GtkWidget *rigctl_base;
+//static GtkWidget *rigctl_base;
 
 #ifdef SOAPYSDR
 static GtkWidget *dac0_frame;
@@ -126,7 +127,7 @@ static void update_controls() {
     case ORION_1:
     case ORION_2:
 #ifdef SOAPYSDR
-    case SOAPYSDR_USB:
+    case SOAPY_DEVICE:
 #endif
       radio->filter_board=NONE;
       break;
@@ -172,7 +173,7 @@ static void update_controls() {
     case HERMES_LITE_2:
       break;
 #ifdef SOAPYSDR
-    case SOAPYSDR_USB:
+    case SOAPYSDR:
       break;
 #endif
     default:
@@ -188,7 +189,7 @@ static void update_controls() {
   }
 
 #ifdef SOAPYSDR
-  if(radio->discovered->device!=DEVICE_SOAPYSDR_USB) {
+  if(radio->discovered->device!=DEVICE_SOAPYSDR) {
 #endif
     gtk_combo_box_set_active(GTK_COMBO_BOX(filter_board_combo_box),radio->filter_board);
 #ifdef SOAPYSDR
@@ -479,7 +480,7 @@ static void preamp_cb(GtkWidget *widget, gpointer data) {
 static void adc_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   ADC *adc=(ADC *)data;
   adc->gain=gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
-  if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
+  if(radio->discovered->device==DEVICE_SOAPYSDR) {
     soapy_protocol_set_gain(adc);
   }
 }
@@ -493,8 +494,8 @@ static void agc_changed_cb(GtkWidget *widget, gpointer data) {
 
 static void dac0_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   DAC *dac=(DAC *)data;
-  if(radio->model==SOAPYSDR_USB) {
-    dac->gain=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
+  if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
+    dac->gain=gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
     soapy_protocol_set_tx_gain(dac);
   }
 }
@@ -527,6 +528,7 @@ static void enable_step_attenuation_cb(GtkWidget *widget,gpointer data) {
   }
 }
 
+/*
 static void rigctl_cb(GtkWidget *widget, gpointer data) {
   int i;
 
@@ -548,10 +550,14 @@ static void rigctl_cb(GtkWidget *widget, gpointer data) {
   }
 }
 
+static void rigctl_debug_cb(GtkWidget *widget, gpointer data) {
+  rigctl_debug=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+}
+
 static void rigctl_value_changed_cb(GtkWidget *widget, gpointer data) {
   rigctl_port_base=gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
 }
-
+*/
 
 #ifdef CWDAEMON
 
@@ -654,7 +660,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   x++;
 
 #ifdef SOAPYSDR
-  if(radio->discovered->device!=DEVICE_SOAPYSDR_USB) {
+  if(radio->discovered->device!=DEVICE_SOAPYSDR) {
 #endif
     filter_board_combo_box=gtk_combo_box_text_new();
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(filter_board_combo_box),NULL,"NONE");
@@ -703,7 +709,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   switch(radio->discovered->device) {
 
 #ifdef SOAPYSDR
-    case DEVICE_SOAPYSDR_USB:
+    case DEVICE_SOAPYSDR:
       {
       GtkWidget *antenna_label=gtk_label_new("Antenna:");
       gtk_grid_attach(GTK_GRID(adc0_grid),antenna_label,0,0,1,1);
@@ -907,7 +913,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
 
   switch(radio->discovered->device) {
 #ifdef SOAPYSDR
-    case DEVICE_SOAPYSDR_USB:
+    case DEVICE_SOAPYSDR:
       if(radio->can_transmit) {
         int r=0;
         dac0_frame=gtk_frame_new("DAC-0");
@@ -1228,6 +1234,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   x=0;
   y=0;
 
+/*
   GtkWidget *rigctl_frame=gtk_frame_new("CAT");
   GtkWidget *rigctl_grid=gtk_grid_new();
   gtk_grid_set_row_homogeneous(GTK_GRID(rigctl_grid),TRUE);
@@ -1237,8 +1244,13 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
 
   GtkWidget *rigctl_b=gtk_check_button_new_with_label("CAT Enabled");
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rigctl_b), rigctl_enable);
-  gtk_grid_attach(GTK_GRID(rigctl_grid),rigctl_b,x,y++,1,1);
+  gtk_grid_attach(GTK_GRID(rigctl_grid),rigctl_b,x++,y,1,1);
   g_signal_connect(rigctl_b,"toggled",G_CALLBACK(rigctl_cb),radio);
+
+  GtkWidget *rigctl_debug_b=gtk_check_button_new_with_label("Debug");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rigctl_debug_b), rigctl_debug);
+  gtk_grid_attach(GTK_GRID(rigctl_grid),rigctl_debug_b,x,y++,1,1);
+  g_signal_connect(rigctl_debug_b,"toggled",G_CALLBACK(rigctl_debug_cb),radio);
 
   GtkWidget *base_label=gtk_label_new("Base Port:");
   gtk_widget_show(base_label);
@@ -1252,6 +1264,6 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   if(rigctl_enable) {
     gtk_widget_set_sensitive(rigctl_base, FALSE); 
   }
-
+*/
   return grid;
 }

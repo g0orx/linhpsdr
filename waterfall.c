@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include "discovered.h"
+#include "bpsk.h"
 #include "adc.h"
 #include "dac.h"
 #include "wideband.h"

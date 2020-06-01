@@ -39,6 +39,7 @@
 #include "band.h"
 #include "channel.h"
 #include "discovered.h"
+#include "bpsk.h"
 #include "mode.h"
 #include "filter.h"
 #include "receiver.h"

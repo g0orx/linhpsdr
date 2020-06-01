@@ -46,6 +46,7 @@
 #include "dac.h"
 #include "discovered.h"
 #include "wideband.h"
+#include "bpsk.h"
 #include "receiver.h"
 #include "transmitter.h"
 #include "radio.h"

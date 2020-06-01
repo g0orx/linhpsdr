@@ -27,6 +27,7 @@
 
 #include "alex.h"
 #include "discovered.h"
+#include "bpsk.h"
 #include "mode.h"
 #include "filter.h"
 #include "receiver.h"
@@ -53,6 +54,13 @@
 #define QUEUE_SIZE (QUEUE_ELEMENTS + 1)
 long Queue[QUEUE_SIZE];
 long QueueIn, QueueOut;
+
+double ctcss_frequencies[CTCSS_FREQUENCIES]= {
+  67.0,71.9,74.4,77.0,79.7,82.5,85.4,88.5,91.5,94.8,
+  97.4,100.0,103.5,107.2,110.9,114.8,118.8,123.0,127.3,131.8,
+  136.5,141.3,146.2,151.4,156.7,162.2,167.9,173.8,179.9,186.2,
+  192.8,203.5,210.7,218.1,225.7,233.6,241.8,250.3
+};
 
 const int protocol1_tx_scheduler[20][26] = {
 //  Three receivers - 25 Tx queue events per set of 63, 126, 252, 504  received frames
@@ -169,11 +177,11 @@ void transmitter_save_state(TRANSMITTER *tx) {
   sprintf(name,"transmitter[%d].panadapter_high",tx->channel);
   sprintf(value,"%d",tx->panadapter_high);
   setProperty(name,value);
+  sprintf(name,"transmitter[%d].ctcss_enabled",tx->channel);
+  sprintf(value,"%d",tx->ctcss_enabled);
+  setProperty(name,value);
   sprintf(name,"transmitter[%d].ctcss",tx->channel);
   sprintf(value,"%d",tx->ctcss);
-  setProperty(name,value);
-  sprintf(name,"transmitter[%d].ctcss_frequency",tx->channel);
-  sprintf(value,"%f",tx->ctcss_frequency);
   setProperty(name,value);
   sprintf(name,"transmitter[%d].eer",tx->channel);
   sprintf(value,"%i",tx->eer);
@@ -304,12 +312,12 @@ void transmitter_restore_state(TRANSMITTER *tx) {
   sprintf(name,"transmitter[%d].panadapter_high",tx->channel);
   value=getProperty(name);
   if(value) tx->panadapter_high=atoi(value);
+  sprintf(name,"transmitter[%d].ctcss_enabled",tx->channel);
+  value=getProperty(name);
+  if(value) tx->ctcss_enabled=atoi(value);
   sprintf(name,"transmitter[%d].ctcss",tx->channel);
   value=getProperty(name);
   if(value) tx->ctcss=atoi(value);
-  sprintf(name,"transmitter[%d].ctcss_frequency",tx->channel);
-  value=getProperty(name);
-  if(value) tx->ctcss_frequency=atof(value);
   sprintf(name,"transmitter[%d].eer",tx->channel);
   value=getProperty(name);
   if(value) tx->eer=atoi(value);
@@ -754,7 +762,6 @@ void full_tx_buffer_process(TRANSMITTER *tx) {
           break;
 #ifdef SOAPYSDR
         case PROTOCOL_SOAPYSDR:
-          //soapy_protocol_iq_samples((float)tx->iq_output_buffer[j*2],(float)tx->iq_output_buffer[(j*2)+1]);
           soapy_protocol_iq_samples((float)isample,(float)qsample);
           break;
 #endif
@@ -885,11 +892,11 @@ void transmitter_set_am_carrier_level(TRANSMITTER *tx) {
   SetTXAAMCarrierLevel(tx->channel, tx->am_carrier_level);
 }
 
-void transmitter_set_ctcss(TRANSMITTER *tx,gboolean run,gdouble frequency) {
-  tx->ctcss=run;
-  tx->ctcss_frequency=frequency;
-  SetTXACTCSSFreq(tx->channel, tx->ctcss_frequency);
-  SetTXACTCSSRun(tx->channel, tx->ctcss);
+void transmitter_set_ctcss(TRANSMITTER *tx,gboolean run,int i) {
+  tx->ctcss_enabled=run;
+  tx->ctcss=i;
+  SetTXACTCSSFreq(tx->channel, ctcss_frequencies[tx->ctcss]);
+  SetTXACTCSSRun(tx->channel, tx->ctcss_enabled);
 }
 
 void transmitter_set_pre_emphasize(TRANSMITTER *tx,int state) {
@@ -907,41 +914,7 @@ static gboolean transmitter_configure_event_cb(GtkWidget *widget,GdkEventConfigu
 */
 
 static void create_visual(TRANSMITTER *tx) {
-  gchar title[32];
-  g_snprintf((gchar *)&title,sizeof(title),"LinHPSDR: Rx:%d",tx->channel);
-
-/*
-  tx->window=gtk_window_new(GTK_WINDOW_TOPLEVEL);
-  gtk_window_set_title(GTK_WINDOW(tx->window),title);
-  gtk_widget_set_size_request(tx->window,tx->window_width,tx->window_height);
-
-  rx->table=gtk_table_new(3,4,FALSE);
-
-  rx->vfo=create_vfo(rx);
-  gtk_widget_set_size_request(rx->vfo,600,60);
-  gtk_table_attach(GTK_TABLE(rx->table), rx->vfo, 0, 3, 0, 1,
-      GTK_FILL, GTK_FILL, 0, 0);
-
-  rx->meter=create_meter_visual(rx);
-  gtk_widget_set_size_request(rx->meter,200,60);
-  gtk_table_attach(GTK_TABLE(rx->table), rx->meter, 2, 4, 0, 1,
-      GTK_FILL, GTK_FILL, 0, 0);
-
-  rx->panadapter=create_rx_panadapter(rx);
-  gtk_table_attach(GTK_TABLE(rx->table), rx->panadapter, 0, 4, 1, 2,
-      GTK_FILL | GTK_EXPAND, GTK_FILL | GTK_EXPAND, 0, 0);
-
-  rx->waterfall=create_waterfall(rx);
-  gtk_table_attach(GTK_TABLE(rx->table), rx->waterfall, 0, 4, 2, 3,
-      GTK_FILL | GTK_EXPAND, GTK_FILL | GTK_EXPAND, 0, 0);
-
-  gtk_container_add(GTK_CONTAINER(rx->window),rx->table);
-*/
   tx->panadapter=create_tx_panadapter(tx);
-  //tx->mic_level=create_mic_level(tx);
-
-//  gtk_container_add(GTK_CONTAINER(tx->window),tx->panadapter);
-
 }
 
 void transmitter_init_analyzer(TRANSMITTER *tx) {
@@ -1084,8 +1057,8 @@ g_print("create_transmitter: channel=%d\n",channel);
   tx->equalizer[0]=tx->equalizer[1]=tx->equalizer[2]=tx->equalizer[3]=0;
   tx->leveler=FALSE;
 
-  tx->ctcss=FALSE;
-  tx->ctcss_frequency=100.0;
+  tx->ctcss_enabled=FALSE;
+  tx->ctcss=11;
   tx->tone_level=0.2;
 
   tx->deviation=2500.0;
@@ -1154,7 +1127,7 @@ g_print("create_transmitter: channel=%d\n",channel);
     SetTXAEQRun(tx->channel, 0);
   }
 
-  transmitter_set_ctcss(tx,tx->ctcss,tx->ctcss_frequency);
+  transmitter_set_ctcss(tx,tx->ctcss_enabled,tx->ctcss);
   SetTXAAMSQRun(tx->channel, 0);
   SetTXAosctrlRun(tx->channel, 0);
 

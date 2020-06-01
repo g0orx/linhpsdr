@@ -25,6 +25,7 @@
 #include <arpa/inet.h> //inet_addr
 
 #include "agc.h"
+#include "bpsk.h"
 #include "mode.h"
 #include "filter.h"
 #include "band.h"

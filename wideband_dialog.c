@@ -25,6 +25,7 @@
 #include <wdsp.h>
 
 #include "button_text.h"
+#include "bpsk.h"
 #include "discovered.h"
 #include "mode.h"
 #include "filter.h"

@@ -32,8 +32,10 @@
 #include <arpa/inet.h>
 #include <wdsp.h>
 
+#include "css.h"
 #include "discovery.h"
 #include "discovered.h"
+#include "bpsk.h"
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"
@@ -242,14 +244,14 @@ g_print("discovered: %d device=%d\n",i,discovered[i].device);
 
       switch(d->device) {
 #ifdef SOAPYSDR
-        case DEVICE_SOAPYSDR_USB:
+        case DEVICE_SOAPYSDR:
           if(strcmp(d->name,"rtlsdr")==0) {
             sprintf(mac,"%d",d->info.soapy.rtlsdr_count);
           } else {
             strcpy(mac,"");
           }
-          strcpy(ip,"");
-          strcpy(iface,"USB");
+          strcpy(ip,d->info.soapy.address);
+          strcpy(iface,"");
           break;
 #endif
         default:
@@ -387,7 +389,7 @@ gboolean start_cb(GtkWidget *widget,gpointer data) {
   char v[32];
   char mac[32];
   char ip[32];
-  char iface[32];
+  char iface[64];
   char protocol[32];
   gchar title[128];
   char *value;
@@ -397,19 +399,19 @@ gboolean start_cb(GtkWidget *widget,gpointer data) {
   if(d!=NULL && d->status==STATE_AVAILABLE) {
     switch(d->device) {
 #ifdef SOAPYSDR
-      case DEVICE_SOAPYSDR_USB:
+      case DEVICE_SOAPYSDR:
         if(strcmp(d->name,"rtlsdr")==0) {
           g_snprintf(mac,sizeof(mac),"%d",d->info.soapy.rtlsdr_count);
         } else {
           strcpy(mac,"");
         }
-        strcpy(ip,"");
-        strcpy(protocol,"SoapySDR");
-        strcpy(iface,"USB");
+        strcpy(ip,d->info.soapy.address);
+        strcpy(protocol,"Soapy");
+        strcpy(iface,"");
         break;
 #endif
       default:
-        g_snprintf(mac,sizeof(mac),"%02X:%02X:%02X:%02X:%02X:%02X",
+        g_snprintf(mac,sizeof(mac),"(%02X:%02X:%02X:%02X:%02X:%02X)",
           d->info.network.mac_address[0],
           d->info.network.mac_address[1],
           d->info.network.mac_address[2],
@@ -422,10 +424,10 @@ gboolean start_cb(GtkWidget *widget,gpointer data) {
         } else {
           strcpy(protocol,"P2");
         }
-        strcpy(iface,d->info.network.interface_name);
+        sprintf(iface,"on %s",d->info.network.interface_name);
         break;
     }
-    g_snprintf((gchar *)&title,sizeof(title),"LinHPSDR (%s): %s %s v%s %s (%s) on %s",
+    g_snprintf((gchar *)&title,sizeof(title),"LinHPSDR (%s): %s %s %s %s %s %s",
       version,
       d->name,
       protocol,
@@ -475,6 +477,9 @@ static void activate_hpsdr(GtkApplication *app, gpointer data) {
   g_print("release: %s\n",unameData.release);
   g_print("version: %s\n",unameData.version);
   g_print("machine: %s\n",unameData.machine);
+
+  load_css();
+
   GdkScreen *screen=gdk_screen_get_default();
   if(screen==NULL) {
     g_print("HPSDR: no default screen!\n");

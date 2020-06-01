@@ -33,6 +33,7 @@ static void get_info(char *driver) {
   int i;
   SoapySDRKwargs args={};
   char *version;
+  char *address=NULL;
   int rtlsdr_val=0;
 
   fprintf(stderr,"soapy_discovery: get_info: %s\n", driver);
@@ -47,7 +48,6 @@ static void get_info(char *driver) {
   }
   SoapySDRDevice *sdr = SoapySDRDevice_make(&args);
   SoapySDRKwargs_clear(&args);
-  version=0;
 
   char *driverkey=SoapySDRDevice_getDriverKey(sdr);
   fprintf(stderr,"DriverKey=%s\n",driverkey);
@@ -64,6 +64,9 @@ static void get_info(char *driver) {
     }
     if(strcmp(info.keys[i],"fw_version")==0) {
       version=info.vals[i];
+    }
+    if(strcmp(info.keys[i],"ip,ip-addr")==0) {
+      address=info.vals[i];
     }
   }
 
@@ -181,7 +184,7 @@ static void get_info(char *driver) {
   }
 
   if(devices<MAX_DEVICES) {
-    discovered[devices].device=DEVICE_SOAPYSDR_USB;
+    discovered[devices].device=DEVICE_SOAPYSDR;
     discovered[devices].protocol=PROTOCOL_SOAPYSDR;
     strcpy(discovered[devices].name,driver);
     discovered[devices].supported_receivers=rx_channels;
@@ -229,6 +232,11 @@ fprintf(stderr,"Tx gains: \n");
     discovered[devices].info.soapy.sensors=sensors;
     discovered[devices].info.soapy.sensor=sensor;
     discovered[devices].info.soapy.has_temp=has_temp;
+    if(address!=NULL) {
+      strcpy(discovered[devices].info.soapy.address,address);
+    } else {
+      strcpy(discovered[devices].info.soapy.address,"USB");
+    }
 
     devices++;
   }

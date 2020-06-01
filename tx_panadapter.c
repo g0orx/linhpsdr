@@ -23,6 +23,7 @@
 
 #include "mode.h"
 #include "discovered.h"
+#include "bpsk.h"
 #include "adc.h"
 #include "dac.h"
 #include "wideband.h"
@@ -44,8 +45,7 @@ static gboolean transmitter_button_press_event_cb(GtkWidget *widget,GdkEventButt
     case 3: // right
       //if(tx->dialog==NULL) {
       if(radio->dialog==NULL) {
-        //tx->dialog=create_transmitter_dialog(tx);
-        radio->dialog=create_configure_dialog(radio,1);
+        radio->dialog=create_configure_dialog(radio,rx_base+radio->receivers);
       }
       break;
   }
@@ -290,6 +290,13 @@ void update_tx_panadapter(RADIO *r) {
             } else {
               sprintf(text,"%s = %dC",radio->discovered->info.soapy.sensor[i],v);;
             }
+            cairo_move_to(cr, width-(width/4), y);
+            cairo_show_text(cr, text);
+            y+=15;
+          } else if(strcmp(radio->discovered->info.soapy.sensor[i],"adm1177_voltage0")==0) {
+            char *value=soapy_protocol_read_sensor(radio->discovered->info.soapy.sensor[i]);
+            double v=atof(value);
+            sprintf(text,"volts = %0.1fv",v);
             cairo_move_to(cr, width-(width/4), y);
             cairo_show_text(cr, text);
             y+=15;

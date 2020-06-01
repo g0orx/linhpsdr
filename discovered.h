@@ -56,7 +56,7 @@ enum {
   ,DEVICE_HERMES_LITE
   ,DEVICE_HERMES_LITE2
 #ifdef SOAPYSDR
-  ,DEVICE_SOAPYSDR_USB
+  ,DEVICE_SOAPYSDR
 #endif
 };
 
@@ -111,6 +111,7 @@ struct _DISCOVERED {
         size_t sensors;
         char **sensor;
         gboolean has_temp;
+        char address[32];
       } soapy;
 #endif
     } info;

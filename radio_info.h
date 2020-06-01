@@ -17,5 +17,16 @@
 *
 */
 
+typedef struct _radio_info {
+  GtkWidget *radio_info;
+  GtkWidget *buffer_overflow_underflow_b;
+  GtkWidget *adc_overload_b;
+  GtkWidget *swr_b;
+  GtkWidget *temp_b;
+  GtkWidget *cat_b;
+  GtkWidget *midi_b;
+  GtkWidget *cwdaemon_b;
+} RADIO_INFO;
+
 extern GtkWidget *create_radio_info_visual(RECEIVER *rx);
 extern void update_radio_info(RECEIVER *rx);

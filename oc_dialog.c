@@ -28,6 +28,7 @@
 
 #include "band.h"
 #include "bandstack.h"
+#include "bpsk.h"
 #include "mode.h"
 #include "filter.h"
 #include "receiver.h"

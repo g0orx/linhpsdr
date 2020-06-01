@@ -96,9 +96,12 @@ typedef struct _receiver {
   gboolean mute_while_transmitting;
   gboolean duplex;
 
-  gint filter_low;
-  gint filter_high;
+  gint filter_low_a;
+  gint filter_high_a;
   gint deviation;
+
+  gint filter_low_b;
+  gint filter_high_b;
 
   gint agc;
   gdouble agc_gain;
@@ -249,12 +252,11 @@ typedef struct _receiver {
   gint cat_control;
   gboolean rigctl_running;
 
-  gboolean bpsk;
-  gint bpsk_counter;
-  gint bpsk_channel;
-  double *bpsk_audio_output_buffer;
-  gint bpsk_buffer_size;
-  gint bpsk_offset;
+  gboolean bpsk_enable;
+  void *bpsk;
+
+  gboolean subrx_enable;
+  void *subrx;
 
   int resample_step;
 
@@ -264,6 +266,15 @@ typedef struct _receiver {
   gulong audio_choice_signal_id;
   gulong local_audio_signal_id;
   gulong tx_control_signal_id;
+
+  int rigctl_port_base;
+  int rigctl_enable;
+  gboolean rigctl_debug;
+
+  char rigctl_ser_port[64];
+  int rigctl_serial_baud_rate;
+  int rigctl_serial_parity;
+  gboolean rigctl_serial_enable;
 
 } RECEIVER;
 
@@ -300,6 +311,6 @@ extern void receiver_fps_changed(RECEIVER *rx);
 extern void receiver_change_zoom(RECEIVER *rx,int zoom);
 extern void update_frequency(RECEIVER *rx);
 extern void receiver_move(RECEIVER *rx,long long hz,gboolean round);
-extern void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only);
+extern void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only,gboolean round);
 extern void receiver_move_to(RECEIVER *rx,long long hz);
 #endif

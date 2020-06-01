@@ -32,6 +32,7 @@
 #include "alex.h"
 #include "button_text.h"
 #include "discovered.h"
+#include "bpsk.h"
 #include "mode.h"
 #include "filter.h"
 #include "band.h"
@@ -57,8 +58,9 @@
 #include "drive_level.h"
 #include "frequency.h"
 #include "property.h"
-#include "rigctl.h"
+//#include "rigctl.h"
 #include "receiver_dialog.h"
+#include "subrx.h"
 
 #ifdef MIDI
 // rather than including MIDI.h with all its internal stuff
@@ -196,7 +198,7 @@ g_print("radio_save_state: %s\n",filename);
     setProperty(name,value);
 
 #ifdef SOAPYSDR
-    if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
+    if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
       sprintf(name,"radio.adc[%d].gain",i);
       sprintf(value,"%f", radio->adc[0].gain);
       setProperty(name,value);
@@ -227,11 +229,12 @@ g_print("radio_save_state: %s\n",filename);
   sprintf(value,"%f",radio->swr_alarm_value);
   setProperty("radio.swr_alarm",value);
 
+/*
   sprintf(value,"%d",rigctl_enable);
   setProperty("rigctl_enable",value);
   sprintf(value,"%d",rigctl_port_base);
   setProperty("rigctl_port_base",value);
-
+*/
   sprintf(value,"%d",radio->iqswap);
   setProperty("radio.iqswap",value);
 
@@ -353,7 +356,7 @@ void radio_restore_state(RADIO *radio) {
     if(value!=NULL) radio->adc[i].attenuation=atoi(value);
 
 #ifdef SOAPYSDR
-    if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
+    if(radio->discovered->device==DEVICE_SOAPYSDR) {
       sprintf(name,"radio.adc[%d].gain",i);
       value=getProperty(name);
       if(value!=NULL) radio->adc[i].gain=atof(value);
@@ -410,10 +413,12 @@ void radio_restore_state(RADIO *radio) {
   value=getProperty("radio.which_audio_backend");
   if(value) radio->which_audio_backend=atoi(value);
 
+/*
   value=getProperty("rigctl_enable");
   if(value!=NULL) rigctl_enable=atoi(value);
   value=getProperty("rigctl_port_base");
   if(value!=NULL) rigctl_port_base=atoi(value);
+*/
 
   filterRestoreState();
   bandRestoreState();
@@ -501,13 +506,11 @@ void frequency_changed(RECEIVER *rx) {
     gint64 offset;
     rx->ctun_offset=rx->ctun_frequency-rx->frequency_a;
     offset=rx->ctun_offset;
-    /*
     if(rx->mode_a==CWU) {
       offset+=(gint64)radio->cw_keyer_sidetone_frequency;
     } else if(rx->mode_a==CWL) {
       offset-=(gint64)radio->cw_keyer_sidetone_frequency;
     }
-    */
     if(rx->rit_enabled) {
       offset+=rx->rit;
     }
@@ -515,11 +518,7 @@ void frequency_changed(RECEIVER *rx) {
     RXANBPSetShiftFrequency(rx->channel, (double)offset);
 #ifdef SOAPYSDR
     if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
-      if(radio->can_transmit) {
-        if(radio->transmitter!=NULL && radio->transmitter->rx==rx && isTransmitting(radio)) {
-          soapy_protocol_set_tx_frequency(radio->transmitter);
-        }
-      }
+      // delay setting tx frequency until transmit
     }
 #endif
   } else {
@@ -528,14 +527,25 @@ void frequency_changed(RECEIVER *rx) {
 #ifdef SOAPYSDR
     } else if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
       soapy_protocol_set_rx_frequency(rx);
-      if(radio->can_transmit) {
-        if(radio->transmitter!=NULL && radio->transmitter->rx==rx && isTransmitting(radio)) {
-          soapy_protocol_set_tx_frequency(radio->transmitter);
-        }
-      }
 #endif
     }
     rx->band_a=get_band_from_frequency(rx->frequency_a);
+  }
+
+  if(rx->subrx_enable) {
+    // make sure VFO B frequency is in the passband
+    gint64 min_frequency=rx->frequency_a-(gint64)(rx->sample_rate/2);
+    gint64 max_frequency=rx->frequency_a+(gint64)(rx->sample_rate/2);
+
+    gint64 filter_low_frequency=rx->frequency_b+(gint64)rx->filter_low_b;
+    gint64 filter_high_frequency=rx->frequency_b+(gint64)rx->filter_high_b;
+
+    if(filter_low_frequency<min_frequency) {
+      rx->frequency_b=min_frequency+(gint64)rx->filter_low_b;
+    } else if(filter_high_frequency>max_frequency) {
+      rx->frequency_b=max_frequency-(gint64)rx->filter_high_b;
+    }
+    subrx_frequency_changed(rx);
   }
 }
 
@@ -847,6 +857,7 @@ void add_transmitter(RADIO *r) {
   } else {
     transmitter_set_mode(r->transmitter,r->transmitter->rx->mode_a);
   }
+  update_vfo(r->transmitter->rx);
 }
 
 int add_wideband(void *data) {
@@ -902,11 +913,13 @@ static void create_visual(RADIO *r) {
     row=0;
 
     r->mox_button=gtk_button_new_with_label("MOX");
+    gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->mox_button)),"circular");
     g_signal_connect(r->mox_button,"clicked",G_CALLBACK(mox_cb),(gpointer)r);
     gtk_grid_attach(GTK_GRID(r->visual),r->mox_button,col,row,1,1);
     row++;
 
     r->vox_button=gtk_button_new_with_label("VOX");
+    gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->vox_button)),"circular");
     g_signal_connect(r->vox_button,"clicked",G_CALLBACK(vox_cb),(gpointer)r);
     gtk_grid_attach(GTK_GRID(r->visual),r->vox_button,col,row,1,1);
     row++;
@@ -926,6 +939,7 @@ static void create_visual(RADIO *r) {
     row=0;
   
     r->tune_button=gtk_button_new_with_label("Tune");
+    gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->tune_button)),"circular");
     g_signal_connect(r->tune_button,"clicked",G_CALLBACK(tune_cb),(gpointer)r);
     gtk_grid_attach(GTK_GRID(r->visual),r->tune_button,col,row,1,1);
     row++;
@@ -933,6 +947,7 @@ static void create_visual(RADIO *r) {
   }
 
   GtkWidget *configure=gtk_button_new_with_label("Configure");
+  gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(configure)),"circular");
   g_signal_connect(configure,"clicked",G_CALLBACK(configure_cb),(gpointer)r);
   gtk_grid_attach(GTK_GRID(r->visual),configure,col,row,1,1);
 
@@ -940,11 +955,13 @@ static void create_visual(RADIO *r) {
   row=0;
 
   add_receiver_b=gtk_button_new_with_label("Add Receiver");
+  gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(add_receiver_b)),"circular");
   g_signal_connect(add_receiver_b,"clicked",G_CALLBACK(add_receiver_cb),(gpointer)r);
   gtk_grid_attach(GTK_GRID(r->visual),add_receiver_b,col,row,1,1);
   row++;
 
   add_wideband_b=gtk_button_new_with_label("Add Wideband");
+  gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(add_wideband_b)),"circular");
   g_signal_connect(add_wideband_b,"clicked",G_CALLBACK(add_wideband_cb),(gpointer)r);
   gtk_grid_attach(GTK_GRID(r->visual),add_wideband_b,col,row,1,1);
 
@@ -992,8 +1009,8 @@ g_print("create_radio for %s %d\n",d->name,d->device);
       
       
 #ifdef SOAPYSDR
-    case DEVICE_SOAPYSDR_USB:
-      r->model=SOAPYSDR_USB;
+    case DEVICE_SOAPYSDR:
+      r->model=SOAPYSDR;
       break;
 #endif
     default:
@@ -1003,7 +1020,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   switch(r->model) {
 #ifdef SOAPYSDR
-    case SOAPYSDR_USB:
+    case SOAPYSDR:
       r->sample_rate=r->discovered->info.soapy.sample_rate;
       if(r->sample_rate==0) {
         r->sample_rate=768000;
@@ -1023,7 +1040,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->receivers=0;
   switch(d->device) {
 #ifdef SOAPYSDR
-    case DEVICE_SOAPYSDR_USB:
+    case DEVICE_SOAPYSDR:
       r->meter_calibration=-20.0;
       r->panadapter_calibration=-20.0;
       break;
@@ -1117,7 +1134,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->adc_overload = 0;
   
 #ifdef SOAPYSDR
-  if(r->discovered->device==DEVICE_SOAPYSDR_USB) {
+  if(r->discovered->device==DEVICE_SOAPYSDR) {
     r->adc[0].gain=20;
     r->adc[0].agc=FALSE;
     if(r->can_transmit) {
@@ -1136,7 +1153,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->adc[1].preamp=FALSE;
   r->adc[1].attenuation=0;
 #ifdef SOAPYSDR
-  if(r->discovered->device==DEVICE_SOAPYSDR_USB) {
+  if(r->discovered->device==DEVICE_SOAPYSDR) {
     r->adc[1].gain=20;
     r->adc[1].agc=FALSE;
     if(r->can_transmit) {
@@ -1220,7 +1237,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
       soapy_protocol_start_receiver(rx);
       if(r->can_transmit) {
         if(r->transmitter!=NULL && r->transmitter->rx==rx) {
-          soapy_protocol_set_tx_antenna(r->transmitter,1);
+          soapy_protocol_set_tx_antenna(r->transmitter,radio->dac[0].antenna);
           soapy_protocol_set_tx_frequency(r->transmitter);
         }
       }

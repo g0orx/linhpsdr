@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <termios.h>
 #include <wdsp.h>
 
 #include "agc.h"
@@ -32,6 +33,7 @@
 #include "bandstack.h"
 #include "band.h"
 #include "discovered.h"
+#include "bpsk.h"
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"
@@ -51,8 +53,8 @@
 #include "receiver_dialog.h"
 #include "configure_dialog.h"
 #include "property.h"
-#include "rigctl.h"
-#include "bpsk.h"
+//#include "rigctl.h"
+#include "subrx.h"
 
 void receiver_save_state(RECEIVER *rx) {
   char name[80];
@@ -155,6 +157,12 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].filter_a",rx->channel);
   sprintf(value,"%d",rx->filter_a);
   setProperty(name,value);
+  sprintf(name,"receiver[%d].filter_low_a",rx->channel);
+  sprintf(value,"%d",rx->filter_low_a);
+  setProperty(name,value);
+  sprintf(name,"receiver[%d].filter_high_a",rx->channel);
+  sprintf(value,"%d",rx->filter_high_a);
+  setProperty(name,value);
 
 
   sprintf(name,"receiver[%d].frequency_b",rx->channel);
@@ -174,6 +182,12 @@ void receiver_save_state(RECEIVER *rx) {
   setProperty(name,value);
   sprintf(name,"receiver[%d].filter_b",rx->channel);
   sprintf(value,"%d",rx->filter_b);
+  setProperty(name,value);
+  sprintf(name,"receiver[%d].filter_low_b",rx->channel);
+  sprintf(value,"%d",rx->filter_low_b);
+  setProperty(name,value);
+  sprintf(name,"receiver[%d].filter_high_b",rx->channel);
+  sprintf(value,"%d",rx->filter_high_b);
   setProperty(name,value);
 
   sprintf(name,"receiver[%d].ctun",rx->channel);
@@ -300,8 +314,8 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(value,"%ld",rx->rit_step);
   setProperty(name,value);
 
-  sprintf(name,"receiver[%d].bpsk",rx->channel);
-  sprintf(value,"%d",rx->bpsk);
+  sprintf(name,"receiver[%d].bpsk_enable",rx->channel);
+  sprintf(value,"%d",rx->bpsk_enable);
   setProperty(name,value);
 
   sprintf(name,"receiver[%d].split",rx->channel);
@@ -391,6 +405,12 @@ void receiver_restore_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].filter_a",rx->channel);
   value=getProperty(name);
   if(value) rx->filter_a=atoi(value);
+  sprintf(name,"receiver[%d].filter_low_a",rx->channel);
+  value=getProperty(name);
+  if(value) rx->filter_low_a=atoi(value);
+  sprintf(name,"receiver[%d].filter_high_a",rx->channel);
+  value=getProperty(name);
+  if(value) rx->filter_high_a=atoi(value);
   sprintf(name,"receiver[%d].frequency_b",rx->channel);
   value=getProperty(name);
   if(value) rx->frequency_b=atol(value);
@@ -409,6 +429,12 @@ void receiver_restore_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].filter_b",rx->channel);
   value=getProperty(name);
   if(value) rx->filter_b=atoi(value);
+  sprintf(name,"receiver[%d].filter_low_b",rx->channel);
+  value=getProperty(name);
+  if(value) rx->filter_low_b=atoi(value);
+  sprintf(name,"receiver[%d].filter_high_b",rx->channel);
+  value=getProperty(name);
+  if(value) rx->filter_high_b=atoi(value);
 
   sprintf(name,"receiver[%d].ctun",rx->channel);
   value=getProperty(name);
@@ -528,9 +554,9 @@ void receiver_restore_state(RECEIVER *rx) {
   value=getProperty(name);
   if(value) rx->rit_step=atol(value);
  
-  sprintf(name,"receiver[%d].bpsk",rx->channel);
+  sprintf(name,"receiver[%d].bpsk_enable",rx->channel);
   value=getProperty(name);
-  if(value) rx->bpsk=atoi(value);
+  if(value) rx->bpsk_enable=atoi(value);
 
   sprintf(name,"receiver[%d].fps",rx->channel);
   value=getProperty(name);
@@ -681,7 +707,9 @@ gboolean receiver_button_press_event_cb(GtkWidget *widget, GdkEventButton *event
 }
 
 void update_frequency(RECEIVER *rx) {
-  update_vfo(rx);
+  if(rx->vfo!=NULL) {
+    update_vfo(rx);
+  }
   if(radio->transmitter!=NULL) {
     if(radio->transmitter->rx==rx) {
       update_tx_panadapter(radio);
@@ -709,25 +737,44 @@ long long receiver_move_a(RECEIVER *rx,long long hz,gboolean round) {
   return delta;
 }
 
-void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only) {
+void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only,gboolean round) {
   switch(rx->split) {
     case SPLIT_OFF:
-      rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
+      if(round) {
+        rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
+      } else {
+        rx->frequency_b=rx->frequency_b+hz;
+      }
       break;
     case SPLIT_ON:
-      rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
+      if(round) {
+        rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
+      } else {
+        rx->frequency_b=rx->frequency_b+hz;
+      }
       break;
     case SPLIT_SAT:
-      rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
-      //if(!b_only) receiver_move_a(rx,hz,FALSE);
-      if(!b_only) receiver_move_a(rx,hz,TRUE);
+      if(round) {
+        rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
+      } else {
+        rx->frequency_b=rx->frequency_b+hz;
+      }
+      if(!b_only) receiver_move_a(rx,hz,round);
       break;
     case SPLIT_RSAT:
-      rx->frequency_b=(rx->frequency_b-hz)/rx->step*rx->step;
-      //if(!b_only) receiver_move_a(rx,-hz,FALSE);
-      if(!b_only) receiver_move_a(rx,-hz,TRUE);
+      if(round) {
+        rx->frequency_b=(rx->frequency_b-hz)/rx->step*rx->step;
+      } else {
+        rx->frequency_b=rx->frequency_b-hz;
+      }
+      if(!b_only) receiver_move_a(rx,-hz,round);
       break;
   }
+
+  if(rx->subrx_enable) {
+    // dont allow frequency outside of passband
+  }
+
 }
 
 void receiver_move(RECEIVER *rx,long long hz,gboolean round) {
@@ -739,7 +786,7 @@ void receiver_move(RECEIVER *rx,long long hz,gboolean round) {
       break;
     case SPLIT_SAT:
     case SPLIT_RSAT:
-      receiver_move_b(rx,delta,TRUE);
+      receiver_move_b(rx,delta,TRUE,round);
       break;
   }
 
@@ -757,28 +804,21 @@ void receiver_move_to(RECEIVER *rx,long long hz) {
 
   f=start+offset+(long long)((double)rx->pan*rx->hz_per_pixel);
   f=f/rx->step*rx->step;
-  
-  double cw_offset = 0;
-  if(rx->mode_a==CWL || rx->mode_a==CWU) {  
-    if(rx->mode_a==CWU) {
-      cw_offset=-radio->cw_keyer_sidetone_frequency;
-    } else {
-      cw_offset=+radio->cw_keyer_sidetone_frequency;
-    }  
-  }
-  
-  
-g_print("receiver_move_to: f=%lld\n",f);
   if(rx->ctun) {
     delta=rx->ctun_frequency;
-    rx->ctun_frequency=f + cw_offset;
+    rx->ctun_frequency=f;
     delta=rx->ctun_frequency-delta;
   } else {
-    if((rx->split==SPLIT_ON) && (rx->mode_a==CWL || rx->mode_a==CWU)) {
-      rx->frequency_b=f + cw_offset;  
+    if(rx->split==SPLIT_ON && (rx->mode_a==CWL || rx->mode_a==CWU)) {
+      if(rx->mode_a==CWU) {
+        f=f-radio->cw_keyer_sidetone_frequency;
+      } else {
+        f=f+radio->cw_keyer_sidetone_frequency;
+      }
+      rx->frequency_b=f;
     } else {
       delta=rx->frequency_a;
-      rx->frequency_a=f + cw_offset;
+      rx->frequency_a=f;
       delta=rx->frequency_a-delta;
     }
   }
@@ -789,10 +829,10 @@ g_print("receiver_move_to: f=%lld\n",f);
     case SPLIT_ON:
       break;
     case SPLIT_SAT:
-      receiver_move_b(rx,delta,TRUE);
+      receiver_move_b(rx,delta,TRUE,TRUE);
       break;
     case SPLIT_RSAT:
-      receiver_move_b(rx,-delta,TRUE);
+      receiver_move_b(rx,-delta,TRUE,TRUE);
       break;
   }
 
@@ -839,110 +879,6 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
   return TRUE;
 }
 
-/*
-
-          // drag
-          hz=(gint64)((double)(x-rx->last_x)*rx->hz_per_pixel);
-          if(rx->ctun) {
-            rx->ctun_offset=(rx->ctun_offset-hz)/rx->step*rx->step;
-          }
-          else if ((rx->split) && (rx->mode_a==CWU || rx->mode_a==CWL)) {            
-            rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step; 
-          }
-          else {
-            rx->frequency_a=(rx->frequency_a+hz)/rx->step*rx->step;
-          }
-          if(rx->split) {
-            switch(radio->sat_mode) { 
-              case SPLIT_ON:
-                if ((rx->split) && (rx->mode_a==CWU || rx->mode_a==CWL)) {            
-                  rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step; 
-                }
-                break;
-              case SPLIT_SAT:
-                rx->frequency_b=(rx->frequency_b-hz)/rx->step*rx->step;
-                break;
-              case SPLIT_RSAT:
-                rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
-                break;
-            }
-          }
-        } else {
-          // move to this frequency
-          // Split mode and CWU or CWL leaves VFO A "locked" and moves VFO B (red line)
-          
-          double offset = 0;
-          if (rx->split) {
-            if (rx->mode_a==CWU) {
-              offset = ((rx->frequency_b - rx->frequency_a) / rx->hz_per_pixel) + ((radio->cw_keyer_sidetone_frequency)/rx->hz_per_pixel);            
-            }
-            else if (rx->mode_a==CWL) {             
-              offset = ((rx->frequency_b - rx->frequency_a) / rx->hz_per_pixel) - ((radio->cw_keyer_sidetone_frequency)/rx->hz_per_pixel);            
-            }
-          }
-          
-          // Pandapter midpoint, may be offset by other parts of the code
-          int center_pan=(rx->pixels/2)-(rx->panadapter_width/2);
-          if(rx->zoom>1) {
-            offset=center_pan-rx->pan;
-          }
-          int mid_point = (rx->panadapter_width/2)+(int)offset;
-          hz=(gint64)((double)(x-mid_point)*rx->hz_per_pixel);
-          
-          if(rx->ctun) {                
-            rx->ctun_offset=hz/rx->step*rx->step;
-          } else {
-            if ((rx->split) && ((rx->mode_a==CWU) || (rx->mode_a==CWL))) {                      
-              rx->frequency_b = (rx->frequency_b + hz) / rx->step*rx->step; 
-            }
-            else {             
-              rx->frequency_a=(rx->frequency_a+hz)/rx->step*rx->step;
-            }
-            
-            if ((rx->mode_a==CWL) && (!rx->split)) {
-              rx->frequency_a+=radio->cw_keyer_sidetone_frequency;
-            } else if ((rx->mode_a==CWU) && (!rx->split)) {
-              rx->frequency_a-=radio->cw_keyer_sidetone_frequency;            
-            }
-            if(rx->zoom>1) {
-              rx->pan=center_pan;
-            }
-          }
-          if(rx->split) {
-            switch(radio->sat_mode) {
-              case SPLIT_ON:
-                if ((rx->split) && ((rx->mode_a==CWU) || (rx->mode_a==CWL))) {
-                  rx->frequency_b = (rx->frequency_b + hz) / rx->step*rx->step;
-                }
-                break;
-              case SPLIT_SAT:
-                rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
-                break;
-              case SPLIT_RSAT:
-                rx->frequency_b=(rx->frequency_b-hz)/rx->step*rx->step;
-                break;
-            }
-          }
-        }
-        if(rx->ctun) {
-          if(rx->ctun_offset < rx->ctun_min) rx->ctun_offset=rx->ctun_min;
-          if(rx->ctun_offset > rx->ctun_max) rx->ctun_offset=rx->ctun_max;
-        }
-        rx->last_x=x;
-        rx->has_moved=FALSE;
-        //if ((!rx->split) && ((rx->mode_a==CWU) || (rx->mode_a==CWL))) {
-          frequency_changed(rx);
-          update_frequency(rx);
-        //}
-      }
-      break;
-    case 3: // right button
-      break;
-  }
-  return TRUE;
-}
-*/
-
 gboolean receiver_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
   gint x,y;
   GdkModifierType state;
@@ -972,40 +908,6 @@ gboolean receiver_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *even
   }
   return TRUE;
 }
-
-/*
-      gint64 hz=(gint64)((double)moved*rx->hz_per_pixel);
-      if(rx->ctun) {
-        rx->ctun_offset=(rx->ctun_offset-hz)/rx->step*rx->step;
-      } else {
-        rx->frequency_a=(rx->frequency_a+hz)/rx->step*rx->step;
-      }
-      if(rx->split) {
-        switch(radio->sat_mode) {
-          case SPLIT_ON:
-            break;
-          case SPLIT_SAT:
-            rx->frequency_b=(rx->frequency_b-hz)/rx->step*rx->step;
-            break;
-          case SPLIT_RSAT:
-            rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
-            break;
-        }
-      }
-      if(rx->ctun) {
-        if(rx->ctun_offset < rx->ctun_min) rx->ctun_offset=rx->ctun_min;
-        if(rx->ctun_offset > rx->ctun_max) rx->ctun_offset=rx->ctun_max;
-      }
-      rx->last_x=x;
-      rx->has_moved=TRUE;
-      frequency_changed(rx);
-      update_frequency(rx);
-    } else {
-    }
-  }
-  return TRUE;
-}
-*/
 
 gboolean receiver_scroll_event_cb(GtkWidget *widget, GdkEventScroll *event, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
@@ -1059,107 +961,6 @@ gboolean receiver_scroll_event_cb(GtkWidget *widget, GdkEventScroll *event, gpoi
   return TRUE;
 }
         
-/*
-      if(rx->ctun) {
-        rx->ctun_offset+=rx->step;
-        if(rx->split) {
-          switch(radio->sat_mode) {
-            case SPLIT_ON:
-              break;
-            case SPLIT_SAT:
-              rx->frequency_b=rx->frequency_b+rx->step;
-              break;
-            case SPLIT_RSAT:
-              rx->frequency_b=rx->frequency_b-rx->step;
-              break;
-          }
-        }
-      }
-      else if ((rx->split) && (rx->mode_a==CWU || rx->mode_a==CWL)) {
-        switch(radio->sat_mode) {
-          case SPLIT_ON:
-            rx->frequency_b=rx->frequency_b+rx->step;      
-            break;
-          case SPLIT_SAT:
-            rx->frequency_b=rx->frequency_b+rx->step;
-            break;
-          case SPLIT_RSAT:
-            rx->frequency_b=rx->frequency_b-rx->step;
-            break;
-        }
-      }
-      else {
-        rx->frequency_a=rx->frequency_a+rx->step;
-        if(rx->split) {
-          switch(radio->sat_mode) {
-            case SPLIT_ON:
-              break;
-            case SPLIT_SAT:
-              rx->frequency_b=rx->frequency_b+rx->step;
-              break;
-            case SPLIT_RSAT:
-              rx->frequency_b=rx->frequency_b-rx->step;
-              break;
-          }
-        }
-      }
-    } else {
-      if(rx->ctun) {
-        rx->ctun_offset-=rx->step;
-        if(rx->split) {
-          switch(radio->sat_mode) {
-            case SPLIT_ON:
-              break;
-            case SPLIT_SAT:
-              rx->frequency_b=rx->frequency_b-rx->step;
-              break;
-            case SPLIT_RSAT:
-              rx->frequency_b=rx->frequency_b+rx->step;
-              break;
-          }
-        }
-      } 
-      else if ((rx->split) && (rx->mode_a==CWU || rx->mode_a==CWL)) {
-        rx->frequency_b=rx->frequency_b-rx->step;        
-        switch(radio->sat_mode) {
-          case SPLIT_ON:
-            rx->frequency_b=rx->frequency_b-rx->step;
-            break;
-          case SPLIT_SAT:
-            rx->frequency_b=rx->frequency_b-rx->step;
-            break;
-          case SPLIT_RSAT:
-            rx->frequency_b=rx->frequency_b+rx->step;
-            break;
-        }
-      }
-      else {
-        rx->frequency_a=rx->frequency_a-rx->step;
-        if(rx->split) {
-          switch(radio->sat_mode) {
-            case SPLIT_ON:
-              break;
-            case SPLIT_SAT:
-              rx->frequency_b=rx->frequency_b-rx->step;
-              break;
-            case SPLIT_RSAT:
-              rx->frequency_b=rx->frequency_b+rx->step;
-              break;
-          }
-        }
-      }
-    }
-    if(rx->ctun) {
-      if(rx->ctun_offset < rx->ctun_min) rx->ctun_offset=rx->ctun_min;
-      if(rx->ctun_offset > rx->ctun_max) rx->ctun_offset=rx->ctun_max;
-    }
-    frequency_changed(rx);
-    update_frequency(rx);
-  }
-  return TRUE;
-}
-*/
-
 static gboolean update_timer_cb(void *data) {
   int rc;
   RECEIVER *rx=(RECEIVER *)data;
@@ -1178,10 +979,6 @@ static gboolean update_timer_cb(void *data) {
     update_meter(rx,m);
   }
   update_radio_info(rx);
-  
-  if(rx->bpsk) {
-    process_bpsk(rx);
-  }
 
 #ifdef SOAPYSDR
   if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
@@ -1208,18 +1005,18 @@ static void set_mode(RECEIVER *rx,int m) {
 void set_filter(RECEIVER *rx,int low,int high) {
 //fprintf(stderr,"set_filter: %d %d\n",low,high);
   if(rx->mode_a==CWL) {
-    rx->filter_low=-radio->cw_keyer_sidetone_frequency-low;
-    rx->filter_high=-radio->cw_keyer_sidetone_frequency+high;
+    rx->filter_low_a=-radio->cw_keyer_sidetone_frequency-low;
+    rx->filter_high_a=-radio->cw_keyer_sidetone_frequency+high;
   } else if(rx->mode_a==CWU) {
-    rx->filter_low=radio->cw_keyer_sidetone_frequency-low;
-    rx->filter_high=radio->cw_keyer_sidetone_frequency+high;
+    rx->filter_low_a=radio->cw_keyer_sidetone_frequency-low;
+    rx->filter_high_a=radio->cw_keyer_sidetone_frequency+high;
   } else {
-    rx->filter_low=low;
-    rx->filter_high=high;
+    rx->filter_low_a=low;
+    rx->filter_high_a=high;
   }
-  RXASetPassband(rx->channel,(double)rx->filter_low,(double)rx->filter_high);
+  RXASetPassband(rx->channel,(double)rx->filter_low_a,(double)rx->filter_high_a);
   if(radio->transmitter!=NULL && radio->transmitter->rx==rx && radio->transmitter->use_rx_filter) {
-    transmitter_set_filter(radio->transmitter,rx->filter_low,rx->filter_high);
+    transmitter_set_filter(radio->transmitter,rx->filter_low_a,rx->filter_high_a);
     update_tx_panadapter(radio);
   }
 }
@@ -1303,25 +1100,31 @@ void receiver_band_changed(RECEIVER *rx,int band) {
 static void process_rx_buffer(RECEIVER *rx) {
   gdouble left_sample,right_sample;
   short left_audio_sample, right_audio_sample;
+  SUBRX *subrx=(SUBRX *)rx->subrx;
 
   for (int i=0;i<rx->output_samples;i++) {
-    // Rx option for left channel only, right only, or both channels
-    
-    switch (rx->audio_channels) {
-      case AUDIO_STEREO: {
-        left_sample = rx->audio_output_buffer[i*2];
-        right_sample = rx->audio_output_buffer[(i*2)+1];     
-        break;
-      }      
-      case AUDIO_LEFT_ONLY: {
-        left_sample = rx->audio_output_buffer[i*2];
-        right_sample = 0;
-        break;
-      }
-      case AUDIO_RIGHT_ONLY: {
-        left_sample = 0;
-        right_sample = rx->audio_output_buffer[(i*2)+1];
-        break;
+    // if subrx is enabled left channel is main and right channel is sub
+    if(rx->subrx_enable) {
+      left_sample=rx->audio_output_buffer[i*2];
+      right_sample=subrx->audio_output_buffer[i*2];
+    } else {
+      // Rx option for left channel only, right only, or both channels
+      switch (rx->audio_channels) {
+        case AUDIO_STEREO: {
+          left_sample = rx->audio_output_buffer[i*2];
+          right_sample = rx->audio_output_buffer[(i*2)+1];     
+          break;
+        }      
+        case AUDIO_LEFT_ONLY: {
+          left_sample = rx->audio_output_buffer[i*2];
+          right_sample = 0;
+          break;
+        }
+        case AUDIO_RIGHT_ONLY: {
+          left_sample = 0;
+          right_sample = rx->audio_output_buffer[(i*2)+1];
+          break;
+        }
       }
     }
     left_audio_sample=(short)(left_sample*32767.0);
@@ -1374,7 +1177,12 @@ static void full_rx_buffer(RECEIVER *rx) {
     fprintf(stderr,"full_rx_buffer: channel=%d fexchange0: error=%d\n",rx->channel,error);
   }
 
+  if(rx->subrx_enable) {
+    subrx_iq_buffer(rx);
+  }
+
   Spectrum0(1, rx->channel, 0, 0, rx->iq_input_buffer);
+  
   process_rx_buffer(rx);
   g_mutex_unlock(&rx->mutex);
 
@@ -1387,6 +1195,10 @@ void add_iq_samples(RECEIVER *rx,double i_sample,double q_sample) {
   if(rx->samples>=rx->buffer_size) {
     full_rx_buffer(rx);
     rx->samples=0;
+  }
+
+  if(rx->bpsk_enable && rx->bpsk!=NULL) {
+    bpsk_add_iq_samples(rx->bpsk,i_sample,q_sample);
   }
 }
 
@@ -1457,6 +1269,7 @@ static void create_visual(RECEIVER *rx) {
   rx->dialog=NULL;
 
   rx->window=gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  gtk_widget_set_name(rx->window,"receiver-window");
   if(rx->channel==0) {
     gtk_window_set_deletable (GTK_WINDOW(rx->window),FALSE);
   }
@@ -1694,7 +1507,8 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
   rx->ctun_min=-rx->sample_rate/2;
   rx->ctun_max=rx->sample_rate/2;
 
-  rx->bpsk=FALSE;
+  rx->bpsk=NULL;
+  rx->bpsk_enable=FALSE;
   rx->frequency_b=14300000;
   rx->band_b=band20;
   rx->mode_b=USB;
@@ -1724,7 +1538,7 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
   rx->waterfall_pixbuf=NULL;
   rx->iq_sequence=0;
 #ifdef SOAPYSDR
-  if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
+  if(radio->discovered->device==DEVICE_SOAPYSDR) {
     rx->buffer_size=1024; //2048;
   } else {
 #endif
@@ -1747,7 +1561,7 @@ fprintf(stderr,"create_receiver: buffer_size=%d\n",rx->buffer_size);
   rx->display_average_time=170.0;
 
 #ifdef SOAPYSDR
-  if(radio->discovered->device==DEVICE_SOAPYSDR_USB) {
+  if(radio->discovered->device==DEVICE_SOAPYSDR) {
     rx->fft_size=2048;
   } else {
 #endif
@@ -1827,10 +1641,12 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   rx->filter_frame=NULL;
   rx->filter_grid=NULL;
 
+/*
   g_mutex_init(&rx->rigctl_mutex);
   rx->rigctl_server_socket=-1;
   rx->rigctl_client_socket=-1;
   rx->rigctl_running=FALSE;
+*/
   rx->cat_control=-1;
 
   rx->vpaned=NULL;
@@ -1840,6 +1656,21 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   rx->split=SPLIT_OFF;
   rx->duplex=FALSE;
   rx->mute_while_transmitting=FALSE;
+
+/*
+  rx->rigctl_port_base=19090+rx->channel;
+  rx->rigctl_enable=FALSE;
+  rx->rigctl_debug=FALSE;
+
+  strcpy(rx->rigctl_ser_port,"/dev/ttyACM0");
+  rx->rigctl_serial_baud_rate=B9600;
+  rx->rigctl_serial_parity=0; // none
+  rx->rigctl_serial_enable=FALSE;
+*/
+
+  rx->vfo=NULL;
+  rx->subrx_enable=FALSE;
+  rx->subrx=NULL;
 
   receiver_restore_state(rx);
 
@@ -1960,13 +1791,15 @@ g_print("receiver_configure_event: gtk_paned_set_position: rx=%d position=%d hei
     }
   }
 
-  if(rx->bpsk) {
-    create_bpsk(rx);
+  if(rx->bpsk_enable) {
+    rx->bpsk=create_bpsk(BPSK_CHANNEL,rx->band_a);
   }
 
+/*
   if(rigctl_enable) {
     launch_rigctl(rx);
   }
+*/
 
   return rx;
 }

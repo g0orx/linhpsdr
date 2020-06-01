@@ -26,6 +26,7 @@
 
 #define TRANSMITTER_CHANNEL 8
 #define WIDEBAND_CHANNEL 9
+#define BPSK_CHANNEL 10
 
 enum {
   ANAN_10=0,
@@ -44,7 +45,7 @@ enum {
   HERMES_LITE,
   HERMES_LITE_2
 #ifdef SOAPYSDR
-  ,SOAPYSDR_USB
+  ,SOAPY_DEVICE
 #endif
 };
 

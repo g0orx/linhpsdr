@@ -17,7 +17,27 @@
 *
 */
 
-void create_bpsk(RECEIVER *rx);
-void destroy_bpsk(RECEIVER *rx);
-void reset_bpsk(RECEIVER *rx);
-void process_bpsk(RECEIVER *rx);
+#ifndef BPSK_H
+#define BPSK_H
+
+typedef struct _bpsk {
+  gint channel;
+  gint band;
+  gint buffer_size;
+  gint fft_size;
+  gint samples;
+  gint pixels;
+  gint fps;
+  gdouble *input_buffer;
+  gfloat *pixel_samples;
+  GMutex mutex;
+  gint update_timer_id;
+  int count;
+  double offset;
+} BPSK;
+
+extern BPSK *create_bpsk(int channel,int band);
+extern void destroy_bpsk(BPSK *bpsk);
+extern void bpsk_add_iq_samples(BPSK *bpsk,double i_sample,double q_sample);
+
+#endif

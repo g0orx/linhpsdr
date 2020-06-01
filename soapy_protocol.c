@@ -35,6 +35,7 @@
 #include "band.h"
 #include "channel.h"
 #include "discovered.h"
+#include "bpsk.h"
 #include "mode.h"
 #include "filter.h"
 #include "receiver.h"
@@ -52,7 +53,7 @@
 #include "ext.h"
 #include "error_handler.h"
 
-static double bandwidth=2500000.0;
+static double bandwidth=1000000.0;
 
 static SoapySDRDevice *soapy_device;
 static SoapySDRStream *rx_stream;
@@ -96,6 +97,12 @@ void soapy_protocol_create_receiver(RECEIVER *rx) {
   int rc;
 
   soapy_rx_sample_rate=rx->sample_rate;
+
+fprintf(stderr,"soapy_protocol_create: setting bandwidth=%f\n",bandwidth);
+  rc=SoapySDRDevice_setBandwidth(soapy_device,SOAPY_SDR_RX,rx->adc,bandwidth);
+  if(rc!=0) {
+    fprintf(stderr,"soapy_protocol_create_receiver: SoapySDRDevice_setBandwidth(%f) failed: %s\n",(double)soapy_rx_sample_rate,SoapySDR_errToStr(rc));
+  }
 
 fprintf(stderr,"soapy_protocol_create: setting samplerate=%f\n",(double)soapy_rx_sample_rate);
   rc=SoapySDRDevice_setSampleRate(soapy_device,SOAPY_SDR_RX,rx->adc,(double)soapy_rx_sample_rate);
@@ -151,15 +158,24 @@ fprintf(stderr,"soapy_protocol_start_receiver: create receive_thread\n");
 void soapy_protocol_create_transmitter(TRANSMITTER *tx) {
   int rc;
 
+fprintf(stderr,"soapy_protocol_create_transmitter: dac=%d\n",tx->dac);
+
   soapy_tx_sample_rate=tx->iq_output_rate;
 
+fprintf(stderr,"soapy_protocol_create_transmitter: setting bandwidth=%f\n",bandwidth);
+
+  rc=SoapySDRDevice_setBandwidth(soapy_device,SOAPY_SDR_TX,tx->dac,bandwidth);
+  if(rc!=0) {
+    fprintf(stderr,"soapy_protocol_create_receiver: SoapySDRDevice_setBandwidth(%f) failed: %s\n",(double)soapy_rx_sample_rate,SoapySDR_errToStr(rc));
+  }
+
 fprintf(stderr,"soapy_protocol_create_transmitter: setting samplerate=%f\n",(double)soapy_tx_sample_rate);
-  rc=SoapySDRDevice_setSampleRate(soapy_device,SOAPY_SDR_TX,8,(double)soapy_tx_sample_rate);
+  rc=SoapySDRDevice_setSampleRate(soapy_device,SOAPY_SDR_TX,tx->dac,(double)soapy_tx_sample_rate);
   if(rc!=0) {
     fprintf(stderr,"soapy_protocol_configure_transmitter: SoapySDRDevice_setSampleRate(%f) failed: %s\n",(double)soapy_tx_sample_rate,SoapySDR_errToStr(rc));
   }
 
-  size_t channel=0;
+  size_t channel=tx->dac;
 fprintf(stderr,"soapy_protocol_create_transmitter: SoapySDRDevice_setupStream: channel=%ld\n",channel);
 #if defined(SOAPY_SDR_API_VERSION) && (SOAPY_SDR_API_VERSION < 0x00080000)
   rc=SoapySDRDevice_setupStream(soapy_device,&tx_stream,SOAPY_SDR_TX,SOAPY_SDR_CF32,&channel,1,NULL);
@@ -345,14 +361,15 @@ void soapy_protocol_iq_samples(float isample,float qsample) {
   long long timeNs=0;
   long timeoutUs=100000L;
   if(isTransmitting(radio)) {
-    output_buffer[output_buffer_index++]=isample;
-    output_buffer[output_buffer_index++]=qsample;
+    output_buffer[output_buffer_index*2]=isample;
+    output_buffer[(output_buffer_index*2)+1]=qsample;
+    output_buffer_index++;
     if(output_buffer_index>=max_tx_samples) {
-// write the buffer
       int elements=SoapySDRDevice_writeStream(soapy_device,tx_stream,tx_buffs,max_tx_samples,&flags,timeNs,timeoutUs);
       if(elements!=max_tx_samples) {
         g_print("soapy_protocol_iq_samples: writeStream returned %d for %d elements\n",elements,max_tx_samples);
       }
+
       output_buffer_index=0;
     }
   }
@@ -401,7 +418,8 @@ void soapy_protocol_set_tx_frequency(TRANSMITTER *tx) {
       if(tx->xit_enabled) {
         f+=(double)tx->xit;
       }
-      rc=SoapySDRDevice_setFrequency(soapy_device,SOAPY_SDR_TX,rx->adc,f,NULL);
+g_print("soapy_protocol_set_frequency: %f\n",f);
+      rc=SoapySDRDevice_setFrequency(soapy_device,SOAPY_SDR_TX,tx->dac,f,NULL);
       if(rc!=0) {
         fprintf(stderr,"soapy_protocol: SoapySDRDevice_setFrequency(TX) failed: %s\n",SoapySDR_errToStr(rc));
       }
@@ -441,6 +459,7 @@ void soapy_protocol_set_gain(ADC *adc) {
 
 void soapy_protocol_set_tx_gain(DAC *dac) {
   int rc;
+g_print("%s: dac=%d gain=%f\n",__FUNCTION__,dac->id,dac->gain);
   rc=SoapySDRDevice_setGain(soapy_device,SOAPY_SDR_TX,dac->id,dac->gain);
   if(rc!=0) {
     fprintf(stderr,"soapy_protocol: SoapySDRDevice_setGain failed: %s\n",SoapySDR_errToStr(rc));

@@ -26,6 +26,7 @@
 
 #include "button_text.h"
 #include "discovered.h"
+#include "bpsk.h"
 #include "mode.h"
 #include "filter.h"
 #include "band.h"
@@ -559,12 +560,6 @@ static gboolean deviation_select_cb(GtkWidget *widget,gpointer data) {
   set_deviation(rx);
   transmitter_set_deviation(radio->transmitter);
   update_vfo(rx);
-/*
-  set_button_text_color(last_filter,"black");
-  last_filter=widget;
-  set_button_text_color(last_filter,"orange");
-  vfo_update();
-*/
   return TRUE;
 }
 
@@ -1111,7 +1106,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
 
     if(radio->discovered->device!=DEVICE_HERMES_LITE2
 #ifdef SOAPYSDR
-       && radio->discovered->device!=DEVICE_SOAPYSDR_USB
+       && radio->discovered->device!=DEVICE_SOAPYSDR
 #endif
       ) {
 

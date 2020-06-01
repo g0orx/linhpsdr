@@ -28,6 +28,7 @@
 #include <SoapySDR/Device.h>
 #endif
 
+#include "bpsk.h"
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"
