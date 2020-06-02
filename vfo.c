@@ -82,6 +82,8 @@ static int get_step(gint64 step) {
 
 static void a2b_cb(GtkButton *widget,gpointer user_data) {
   RECEIVER *rx=(RECEIVER *)user_data;
+  int m=rx->mode_b;
+  int f=rx->filter_b;
   rx->band_b=rx->band_a;
   rx->frequency_b=rx->frequency_a;
   rx->mode_b=rx->mode_a;
@@ -91,11 +93,20 @@ static void a2b_cb(GtkButton *widget,gpointer user_data) {
   rx->lo_b=rx->lo_a;
   rx->error_b=rx->error_a;
   frequency_changed(rx);
+  if(rx->subrx_enable) {
+    if(m!=rx->mode_b) {
+      subrx_mode_changed(rx);
+    } else if(f!=rx->filter_b) {
+      subrx_filter_changed(rx);
+    }
+  }
   update_vfo(rx);
 }
 
 static void b2a_cb(GtkButton *widget,gpointer user_data) {
   RECEIVER *rx=(RECEIVER *)user_data;
+  int m=rx->mode_a;
+  int f=rx->filter_a;
   rx->band_a=rx->band_b;
   rx->frequency_a=rx->frequency_b;
   rx->mode_a=rx->mode_b;
@@ -105,6 +116,11 @@ static void b2a_cb(GtkButton *widget,gpointer user_data) {
   rx->lo_a=rx->lo_b;
   rx->error_a=rx->error_b;
   frequency_changed(rx);
+  if(m!=rx->mode_a) {
+    receiver_mode_changed(rx,m);
+  } else if(f!=rx->filter_a) {
+    receiver_filter_changed(rx,f);
+  }
   update_vfo(rx);
 }
 
@@ -157,6 +173,15 @@ static void aswapb_cb(GtkButton *widget,gpointer user_data) {
       transmitter_set_mode(radio->transmitter,rx->mode_a);
     }
   }
+
+  if(rx->subrx_enable) {
+    if(rx->mode_b!=rx->mode_a) {
+      subrx_mode_changed(rx);
+    } else if(rx->filter_b!=rx->filter_a) {
+      subrx_filter_changed(rx);
+    }
+  }
+
   update_vfo(rx);
 }
 
