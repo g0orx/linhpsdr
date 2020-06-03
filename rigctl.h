@@ -1,9 +1,9 @@
 #ifndef RIGCTL_H
 #define RIGCTL_H
 
-void launch_rigctl ();
-int launch_serial ();
-void disable_sreial ();
+void launch_rigctl (RECEIVER *rx);
+int launch_serial (RECEIVER *rx);
+void disable_serial (RECEIVER *rx);
 
 void  close_rigctl_ports ();
 int   rigctlGetMode();

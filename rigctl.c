@@ -713,6 +713,41 @@ int rit_on () {
   }
 }
 
+static int ts2000_mode(int m) {
+  int mode=1;
+  switch(m) {
+    case modeLSB:
+      mode=1;
+      break;
+    case modeUSB:
+      mode=2;
+      break;
+    case modeCWL:
+      mode=7;
+      break;
+    case modeCWU:
+      mode=3;
+      break;
+    case modeFMN:
+      mode=4;
+      break;
+    case modeAM:
+    case modeSAM:
+      mode=5;
+      break;
+    case modeDIGL:
+      mode=6;
+      break;
+    case modeDIGU:
+      mode=9;
+      break;
+    default:
+      break;
+  }
+  return mode;
+}
+
+
 gboolean parse_extended_cmd (char *command,CLIENT *client) {
   gboolean implemented=TRUE;
   char reply[256];
@@ -2548,6 +2583,7 @@ int parse_cmd(void *data) {
             receiver[0]->volume=(double)gain/255.0;
             update_af_gain();
           }
+          break;
         case 'I': //AI
           // set/read Auto Information
           implemented=FALSE;
@@ -2765,7 +2801,7 @@ int parse_cmd(void *data) {
             switch(vfo[active_receiver->id].mode) {
               case modeCWL:
               case modeCWU:
-                val=filter->low;
+                val=filter->low*2;
                 break;
               case modeAM:
               case modeSAM:
@@ -2789,8 +2825,8 @@ int parse_cmd(void *data) {
             switch(vfo[active_receiver->id].mode) {
               case modeCWL:
               case modeCWU:
-                filter->low=fw;
-                filter->high=fw;
+                filter->low=fw/2;
+                filter->high=fw/2;
                 break;
               case modeFMN:
                 if(fw==0) {
@@ -2860,11 +2896,14 @@ int parse_cmd(void *data) {
           send_resp(client->fd,reply);
           break;
         case 'F': //IF
-          sprintf(reply,"IF%011lld%04lld%+06lld%d%d000%d%d%d0%d%d%02d0;",
+          {
+          int mode=ts2000_mode(vfo[VFO_A].mode);
+          sprintf(reply,"IF%011lld%04lld%+06lld%d%d%d%02d%d%d%d%d%d%d%02d%d;",
                   vfo[VFO_A].ctun?vfo[VFO_A].ctun_frequency:vfo[VFO_A].frequency,
                   step,vfo[VFO_A].rit,vfo[VFO_A].rit_enabled,transmitter==NULL?0:transmitter->xit_enabled,
-                  mox,split,0,split?1:0,transmitter->ctcss_enabled,transmitter->ctcss);
+                  0,0,isTransmitting(),mode,0,0,split,transmitter->ctcss_enabled?2:0,transmitter->ctcss,0);
           send_resp(client->fd,reply);
+          }
           break;
         case 'S': //IS
           // set/read IF shift
@@ -2958,36 +2997,7 @@ int parse_cmd(void *data) {
         case 'D': //MD
           // set/read operating mode
           if(command[2]==';') {
-            int mode=1;
-            switch(vfo[VFO_A].mode) {
-              case modeLSB:
-                mode=1;
-                break;
-              case modeUSB:
-                mode=2;
-                break;
-              case modeCWL:
-                mode=7;
-                break;
-              case modeCWU:
-                mode=3;
-                break;
-              case modeFMN:
-                mode=4;
-                break;
-              case modeAM:
-              case modeSAM:
-                mode=5;
-                break;
-              case modeDIGL:
-                mode=6;
-                break;
-              case modeDIGU:
-                mode=9;
-                break;
-              default:
-                break;
-            }
+            int mode=ts2000_mode(vfo[VFO_A].mode);
             sprintf(reply,"MD%d;",mode);
             send_resp(client->fd,reply);
           } else if(command[3]==';') {
@@ -3168,7 +3178,7 @@ int parse_cmd(void *data) {
             sprintf(reply,"PC%03d;",(int)transmitter->drive);
             send_resp(client->fd,reply);
           } else if(command[5]==';') {
-            setDrive((double)atoi(&command[2]));
+            set_drive((double)atoi(&command[2]));
           }
           break;
         case 'I': //PI
@@ -3723,6 +3733,7 @@ int parse_cmd(void *data) {
           if(command[2]==';') {
             vfo_step(1);
           }
+          break;
         default:
           implemented=FALSE;
           break;
@@ -3919,7 +3930,7 @@ static gpointer serial_server(gpointer data) {
      cat_control--;
 }
 
-int launch_serial () {
+int launch_serial (RECEIVER *rx) {
      g_print("RIGCTL: Launch Serial port %s\n",ser_port);
      if(mutex_b_exists == 0) {
         mutex_b = g_new(GT_MUTEX,1);
@@ -3959,7 +3970,7 @@ int launch_serial () {
 }
 
 // Serial Port close
-void disable_serial () {
+void disable_serial (RECEIVER *rx) {
      g_print("RIGCTL: Disable Serial port %s\n",ser_port);
      serial_running=FALSE;
 }
@@ -3968,7 +3979,7 @@ void disable_serial () {
 // 2-25-17 - K5JAE - create each thread with the pointer to the port number  
 //                   (Port numbers now const ints instead of defines..) 
 //
-void launch_rigctl () {
+void launch_rigctl (RECEIVER *rx) {
    
    g_print( "LAUNCHING RIGCTL!!\n");
 

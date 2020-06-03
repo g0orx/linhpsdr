@@ -82,7 +82,7 @@ char *css=
 "    margin-bottom: 0px;\n"
 "    min-height: 0px;\n"
 "    background-image: none;\n"
-"    background-color: @BOX_OFF;\n"
+"    background-color: @BOX_ON;\n"
 "    color: @OFF_WHITE;\n"
 "    box-shadow: none;\n"
 "    }\n"

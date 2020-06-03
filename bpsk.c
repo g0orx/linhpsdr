@@ -109,6 +109,7 @@ static gboolean bpsk_local_timer_cb(void *data) {
   // assume 50Hz per sample
 
 #define SIGNALS 200 
+#define SAMPLES 50
 
   BPSK *bpsk=(BPSK *)data;
   int mid=bpsk->pixels/2;
@@ -153,8 +154,8 @@ static gboolean bpsk_local_timer_cb(void *data) {
 
     bpsk->offset+=(double)offset;
     bpsk->count++;
-    if(bpsk->count==300) {
-      offset=(int)(bpsk->offset/300.0);
+    if(bpsk->count==SAMPLES) {
+      offset=(int)(bpsk->offset/(double)SAMPLES);
       //g_print("offset=%d\n",offset);
       if(abs(offset)>10) {
         lo_error_update(bpsk->band,(long long)offset);

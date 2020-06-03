@@ -607,8 +607,8 @@ static void update_filters(RECEIVER *rx) {
 
   rx->filter_grid=gtk_grid_new();
 g_print("update_filters: new filter grid %p\n",rx->filter_grid);
-  gtk_grid_set_row_homogeneous(GTK_GRID(rx->filter_grid),TRUE);
-  gtk_grid_set_column_homogeneous(GTK_GRID(rx->filter_grid),TRUE);
+  gtk_grid_set_row_homogeneous(GTK_GRID(rx->filter_grid),FALSE);
+  gtk_grid_set_column_homogeneous(GTK_GRID(rx->filter_grid),FALSE);
   gtk_container_add(GTK_CONTAINER(rx->filter_frame),rx->filter_grid);
   switch(rx->mode_a) {
     case FMN:
@@ -985,8 +985,8 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   if(radio->discovered->adcs>1) {
     GtkWidget *adc_frame=gtk_frame_new("ADC");
     GtkWidget *adc_grid=gtk_grid_new();
-    gtk_grid_set_row_homogeneous(GTK_GRID(adc_grid),TRUE);
-    gtk_grid_set_column_homogeneous(GTK_GRID(adc_grid),TRUE);
+    gtk_grid_set_row_homogeneous(GTK_GRID(adc_grid),FALSE);
+    gtk_grid_set_column_homogeneous(GTK_GRID(adc_grid),FALSE);
     gtk_container_add(GTK_CONTAINER(adc_frame),adc_grid);
     gtk_grid_attach(GTK_GRID(grid),adc_frame,col,row++,1,1);
 
@@ -1018,10 +1018,11 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
 
       GtkWidget *sample_rate_frame=gtk_frame_new("Sample Rate");
       GtkWidget *sample_rate_grid=gtk_grid_new();
-      gtk_grid_set_row_homogeneous(GTK_GRID(sample_rate_grid),TRUE);
-      gtk_grid_set_column_homogeneous(GTK_GRID(sample_rate_grid),TRUE);
+      gtk_grid_set_row_homogeneous(GTK_GRID(sample_rate_grid),FALSE);
+      gtk_grid_set_column_homogeneous(GTK_GRID(sample_rate_grid),FALSE);
       gtk_container_add(GTK_CONTAINER(sample_rate_frame),sample_rate_grid);
-      gtk_grid_attach(GTK_GRID(grid),sample_rate_frame,col,row++,1,1);
+      gtk_grid_attach(GTK_GRID(grid),sample_rate_frame,col,row,1,2);
+      row+=2;
 
       GtkWidget *sample_rate_48=gtk_radio_button_new_with_label(NULL,"48000");
       gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sample_rate_48), rx->sample_rate==48000);
@@ -1085,7 +1086,8 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   }
 
   rx->filter_frame=gtk_frame_new("Filter");
-  gtk_grid_attach(GTK_GRID(grid),rx->filter_frame,col,row++,1,1);
+  gtk_grid_attach(GTK_GRID(grid),rx->filter_frame,col,row,1,1);
+  row++;
 
   update_filters(rx);
 
@@ -1094,10 +1096,11 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   if(n_output_devices>=0) {
     GtkWidget *audio_frame=gtk_frame_new("Audio");
     GtkWidget *audio_grid=gtk_grid_new();
-    gtk_grid_set_row_homogeneous(GTK_GRID(audio_grid),TRUE);
-    gtk_grid_set_column_homogeneous(GTK_GRID(audio_grid),TRUE);
+    gtk_grid_set_row_homogeneous(GTK_GRID(audio_grid),FALSE);
+    gtk_grid_set_column_homogeneous(GTK_GRID(audio_grid),FALSE);
     gtk_container_add(GTK_CONTAINER(audio_frame),audio_grid);
-    gtk_grid_attach(GTK_GRID(grid),audio_frame,col,row++,1,1);
+    gtk_grid_attach(GTK_GRID(grid),audio_frame,col,row,1,1);
+    row++;
 
     rx->local_audio_b=gtk_check_button_new_with_label("Local Audio");
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->local_audio_b), rx->local_audio);
@@ -1149,9 +1152,10 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   GtkWidget *equalizer_frame=gtk_frame_new("Equalizer");
   GtkWidget *equalizer_grid=gtk_grid_new();
   gtk_grid_set_row_homogeneous(GTK_GRID(equalizer_grid),FALSE);
-  gtk_grid_set_column_homogeneous(GTK_GRID(equalizer_grid),TRUE);
+  gtk_grid_set_column_homogeneous(GTK_GRID(equalizer_grid),FALSE);
   gtk_container_add(GTK_CONTAINER(equalizer_frame),equalizer_grid);
-  gtk_grid_attach(GTK_GRID(grid),equalizer_frame,col,row++,1,4);
+  gtk_grid_attach(GTK_GRID(grid),equalizer_frame,col,row,1,4);
+  row+=4;
 
   GtkWidget *enable_b=gtk_check_button_new_with_label("Enable Equalizer");
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (enable_b), rx->enable_equalizer);
@@ -1245,10 +1249,11 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   if(strcmp(radio->discovered->name,"rtlsdr")!=0) {
     GtkWidget *tx_frame=gtk_frame_new("TX Frequency");
     GtkWidget *tx_grid=gtk_grid_new();
-    gtk_grid_set_row_homogeneous(GTK_GRID(tx_grid),TRUE);
-    gtk_grid_set_column_homogeneous(GTK_GRID(tx_grid),TRUE);
+    gtk_grid_set_row_homogeneous(GTK_GRID(tx_grid),FALSE);
+    gtk_grid_set_column_homogeneous(GTK_GRID(tx_grid),FALSE);
     gtk_container_add(GTK_CONTAINER(tx_frame),tx_grid);
-    gtk_grid_attach(GTK_GRID(grid),tx_frame,col,row++,1,1);
+    gtk_grid_attach(GTK_GRID(grid),tx_frame,col,row,1,1);
+    row++;
 
     rx->tx_control_b=gtk_check_button_new_with_label("Use This Receivers Frequency");
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->tx_control_b), radio->transmitter->rx==rx);
@@ -1258,13 +1263,12 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
 
   GtkWidget *panadapter_frame=gtk_frame_new("Panadapter");
   GtkWidget *panadapter_grid=gtk_grid_new();
-  gtk_grid_set_row_homogeneous(GTK_GRID(panadapter_grid),TRUE);
+  gtk_grid_set_row_homogeneous(GTK_GRID(panadapter_grid),FALSE);
   gtk_grid_set_column_homogeneous(GTK_GRID(panadapter_grid),FALSE);
   gtk_container_add(GTK_CONTAINER(panadapter_frame),panadapter_grid);
-  gtk_grid_attach(GTK_GRID(grid),panadapter_frame,col,row++,1,3);
+  gtk_grid_attach(GTK_GRID(grid),panadapter_frame,col,row,1,3);
+  row+=3;
 
-  row++;
-  row++;
   
   GtkWidget *fps_label=gtk_label_new("FPS:");
   gtk_grid_attach(GTK_GRID(panadapter_grid),fps_label,0,0,1,1);
@@ -1298,8 +1302,8 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   g_signal_connect(G_OBJECT(panadapter_high_scale),"value_changed",G_CALLBACK(panadapter_high_value_changed_cb),rx);
   gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_high_scale,1,2,1,1);
 
-  GtkWidget *waterfall_low_label=gtk_label_new("Low:");
-  gtk_grid_attach(GTK_GRID(panadapter_grid),waterfall_low_label,0,3,1,1);
+  GtkWidget *low_label=gtk_label_new("Low:");
+  gtk_grid_attach(GTK_GRID(panadapter_grid),low_label,0,3,1,1);
 
   GtkWidget *panadapter_low_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-200.0, 20.0, 1.00);
   gtk_widget_set_size_request(panadapter_low_scale,200,30);
@@ -1325,10 +1329,11 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
 
   GtkWidget *waterfall_frame=gtk_frame_new("Waterfall");
   GtkWidget *waterfall_grid=gtk_grid_new();
-  gtk_grid_set_row_homogeneous(GTK_GRID(waterfall_grid),TRUE);
+  gtk_grid_set_row_homogeneous(GTK_GRID(waterfall_grid),FALSE);
   gtk_grid_set_column_homogeneous(GTK_GRID(waterfall_grid),FALSE);
   gtk_container_add(GTK_CONTAINER(waterfall_frame),waterfall_grid);
-  gtk_grid_attach(GTK_GRID(grid),waterfall_frame,col,row++,1,1);
+  gtk_grid_attach(GTK_GRID(grid),waterfall_frame,col,row,1,2);
+  row+=2;
 
   GtkWidget *waterfall_high_label=gtk_label_new("High:");
   gtk_grid_attach(GTK_GRID(waterfall_grid),waterfall_high_label,0,0,1,1);
@@ -1340,8 +1345,8 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   g_signal_connect(G_OBJECT(waterfall_high_scale),"value_changed",G_CALLBACK(waterfall_high_value_changed_cb),rx);
   gtk_grid_attach(GTK_GRID(waterfall_grid),waterfall_high_scale,1,0,1,1);
 
-  GtkWidget *low_label=gtk_label_new("Low:");
-  gtk_grid_attach(GTK_GRID(waterfall_grid),low_label,0,1,1,1);
+  GtkWidget *waterfall_low_label=gtk_label_new("Low:");
+  gtk_grid_attach(GTK_GRID(waterfall_grid),waterfall_low_label,0,1,1,1);
 
   GtkWidget *waterfall_low_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-200.0, 20.0, 1.00);
   gtk_widget_set_size_request(waterfall_low_scale,200,30);
