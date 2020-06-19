@@ -1,17 +1,21 @@
 #ifndef RIGCTL_H
 #define RIGCTL_H
 
-void launch_rigctl (RECEIVER *rx);
-int launch_serial (RECEIVER *rx);
-void disable_serial (RECEIVER *rx);
+extern void launch_rigctl(RECEIVER *rx);
+extern void disable_rigctl(RECEIVER *rx);
 
-void  close_rigctl_ports ();
-int   rigctlGetMode();
-int   lookup_band(int);
-char * rigctlGetFilter();
-void set_freqB(long long);
+extern int launch_serial(RECEIVER *rx);
+extern void disable_serial(RECEIVER *rx);
+
+extern int   rigctlGetMode();
+extern int   lookup_band(int);
+extern char * rigctlGetFilter();
+extern void set_freqB(long long);
+extern int set_alc(gpointer);
+
+extern void rigctl_set_debug(RECEIVER *rx);
+
 extern int cat_control;
-int set_alc(gpointer);
 extern int rigctl_busy;
 
 extern int rigctl_port_base;

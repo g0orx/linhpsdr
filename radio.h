@@ -227,6 +227,7 @@ extern void vox_changed(RADIO *r);
 extern void ptt_changed(RADIO *r);
 extern gboolean radio_button_press_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data);
 extern void set_mox(RADIO *r,gboolean state);
+extern void set_tune(RADIO *r,gboolean state);
 extern void radio_change_region(RADIO *r);
 extern void radio_change_audio(RADIO *r,int selected);
 extern void radio_change_audio_backend(RADIO *r,int selected);

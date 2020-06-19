@@ -614,6 +614,7 @@ g_print("delete_receiver: receivers now %d\n",radio->receivers);
 
 static void rxtx(RADIO *r) {
   int i;
+g_print("%s: isTransmitting=%d\n",__FUNCTION__,isTransmitting(r));
   if(isTransmitting(r)) {
     for(i=0;i<r->discovered->supported_receivers;i++) {
       if(r->receiver[i]!=NULL) {
@@ -664,6 +665,7 @@ static void rxtx(RADIO *r) {
 }
 
 void set_mox(RADIO *r,gboolean state) {
+g_print("%s: state=%d\n",__FUNCTION__,state);
   if(r->tune) {
     r->tune=FALSE;
     SetTXAPostGenRun(radio->transmitter->channel,0);
@@ -704,15 +706,13 @@ static gboolean vox_cb(GtkWidget *widget,gpointer data) {
   return TRUE;
 }
 
-
-static gboolean tune_cb(GtkWidget *widget,gpointer data) {
-  RADIO *r=(RADIO *)data;
+void set_tune(RADIO *r,gboolean state) {
   if(r->mox) {
     r->mox=FALSE;
     set_button_text_color(r->mox_button,r->mox?"red":"black");
   }
-  r->tune=!r->tune;
-  set_button_text_color(widget,r->tune?"red":"black");
+  r->tune=state;
+  set_button_text_color(r->tune_button,r->tune?"red":"black");
   if(r->tune) {
     //SM4VEY
     struct timeval te;
@@ -753,6 +753,15 @@ static gboolean tune_cb(GtkWidget *widget,gpointer data) {
         break;
     }
     rxtx(radio);
+  }
+}
+
+static gboolean tune_cb(GtkWidget *widget,gpointer data) {
+  RADIO *r=(RADIO *)data;
+  if(r->tune) {
+    set_tune(r,FALSE);
+  } else {
+    set_tune(r,TRUE);
   }
   return TRUE;
 }

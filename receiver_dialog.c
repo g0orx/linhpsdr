@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <termios.h>
 #include <wdsp.h>
 
 #include "button_text.h"
@@ -40,6 +41,7 @@
 #include "vfo.h"
 #include "audio.h"
 #include "main.h"
+#include "rigctl.h"
 
 #define BAND_COLUMNS 5
 #define MODE_COLUMNS 4
@@ -932,6 +934,63 @@ static void high_value_changed_cb (GtkWidget *widget, gpointer data) {
 }
 
 
+static void cat_debug_cb(GtkWidget *widget, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  rx->rigctl_debug=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget));
+  if(rx->rigctl!=NULL) {
+    rigctl_set_debug(rx);
+  }
+}
+
+static void cat_enable_cb(GtkWidget *widget, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  rx->rigctl_enable=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget));
+  if(rx->rigctl_enable) {
+    launch_rigctl(rx);
+  } else {
+    disable_rigctl(rx);
+  }
+}
+
+static void rigctl_value_changed_cb(GtkWidget *widget, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  rx->rigctl_port = (int)gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
+}
+
+static void cat_serial_enable_cb(GtkWidget *widget, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  strcpy(rx->rigctl_serial_port,gtk_entry_get_text(GTK_ENTRY(rx->serial_port_entry)));
+  rx->rigctl_serial_enable=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget));
+  if(rx->rigctl_serial_enable) {
+    launch_serial(rx);
+  } else {
+    disable_serial(rx);
+  }
+}
+
+static void cat_serial_port_cb(GtkWidget *widget, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  strcpy(rx->rigctl_serial_port,gtk_entry_get_text(GTK_ENTRY(widget)));
+}
+
+static void cat_baudrate_cb(GtkWidget *widget,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  int selected=gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
+  switch(selected) {
+    case 0:
+      rx->rigctl_serial_baudrate=B4800;
+      break;
+    case 1:
+      rx->rigctl_serial_baudrate=B9600;
+      break;
+    case 2:
+      rx->rigctl_serial_baudrate=B19200;
+      break;
+    case 3:
+      rx->rigctl_serial_baudrate=B38400;
+      break;
+  }
+}
 
 void update_receiver_dialog(RECEIVER *rx) {
   int i;
@@ -1365,5 +1424,70 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   gtk_grid_attach(GTK_GRID(waterfall_grid),waterfall_ft8_marker,0,3,2,1);
   g_signal_connect(waterfall_ft8_marker,"toggled",G_CALLBACK(waterfall_ft8_marker_cb),rx);
 
+  col++;
+  row=0;
+
+  GtkWidget *cat_frame=gtk_frame_new("CAT");
+  GtkWidget *cat_grid=gtk_grid_new();
+  gtk_grid_set_row_homogeneous(GTK_GRID(cat_grid),FALSE);
+  gtk_grid_set_column_homogeneous(GTK_GRID(cat_grid),FALSE);
+  gtk_container_add(GTK_CONTAINER(cat_frame),cat_grid);
+  gtk_grid_attach(GTK_GRID(grid),cat_frame,col,row,1,3);
+  row++;
+
+  GtkWidget *cat_debug_b=gtk_check_button_new_with_label("CAT Debug");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (cat_debug_b), rx->rigctl_debug);
+  gtk_grid_attach(GTK_GRID(cat_grid),cat_debug_b,0,0,1,1);
+  g_signal_connect(cat_debug_b,"toggled",G_CALLBACK(cat_debug_cb),rx);
+
+
+  GtkWidget *cat_enable_b=gtk_check_button_new_with_label("TCP/IP enable");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (cat_enable_b), rx->rigctl_enable);
+  gtk_grid_attach(GTK_GRID(cat_grid),cat_enable_b,0,1,1,1);
+  g_signal_connect(cat_enable_b,"toggled",G_CALLBACK(cat_enable_cb),rx);
+
+  GtkWidget *rigctl_port_spinner =gtk_spin_button_new_with_range(18000,21000,1);
+  gtk_spin_button_set_value(GTK_SPIN_BUTTON(rigctl_port_spinner),(double)rx->rigctl_port);
+  gtk_widget_show(rigctl_port_spinner);
+  gtk_grid_attach(GTK_GRID(cat_grid),rigctl_port_spinner,0,2,2,1);
+  g_signal_connect(rigctl_port_spinner,"value_changed",G_CALLBACK(rigctl_value_changed_cb),rx);
+
+
+
+  GtkWidget *cat_serial_enable_b=gtk_check_button_new_with_label("Serial Port Enable");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (cat_serial_enable_b), rx->rigctl_serial_enable);
+  gtk_grid_attach(GTK_GRID(cat_grid),cat_serial_enable_b,0,4,1,1);
+  g_signal_connect(cat_serial_enable_b,"toggled",G_CALLBACK(cat_serial_enable_cb),rx);
+
+  GtkWidget *serial_text_label=gtk_label_new(NULL);
+  gtk_label_set_markup(GTK_LABEL(serial_text_label), "<b>Serial Port: </b>");
+  gtk_grid_attach(GTK_GRID(cat_grid),serial_text_label,0,5,1,1);
+
+  rx->serial_port_entry=gtk_entry_new();
+  gtk_entry_set_text(GTK_ENTRY(rx->serial_port_entry),rx->rigctl_serial_port);
+  gtk_widget_show(rx->serial_port_entry);
+  gtk_grid_attach(GTK_GRID(cat_grid),rx->serial_port_entry,1,5,2,1);
+  g_signal_connect(rx->serial_port_entry,"activate",G_CALLBACK(cat_serial_port_cb),rx);
+
+  GtkWidget *serial_baudrate_label=gtk_label_new(NULL);
+  gtk_label_set_markup(GTK_LABEL(serial_baudrate_label), "<b>Baudrate: </b>");
+  gtk_grid_attach(GTK_GRID(cat_grid),serial_baudrate_label,0,6,1,1);
+
+  GtkWidget *cat_serial_port_baudrate=gtk_combo_box_text_new();
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(cat_serial_port_baudrate),NULL,"4800");
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(cat_serial_port_baudrate),NULL,"9600");
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(cat_serial_port_baudrate),NULL,"19200");
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(cat_serial_port_baudrate),NULL,"38400");
+  if(rx->rigctl_serial_baudrate==B4800) {
+    gtk_combo_box_set_active(GTK_COMBO_BOX(cat_serial_port_baudrate),0);
+  } else if(rx->rigctl_serial_baudrate==B9600) {
+    gtk_combo_box_set_active(GTK_COMBO_BOX(cat_serial_port_baudrate),1);
+  } else if(rx->rigctl_serial_baudrate==B19200) {
+    gtk_combo_box_set_active(GTK_COMBO_BOX(cat_serial_port_baudrate),2);
+  } else if(rx->rigctl_serial_baudrate==B38400) {
+    gtk_combo_box_set_active(GTK_COMBO_BOX(cat_serial_port_baudrate),3);
+  }
+  gtk_grid_attach(GTK_GRID(cat_grid),cat_serial_port_baudrate,1,6,1,1);
+  g_signal_connect(cat_serial_port_baudrate,"changed",G_CALLBACK(cat_baudrate_cb),rx);
   return grid;
 }

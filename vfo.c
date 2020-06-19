@@ -919,17 +919,7 @@ static void dup_b_cb(GtkToggleButton *widget,gpointer user_data) {
 static void ctun_b_cb(GtkToggleButton *widget,gpointer user_data) {
   RECEIVER *rx=(RECEIVER *)user_data;
   rx->ctun=!rx->ctun;
-  rx->ctun_offset=0;
-  rx->ctun_frequency=rx->frequency_a;
-  rx->ctun_min=rx->frequency_a-(rx->sample_rate/2);
-  rx->ctun_max=rx->frequency_a+(rx->sample_rate/2);
-  if(!rx->ctun) {
-    SetRXAShiftRun(rx->channel, 0);
-  } else {
-    SetRXAShiftRun(rx->channel, 1);
-  }
-  frequency_changed(rx);
-  update_frequency(rx);
+  receiver_set_ctun(rx);
 }
 
 static gboolean bmk_b_pressed_cb(GtkWidget *widget,GdkEventButton *event,gpointer user_data) {
@@ -1051,10 +1041,7 @@ static gboolean afgain_scale_scroll_event_cb(GtkWidget *widget,GdkEventScroll *e
     }
   }
   gtk_level_bar_set_value(GTK_LEVEL_BAR(v->afgain_scale),rx->volume);
-  SetRXAPanelGain1(rx->channel, rx->volume);
-  if(rx->subrx_enable) {
-    subrx_volume_changed(rx);
-  }
+  receiver_set_volume(rx);
   return TRUE;
 }
 
@@ -1075,432 +1062,13 @@ static gboolean agcgain_scale_scroll_event_cb(GtkWidget *widget,GdkEventScroll *
     }
   }
   gtk_level_bar_set_value(GTK_LEVEL_BAR(v->agcgain_scale),rx->agc_gain+20.0);
-  SetRXAAGCTop(rx->channel, rx->agc_gain);
+  receiver_set_agc_gain(rx);
   return TRUE;
 }
 
 void band_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
-  BAND *b;
-  int mode_a;
-  long long frequency_a;
-  long long lo_a=0LL;
-  long long error_a=0LL;
-
-  switch(choice->selection) {
-    case band2200:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          frequency_a=136000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          frequency_a=136000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          frequency_a=136000LL;
-          break;
-      }
-      break;
-    case band630:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-        case CWL:
-        case CWU:
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=CWL;
-          frequency_a=472100LL;
-          break;
-      }
-      break;
-    case band160:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          frequency_a=1900000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          frequency_a=1830000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          frequency_a=1900000LL;
-          break;
-      }
-      break;
-    case band80:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          frequency_a=3700000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          frequency_a=3520000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          frequency_a=3700000LL;
-          break;
-      }
-      break;
-    case band60:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          switch(radio->region) {
-            case REGION_OTHER:
-              frequency_a=5330000LL;
-              break;
-            case REGION_UK:
-              frequency_a=5280000LL;
-              break;
-          }
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          switch(radio->region) {
-            case REGION_OTHER:
-              frequency_a=5330000LL;
-              break;
-            case REGION_UK:
-              frequency_a=5280000LL;
-              break;
-          }
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          switch(radio->region) {
-            case REGION_OTHER:
-              frequency_a=5330000LL;
-              break;
-            case REGION_UK:
-              frequency_a=5280000LL;
-              break;
-          }
-          break;
-      }
-      break;
-    case band40:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          frequency_a=7100000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          frequency_a=7020000LL;
-          break;
-        case DIGU:
-        case SPEC:
-        case DIGL:
-          mode_a=LSB;
-          frequency_a=7070000LL;
-          break;
-        case FMN:
-        case AM:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          frequency_a=7100000LL;
-          break;
-      }
-      break;
-    case band30:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=10145000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=10120000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=10145000LL;
-          break;
-      }
-      break;
-    case band20:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=14150000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=14020000LL;
-          break;
-        case DIGU:
-        case SPEC:
-        case DIGL:
-          mode_a=USB;
-          frequency_a=14070000LL;
-          break;
-        case FMN:
-        case AM:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=14020000LL;
-          break;
-      }
-      break;
-    case band17:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=18140000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=18080000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=18140000LL;
-          break;
-      }
-      break;
-    case band15:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=21200000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=21080000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=21200000LL;
-          break;
-      }
-      break;
-    case band12:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=24960000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=24900000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=24960000LL;
-          break;
-      }
-      break;
-    case band10:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=28300000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=28020000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=28300000LL;
-          break;
-      }
-      break;
-    case band6:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=51000000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=50090000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=51000000LL;
-          break;
-      }
-      break;
-#ifdef SOAPYSDR
-    case band70:
-      mode_a=USB;
-      frequency_a=70300000LL;
-      break;
-    case band220:
-      mode_a=USB;
-      frequency_a=430300000LL;
-      break;
-    case band430:
-      mode_a=USB;
-      frequency_a=430300000LL;
-      break;
-    case band902:
-      mode_a=USB;
-      frequency_a=430300000LL;
-      break;
-    case band1240:
-      mode_a=USB;
-      frequency_a=1240300000LL;
-      break;
-    case band2300:
-      mode_a=USB;
-      frequency_a=2300300000LL;
-      break;
-    case band3400:
-      mode_a=USB;
-      frequency_a=3400300000LL;
-      break;
-    case bandAIR:
-      mode_a=AM;
-      frequency_a=126825000LL;
-      break;
-#endif
-    case bandGen:
-      mode_a=AM;
-      frequency_a=5975000LL;
-      break;
-    case bandWWV:
-      mode_a=SAM;
-      frequency_a=10000000LL;
-      break;
-    default:
-      b=band_get_band(choice->selection);
-      mode_a=USB;
-      frequency_a=b->frequencyMin;
-      lo_a=b->frequencyLO;
-      error_a=b->errorLO;
-      break;
-  }
-  choice->rx->band_a=choice->selection;
-  choice->rx->mode_a=mode_a;
-  choice->rx->frequency_a=frequency_a;
-  choice->rx->lo_a=lo_a;
-  choice->rx->error_a=error_a;
-  choice->rx->ctun=FALSE;
-  choice->rx->ctun_offset=0;
-  receiver_band_changed(choice->rx,band);
-  if(radio->transmitter) {
-    if(radio->transmitter->rx==choice->rx) {
-      if(choice->rx->split!=SPLIT_OFF) {
-        transmitter_set_mode(radio->transmitter,choice->rx->mode_b);
-      } else {
-        transmitter_set_mode(radio->transmitter,choice->rx->mode_a);
-      }
-    }
-  }
+  set_band(choice->rx,choice->selection);
   g_free(choice);
 }
 
@@ -2033,7 +1601,7 @@ GtkWidget *create_vfo(RECEIVER *rx) {
 }
 
 void update_vfo(RECEIVER *rx) {
-  char f[32];
+  char temp[32];
   char *markup;
 
   if(rx->vfo==NULL) return;
@@ -2042,15 +1610,17 @@ void update_vfo(RECEIVER *rx) {
 
   if(v==NULL) return;
 
+  // VFO A
   long long af=rx->ctun?rx->ctun_frequency:rx->frequency_a;
-  sprintf(f,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
+  sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
   if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split==SPLIT_OFF && isTransmitting(radio)) {
-    markup=g_markup_printf_escaped("<span foreground=\"#D94545\">%s</span>",f);
+    markup=g_markup_printf_escaped("<span foreground=\"#D94545\">%s</span>",temp);
   } else {
-    markup=g_markup_printf_escaped("<span foreground=\"#A3CCD1\">%s</span>",f);
+    markup=g_markup_printf_escaped("<span foreground=\"#A3CCD1\">%s</span>",temp);
   }
   gtk_label_set_markup(GTK_LABEL(v->frequency_a_text),markup);
 
+  // VFO B
   if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split!=SPLIT_OFF && isTransmitting(radio)) {
     markup=g_markup_printf_escaped("<span foreground=\"#D94545\">%s</span>","VFO B");
   } else {
@@ -2059,14 +1629,15 @@ void update_vfo(RECEIVER *rx) {
   gtk_label_set_markup(GTK_LABEL(v->vfo_b_text),markup);
 
   long long bf=rx->frequency_b;
-  sprintf(f,"%5lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
+  sprintf(temp,"%5lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
   if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split!=SPLIT_OFF && isTransmitting(radio)) {
-    markup=g_markup_printf_escaped("<span foreground=\"#D94545\">%s</span>",f);
+    markup=g_markup_printf_escaped("<span foreground=\"#D94545\">%s</span>",temp);
   } else {
-    markup=g_markup_printf_escaped("<span foreground=\"#ED9D80\">%s</span>",f);
+    markup=g_markup_printf_escaped("<span foreground=\"#ED9D80\">%s</span>",temp);
   }
   gtk_label_set_markup(GTK_LABEL(v->frequency_b_text),markup);
 
+  // ASSIGNED TX
   if(radio!=NULL && radio->transmitter!=NULL) {
     TRANSMITTER *tx=radio->transmitter;
 
@@ -2081,6 +1652,40 @@ void update_vfo(RECEIVER *rx) {
     g_signal_handlers_unblock_by_func(v->xit_b,G_CALLBACK(xit_b_cb),rx);
   }
 
+  // update AF Gain scale
+  gtk_level_bar_set_value(GTK_LEVEL_BAR(v->afgain_scale),rx->volume);
+
+  // update AGC Gain scale
+  gtk_level_bar_set_value(GTK_LEVEL_BAR(v->agcgain_scale),rx->agc_gain+20.0);
+
+  // update Lock button
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->lock_b),rx->locked);
+
+  // update mode button
+  gtk_button_set_label(GTK_BUTTON(v->mode_b),mode_string[rx->mode_a]);
+
+  // update filter button
+  FILTER *band_filters=filters[rx->mode_a];
+  if(rx->mode_a==FMN) {
+    if(rx->deviation==2500) {
+      strcpy(temp,"8000");
+    } else {
+      strcpy(temp,"16000");
+    }
+  } else {
+    strcpy(temp,band_filters[rx->filter_a].title);
+  }
+  gtk_button_set_label(GTK_BUTTON(v->filter_b),temp);
+
+  // update NB button
+  // update NR button
+  // update AGC button
+  // update RIT button
+  // update XIT button
+  // update CTUN button
+  // update DUP button
+  // update BPSK button
+ 
 }
 
 

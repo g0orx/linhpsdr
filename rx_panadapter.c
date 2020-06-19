@@ -444,7 +444,7 @@ void update_rx_panadapter(RECEIVER *rx) {
     
     for(i=rx->panadapter_high;i>=rx->panadapter_low;i--) {
       SetColour(cr, DARK_LINES);
-      int mod=abs(i)%20;
+      int mod=abs(i)%rx->panadapter_step;
       if(mod==0) {
         double y = (double)(rx->panadapter_high-i)*dbm_per_line;
         cairo_move_to(cr,0.0,y);

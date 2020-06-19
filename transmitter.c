@@ -1202,11 +1202,13 @@ g_print("update_timer: fps=%d\n",tx->fps);
 #endif
   }
 
+  /*
   if(radio->local_microphone) {
     if(audio_open_input(radio)<0) {
       radio->local_microphone=FALSE;
     }
   }
+  */
 
   return tx;
 }

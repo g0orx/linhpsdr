@@ -151,6 +151,7 @@ typedef struct _receiver {
   GtkWidget *bookmark_dialog;
 
   gint smeter;
+  double meter_db;
 
   gint window_x;
   gint window_y;
@@ -171,6 +172,7 @@ typedef struct _receiver {
 
   gint panadapter_low;
   gint panadapter_high;
+  gint panadapter_step;
   gboolean panadapter_filled;
   gboolean panadapter_gradient;
   gboolean panadapter_agc_line;  
@@ -239,19 +241,6 @@ typedef struct _receiver {
 
   GMutex mutex;
 
-  gint rigctl_listening_port;
-  GThread *rigctl_server_thread_id;
-  gint rigctl_server_socket;
-  gint rigctl_server_address_length;
-  struct sockaddr_in rigctl_server_address;
-
-  GMutex rigctl_mutex;
-  gint rigctl_client_socket;
-  struct sockaddr_in rigctl_client_address;
-  guint rigctl_client_address_length;
-  gint cat_control;
-  gboolean rigctl_running;
-
   gboolean bpsk_enable;
   void *bpsk;
 
@@ -267,14 +256,17 @@ typedef struct _receiver {
   gulong local_audio_signal_id;
   gulong tx_control_signal_id;
 
-  int rigctl_port_base;
-  int rigctl_enable;
-  gboolean rigctl_debug;
+  gint rigctl_port;
+  gboolean rigctl_enable;
 
-  char rigctl_ser_port[64];
-  int rigctl_serial_baud_rate;
-  int rigctl_serial_parity;
+  GtkWidget *serial_port_entry;
+  char rigctl_serial_port[80];
+  gint rigctl_serial_baudrate;
   gboolean rigctl_serial_enable;
+  
+
+  gboolean rigctl_debug;
+  void *rigctl;
 
 } RECEIVER;
 
@@ -313,4 +305,8 @@ extern void update_frequency(RECEIVER *rx);
 extern void receiver_move(RECEIVER *rx,long long hz,gboolean round);
 extern void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only,gboolean round);
 extern void receiver_move_to(RECEIVER *rx,long long hz);
+extern void receiver_set_volume(RECEIVER *rx);
+extern void receiver_set_agc_gain(RECEIVER *rx);
+extern void receiver_set_ctun(RECEIVER *rx);
+extern void set_band(RECEIVER *rx,int band);
 #endif

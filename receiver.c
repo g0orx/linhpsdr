@@ -53,7 +53,7 @@
 #include "receiver_dialog.h"
 #include "configure_dialog.h"
 #include "property.h"
-//#include "rigctl.h"
+#include "rigctl.h"
 #include "subrx.h"
 
 void receiver_save_state(RECEIVER *rx) {
@@ -104,6 +104,9 @@ void receiver_save_state(RECEIVER *rx) {
   setProperty(name,value);  
   sprintf(name,"receiver[%d].panadapter_high",rx->channel);
   sprintf(value,"%d",rx->panadapter_high);
+  setProperty(name,value);
+  sprintf(name,"receiver[%d].panadapter_step",rx->channel);
+  sprintf(value,"%d",rx->panadapter_step);
   setProperty(name,value);
   sprintf(name,"receiver[%d].panadapter_filled",rx->channel);
   sprintf(value,"%d",rx->panadapter_filled);
@@ -327,6 +330,22 @@ void receiver_save_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].mute_while_transmitting",rx->channel);
   sprintf(value,"%d",rx->mute_while_transmitting);
   setProperty(name,value);
+
+  sprintf(name,"receiver[%d].rigctl_port",rx->channel);
+  sprintf(value,"%d",rx->rigctl_port);
+  setProperty(name,value);
+  sprintf(name,"receiver[%d].rigctl_enable",rx->channel);
+  sprintf(value,"%d",rx->rigctl_enable);
+  setProperty(name,value);
+  sprintf(name,"receiver[%d].rigctl_serial_enable",rx->channel);
+  sprintf(value,"%d",rx->rigctl_serial_enable);
+  setProperty(name,value);
+  sprintf(name,"receiver[%d].rigctl_serial_port",rx->channel);
+  setProperty(name,rx->rigctl_serial_port);
+  sprintf(name,"receiver[%d].rigctl_debug",rx->channel);
+  sprintf(value,"%d",rx->rigctl_debug);
+  setProperty(name,value);
+
 
   gtk_window_get_position(GTK_WINDOW(rx->window),&x,&y);
   sprintf(name,"receiver[%d].x",rx->channel);
@@ -572,6 +591,9 @@ void receiver_restore_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].panadapter_high",rx->channel);
   value=getProperty(name);
   if(value) rx->panadapter_high=atoi(value);
+  sprintf(name,"receiver[%d].panadapter_step",rx->channel);
+  value=getProperty(name);
+  if(value) rx->panadapter_step=atoi(value);
   sprintf(name,"receiver[%d].panadapter_filled",rx->channel);
   value=getProperty(name);
   if(value) rx->panadapter_filled=atoi(value);
@@ -604,6 +626,22 @@ void receiver_restore_state(RECEIVER *rx) {
   sprintf(name,"receiver[%d].mute_while_transmitting",rx->channel);
   value=getProperty(name);
   if(value) rx->mute_while_transmitting=atoi(value);
+
+  sprintf(name,"receiver[%d].rigctl_port",rx->channel);
+  value=getProperty(name);
+  if(value) rx->rigctl_port=atoi(value);
+  sprintf(name,"receiver[%d].rigctl_enable",rx->channel);
+  value=getProperty(name);
+  if(value) rx->rigctl_enable=atoi(value);
+  sprintf(name,"receiver[%d].rigctl_serial_enable",rx->channel);
+  value=getProperty(name);
+  if(value) rx->rigctl_serial_enable=atoi(value);
+  sprintf(name,"receiver[%d].rigctl_serial_port",rx->channel);
+  value=getProperty(name);
+  if(value) strcpy(rx->rigctl_serial_port,value);
+  sprintf(name,"receiver[%d].rigctl_debug",rx->channel);
+  value=getProperty(name);
+  if(value) rx->rigctl_debug=atoi(value);
 
   sprintf(name,"receiver[%d].paned_position",rx->channel);
   value=getProperty(name);
@@ -707,91 +745,98 @@ gboolean receiver_button_press_event_cb(GtkWidget *widget, GdkEventButton *event
 }
 
 void update_frequency(RECEIVER *rx) {
-  if(rx->vfo!=NULL) {
-    update_vfo(rx);
-  }
-  if(radio->transmitter!=NULL) {
-    if(radio->transmitter->rx==rx) {
-      update_tx_panadapter(radio);
+  if(!rx->locked) {
+    if(rx->vfo!=NULL) {
+      update_vfo(rx);
+    }
+    if(radio->transmitter!=NULL) {
+      if(radio->transmitter->rx==rx) {
+        update_tx_panadapter(radio);
+      }
     }
   }
 }
 
 long long receiver_move_a(RECEIVER *rx,long long hz,gboolean round) {
-  long long delta;
-  if(rx->ctun) {
-    delta=rx->ctun_frequency;
-    rx->ctun_frequency=rx->ctun_frequency+hz;
-    if(round && (rx->mode_a!=CWL || rx->mode_a!=CWU)) {
-      rx->ctun_frequency=(rx->ctun_frequency/rx->step)*rx->step;
+  long long delta=0LL;
+  if(!rx->locked) {
+    if(rx->ctun) {
+      delta=rx->ctun_frequency;
+      rx->ctun_frequency=rx->ctun_frequency+hz;
+      if(round && (rx->mode_a!=CWL || rx->mode_a!=CWU)) {
+        rx->ctun_frequency=(rx->ctun_frequency/rx->step)*rx->step;
+      }
+      delta=rx->ctun_frequency-delta;
+    } else {
+      delta=rx->frequency_a;
+      rx->frequency_a=rx->frequency_a-hz; // DEBUG was +
+      if(round && (rx->mode_a!=CWL || rx->mode_a!=CWU)) {
+        rx->frequency_a=(rx->frequency_a/rx->step)*rx->step;
+      }
+      delta=rx->frequency_a-delta;
     }
-    delta=rx->ctun_frequency-delta;
-  } else {
-    delta=rx->frequency_a;
-    rx->frequency_a=rx->frequency_a-hz; // DEBUG was +
-    if(round && (rx->mode_a!=CWL || rx->mode_a!=CWU)) {
-      rx->frequency_a=(rx->frequency_a/rx->step)*rx->step;
-    }
-    delta=rx->frequency_a-delta;
   }
   return delta;
 }
 
 void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only,gboolean round) {
-  switch(rx->split) {
-    case SPLIT_OFF:
-      if(round) {
-        rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
-      } else {
-        rx->frequency_b=rx->frequency_b+hz;
-      }
-      break;
-    case SPLIT_ON:
-      if(round) {
-        rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
-      } else {
-        rx->frequency_b=rx->frequency_b+hz;
-      }
-      break;
-    case SPLIT_SAT:
-      if(round) {
-        rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
-      } else {
-        rx->frequency_b=rx->frequency_b+hz;
-      }
-      if(!b_only) receiver_move_a(rx,hz,round);
-      break;
-    case SPLIT_RSAT:
-      if(round) {
-        rx->frequency_b=(rx->frequency_b-hz)/rx->step*rx->step;
-      } else {
-        rx->frequency_b=rx->frequency_b-hz;
-      }
-      if(!b_only) receiver_move_a(rx,-hz,round);
-      break;
+  if(!rx->locked) {
+    switch(rx->split) {
+      case SPLIT_OFF:
+        if(round) {
+          rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
+        } else {
+          rx->frequency_b=rx->frequency_b+hz;
+        }
+        break;
+      case SPLIT_ON:
+        if(round) {
+          rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
+        } else {
+          rx->frequency_b=rx->frequency_b+hz;
+        }
+        break;
+      case SPLIT_SAT:
+        if(round) {
+          rx->frequency_b=(rx->frequency_b+hz)/rx->step*rx->step;
+        } else {
+          rx->frequency_b=rx->frequency_b+hz;
+        }
+        if(!b_only) receiver_move_a(rx,hz,round);
+        break;
+      case SPLIT_RSAT:
+        if(round) {
+          rx->frequency_b=(rx->frequency_b-hz)/rx->step*rx->step;
+        } else {
+          rx->frequency_b=rx->frequency_b-hz;
+        }
+        if(!b_only) receiver_move_a(rx,-hz,round);
+        break;
+    }
+  
+    if(rx->subrx_enable) {
+      // dont allow frequency outside of passband
+    }
   }
-
-  if(rx->subrx_enable) {
-    // dont allow frequency outside of passband
-  }
-
 }
 
 void receiver_move(RECEIVER *rx,long long hz,gboolean round) {
-  long long delta=receiver_move_a(rx,hz,round);
-  switch(rx->split) {
-    case SPLIT_OFF:
-      break;
-    case SPLIT_ON:
-      break;
-    case SPLIT_SAT:
-    case SPLIT_RSAT:
-      receiver_move_b(rx,delta,TRUE,round);
-      break;
-  }
+  if(!rx->locked) {
+    long long delta=receiver_move_a(rx,hz,round);
+    switch(rx->split) {
+      case SPLIT_OFF:
+        break;
+      case SPLIT_ON:
+        break;
+      case SPLIT_SAT:
+      case SPLIT_RSAT:
+        receiver_move_b(rx,delta,TRUE,round);
+        break;
+    }
 
-  frequency_changed(rx);
-  update_frequency(rx);
+    frequency_changed(rx);
+    update_frequency(rx);
+  }
 }
 
 void receiver_move_to(RECEIVER *rx,long long hz) {
@@ -800,44 +845,46 @@ void receiver_move_to(RECEIVER *rx,long long hz) {
   long long offset=hz;
   long long f;
 
-  offset=hz;
-
-  f=start+offset+(long long)((double)rx->pan*rx->hz_per_pixel);
-  f=f/rx->step*rx->step;
-  if(rx->ctun) {
-    delta=rx->ctun_frequency;
-    rx->ctun_frequency=f;
-    delta=rx->ctun_frequency-delta;
-  } else {
-    if(rx->split==SPLIT_ON && (rx->mode_a==CWL || rx->mode_a==CWU)) {
-      if(rx->mode_a==CWU) {
-        f=f-radio->cw_keyer_sidetone_frequency;
-      } else {
-        f=f+radio->cw_keyer_sidetone_frequency;
-      }
-      rx->frequency_b=f;
+  if(!rx->locked) {
+    offset=hz;
+  
+    f=start+offset+(long long)((double)rx->pan*rx->hz_per_pixel);
+    f=f/rx->step*rx->step;
+    if(rx->ctun) {
+      delta=rx->ctun_frequency;
+      rx->ctun_frequency=f;
+      delta=rx->ctun_frequency-delta;
     } else {
-      delta=rx->frequency_a;
-      rx->frequency_a=f;
-      delta=rx->frequency_a-delta;
+      if(rx->split==SPLIT_ON && (rx->mode_a==CWL || rx->mode_a==CWU)) {
+        if(rx->mode_a==CWU) {
+          f=f-radio->cw_keyer_sidetone_frequency;
+        } else {
+          f=f+radio->cw_keyer_sidetone_frequency;
+        }
+        rx->frequency_b=f;
+      } else {
+        delta=rx->frequency_a;
+        rx->frequency_a=f;
+        delta=rx->frequency_a-delta;
+      }
     }
-  }
+  
+    switch(rx->split) {
+      case SPLIT_OFF:
+        break;
+      case SPLIT_ON:
+        break;
+      case SPLIT_SAT:
+        receiver_move_b(rx,delta,TRUE,TRUE);
+        break;
+      case SPLIT_RSAT:
+        receiver_move_b(rx,-delta,TRUE,TRUE);
+        break;
+    }
 
-  switch(rx->split) {
-    case SPLIT_OFF:
-      break;
-    case SPLIT_ON:
-      break;
-    case SPLIT_SAT:
-      receiver_move_b(rx,delta,TRUE,TRUE);
-      break;
-    case SPLIT_RSAT:
-      receiver_move_b(rx,-delta,TRUE,TRUE);
-      break;
+    frequency_changed(rx);
+    update_frequency(rx);
   }
-
-  frequency_changed(rx);
-  update_frequency(rx);
 }
 
 gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
@@ -975,8 +1022,8 @@ static gboolean update_timer_cb(void *data) {
         update_waterfall(rx);
       }
     }
-    double m=GetRXAMeter(rx->channel,rx->smeter) + radio->meter_calibration;
-    update_meter(rx,m);
+    rx->meter_db=GetRXAMeter(rx->channel,rx->smeter) + radio->meter_calibration;
+    update_meter(rx);
   }
   update_radio_info(rx);
 
@@ -1592,6 +1639,7 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   rx->window=NULL;
   rx->panadapter_low=-140;
   rx->panadapter_high=-60;
+  rx->panadapter_step=20;
   rx->panadapter_surface=NULL;
   
   rx->panadapter_filled=TRUE;
@@ -1641,13 +1689,14 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   rx->filter_frame=NULL;
   rx->filter_grid=NULL;
 
-/*
-  g_mutex_init(&rx->rigctl_mutex);
-  rx->rigctl_server_socket=-1;
-  rx->rigctl_client_socket=-1;
-  rx->rigctl_running=FALSE;
-*/
-  rx->cat_control=-1;
+  rx->rigctl_port=19090+rx->channel;
+  rx->rigctl_enable=FALSE;
+
+  strcpy(rx->rigctl_serial_port,"/dev/ttyACM0");
+  rx->rigctl_serial_baudrate=B9600;
+  rx->rigctl_serial_enable=FALSE;
+  rx->rigctl_debug=FALSE;
+  rx->rigctl=NULL;
 
   rx->vpaned=NULL;
   rx->paned_position=-1;
@@ -1656,17 +1705,6 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
   rx->split=SPLIT_OFF;
   rx->duplex=FALSE;
   rx->mute_while_transmitting=FALSE;
-
-/*
-  rx->rigctl_port_base=19090+rx->channel;
-  rx->rigctl_enable=FALSE;
-  rx->rigctl_debug=FALSE;
-
-  strcpy(rx->rigctl_ser_port,"/dev/ttyACM0");
-  rx->rigctl_serial_baud_rate=B9600;
-  rx->rigctl_serial_parity=0; // none
-  rx->rigctl_serial_enable=FALSE;
-*/
 
   rx->vfo=NULL;
   rx->subrx_enable=FALSE;
@@ -1795,11 +1833,39 @@ g_print("receiver_configure_event: gtk_paned_set_position: rx=%d position=%d hei
     rx->bpsk=create_bpsk(BPSK_CHANNEL,rx->band_a);
   }
 
-/*
-  if(rigctl_enable) {
+
+  if(rx->rigctl_enable) {
     launch_rigctl(rx);
   }
-*/
+
+  if(rx->rigctl_serial_enable) {
+    launch_serial(rx);
+  }
 
   return rx;
+}
+
+void receiver_set_volume(RECEIVER *rx) {
+  SetRXAPanelGain1(rx->channel, rx->volume);
+  if(rx->subrx_enable) {
+    subrx_volume_changed(rx);
+  }
+}
+
+void receiver_set_agc_gain(RECEIVER *rx) {
+  SetRXAAGCTop(rx->channel, rx->agc_gain);
+}
+
+void receiver_set_ctun(RECEIVER *rx) {
+  rx->ctun_offset=0;
+  rx->ctun_frequency=rx->frequency_a;
+  rx->ctun_min=rx->frequency_a-(rx->sample_rate/2);
+  rx->ctun_max=rx->frequency_a+(rx->sample_rate/2);
+  if(!rx->ctun) {
+    SetRXAShiftRun(rx->channel, 0);
+  } else {
+    SetRXAShiftRun(rx->channel, 1);
+  }
+  frequency_changed(rx);
+  update_frequency(rx);
 }
