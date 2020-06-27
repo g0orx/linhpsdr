@@ -172,7 +172,7 @@ static int step_size(RECEIVER *rx) {
     if(steps[i]==rx->step) break;
   }
   if(i>14) i=0;
-  return i;
+  return i+1;
 }
 
 static int cat_band(RECEIVER *rx) {
@@ -781,8 +781,8 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
           } else if(command[6]==';') {
             // set the step size
             int i=atoi(&command[4]) ;
-            if(i>=0 && i<=14) {
-              rx->step=steps[i];
+            if(i>0 && i<=14) {
+              rx->step=steps[i+1];
               update_vfo(rx);
             }
           } else {
@@ -793,8 +793,8 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
           if(command[6]==';') {
             int step_index=atoi(&command[4]);
             long long hz=0;
-            if(step_index>=0 && step_index<=14) {
-              hz=(long long)steps[step_index];
+            if(step_index>0 && step_index<=14) {
+              hz=(long long)steps[step_index-1];
             }
             if(hz!=0LL) {
               receiver_move(rx,-hz,FALSE);
@@ -858,8 +858,8 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
           if(command[6]==';') {
             int step_index=atoi(&command[4]);
             long long hz=0;
-            if(step_index>=0 && step_index<=14) {
-              hz=(long long)steps[step_index];
+            if(step_index>0 && step_index<=14) {
+              hz=(long long)steps[step_index-1];
             }
             if(hz!=0LL) {
               receiver_move(rx,hz,TRUE);
@@ -925,8 +925,8 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
           if(command[6]==';') {
             int step_index=atoi(&command[4]);
             long long hz=0;
-            if(step_index>=0 && step_index<=14) {
-              hz=(long long)steps[step_index];
+            if(step_index>0 && step_index<=14) {
+              hz=(long long)steps[step_index-1];
             }
             if(hz!=0LL) {
               receiver_move_b(rx,-hz,FALSE,FALSE);
@@ -940,8 +940,8 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
           if(command[6]==';') {
             int step_index=atoi(&command[4]);
             long long hz=0;
-            if(step_index>=0 && step_index<=14) {
-              hz=(long long)steps[step_index];
+            if(step_index>0 && step_index<=14) {
+              hz=(long long)steps[step_index-1];
             }
             if(hz!=0LL) {
               receiver_move_b(rx,hz,FALSE,FALSE);
