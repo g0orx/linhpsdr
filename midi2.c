@@ -14,6 +14,8 @@
 #include <time.h>
 #include "midi.h"
 
+struct _MidiCommandsTable MidiCommandsTable;
+
 void NewMidiEvent(enum MIDIevent event, int channel, int note, int val) {
 
     struct desc *desc;

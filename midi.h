@@ -46,6 +46,10 @@
 // MIDIaction encodes the "action" to be taken in Layer3
 // (sorted alphabetically by the keyword)
 //
+
+#ifndef _MIDI_H
+#define _MIDI_H
+
 enum MIDIaction {
   ACTION_NONE=0,	// NONE:		No-Op (unassigned key)
   VFO_A2B,		// A2B:			VFO A -> B
@@ -199,10 +203,12 @@ struct desc {
    struct desc       *next;       // Next defined action for a controller/key with that note value (NULL for end of list)
 };
 
-struct {
+struct _MidiCommandsTable {
    struct desc *desc[128];    // description for Note On/Off and ControllerChange
    struct desc *pitch;        // description for PitchChanges
-} MidiCommandsTable;
+};
+
+extern struct _MidiCommandsTable MidiCommandsTable;
 
 //
 // Layer-1 entry point, called once for all the MIDI devices
@@ -232,3 +238,5 @@ int MIDIstartup();
 //
 
 void DoTheMidi(enum MIDIaction code, enum MIDItype type, int val);
+
+#endif
