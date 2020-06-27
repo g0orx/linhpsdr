@@ -26,7 +26,7 @@ AUDIO_LIBS=-lasound -lpulse-simple -lpulse -lpulse-mainloop-glib -lsoundio
 #	sudo apt-get install soapysdr-module-rtlsdr
 #	sudo apt-get install soapysdr-module-lms7
 #
-#SOAPYSDR_INCLUDE=SOAPYSDR
+SOAPYSDR_INCLUDE=SOAPYSDR
 
 ifeq ($(SOAPYSDR_INCLUDE),SOAPYSDR)
 SOAPYSDR_OPTIONS=-D SOAPYSDR
@@ -89,6 +89,7 @@ PROGRAM=linhpsdr
 
 SOURCES=\
 main.c\
+css.c\
 audio.c\
 version.c\
 discovered.c\
@@ -131,13 +132,15 @@ puresignal_dialog.c\
 oc_dialog.c\
 xvtr_dialog.c\
 frequency.c\
-rigctl.c\
 error_handler.c\
 radio_info.c\
-bpsk.c
+rigctl.c \
+bpsk.c \
+subrx.c
 
 HEADERS=\
 main.h\
+css.h\
 audio.h\
 version.h\
 discovered.h\
@@ -181,13 +184,15 @@ puresignal_dialog.h\
 oc_dialog.h\
 xvtr_dialog.h\
 frequency.h\
-rigctl.h\
 error_handler.h\
 radio_info.h\
-bpsk.h
+rigctl.h \
+bpsk.h \
+subrx.h
 
 OBJS=\
 main.o\
+css.o\
 audio.o\
 version.o\
 discovered.o\
@@ -230,10 +235,11 @@ puresignal_dialog.o\
 oc_dialog.o\
 xvtr_dialog.o\
 frequency.o\
-rigctl.o\
 error_handler.o\
 radio_info.o\
-bpsk.o
+rigctl.o \
+bpsk.o \
+subrx.o
 
 
 $(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(MIDI_OBJS)

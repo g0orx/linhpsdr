@@ -1,5 +1,4 @@
-/* Copyright (C)
-* 2018 - John Melton, G0ORX/N6LYT
+/* 2018 - John Melton, G0ORX/N6LYT
 *
 * This program is free software; you can redistribute it and/or
 * modify it under the terms of the GNU General Public License
@@ -25,6 +24,7 @@
 #include "mode.h"
 #include "filter.h"
 #include "discovered.h"
+#include "bpsk.h"
 #include "receiver.h"
 #include "receiver_dialog.h"
 #include "transmitter.h"
@@ -38,45 +38,12 @@
 #include "bookmark_dialog.h"
 #include "rigctl.h"
 #include "bpsk.h"
-
-enum {
-  BUTTON_NONE=-1,
-  BUTTON_LOCK=0,
-  BUTTON_MODE,
-  BUTTON_FILTER,
-  BUTTON_NB,
-  BUTTON_NR,
-  BUTTON_SNB,
-  BUTTON_ANF,
-  BUTTON_AGC1,
-  BUTTON_AGC2,
-  BUTTON_BMK,
-  BUTTON_CTUN1,
-  BUTTON_CTUN2,
-  BUTTON_DUP,
-  BUTTON_RIT,
-  VALUE_RIT1,
-  VALUE_RIT2,
-  BUTTON_XIT,
-  VALUE_XIT1,
-  VALUE_XIT2,
-  BUTTON_UP1,
-  BUTTON_UP2,
-  BUTTON_BPSK,
-  BUTTON_ATOB,
-  BUTTON_BTOA,
-  BUTTON_ASWAPB,
-  BUTTON_SPLIT,
-  BUTTON_STEP,
-  BUTTON_ZOOM,
-  BUTTON_VFO,
-  SLIDER_AF,
-  SLIDER_AGC
-};
+#include "subrx.h"
 
 typedef struct _choice {
   RECEIVER *rx;
   int selection;
+  GtkWidget *button;
 } CHOICE;
 
 typedef struct _step {
@@ -100,74 +67,355 @@ const long long ll_step[13]= {
    1LL
 };
 
-#define STEPS 25
-const int steps[STEPS] = {1,10,25,50,100,250,500,1000,2000,2500,5000,6250,9000,10000,12500,15000,20000,25000,30000,50000,100000,250000,500000,1000000,10000000};
-
+gint64 steps[STEPS]={1,10,25,50,100,250,500,1000,5000,9000,10000,100000,250000,500000,1000000};
+char *step_labels[STEPS]={"1Hz","10Hz","25Hz","50Hz","100Hz","250Hz","500Hz","1kHz","5kHz","9kHz","10kHz","100kHz","250KHz","500KHz","1MHz"};
    
-static gint slider=BUTTON_NONE;
-static gboolean slider_moved=FALSE;
-static gint slider_lastx;
-
-static gboolean vfo_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
-  RECEIVER *rx=(RECEIVER *)data;
-  gint width=gtk_widget_get_allocated_width(widget);
-  gint height=gtk_widget_get_allocated_height(widget);
-//g_print("vfo_configure_event_cb: width=%d height=%d\n",width,height);
-  if(rx->vfo_surface) {
-    cairo_surface_destroy(rx->vfo_surface);
+static int get_step(gint64 step) {
+  int i;
+  for(i=0;i<STEPS;i++) {
+    if(steps[i]==step) {
+      return i;
+    }
   }
-  rx->vfo_surface=gdk_window_create_similar_surface(gtk_widget_get_window(widget),CAIRO_CONTENT_COLOR,width,height);
-
-  /* Initialize the surface to black */
-  cairo_t *cr;
-  cr = cairo_create (rx->vfo_surface);
-  cairo_set_source_rgb (cr, 0.1, 0.1, 0.1);
-  cairo_paint (cr);
-  cairo_destroy(cr);
-  return TRUE;
+  return 4; // 100Hz
 }
 
+static void a2b_cb(GtkButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  int m=rx->mode_b;
+  int f=rx->filter_b;
+  rx->band_b=rx->band_a;
+  rx->frequency_b=rx->frequency_a;
+  rx->mode_b=rx->mode_a;
+  rx->filter_b=rx->filter_a;
+  rx->filter_low_b=rx->filter_low_a;
+  rx->filter_high_b=rx->filter_high_a;
+  rx->lo_b=rx->lo_a;
+  rx->error_b=rx->error_a;
+  frequency_changed(rx);
+  if(rx->subrx_enable) {
+    if(m!=rx->mode_b) {
+      subrx_mode_changed(rx);
+    } else if(f!=rx->filter_b) {
+      subrx_filter_changed(rx);
+    }
+  }
+  update_vfo(rx);
+}
 
-static gboolean vfo_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
-  RECEIVER *rx=(RECEIVER *)data;
-  if(rx->vfo_surface!=NULL) {
-    cairo_set_source_surface (cr, rx->vfo_surface, 0.0, 0.0);
-    cairo_paint (cr);
+static void b2a_cb(GtkButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  int m=rx->mode_a;
+  int f=rx->filter_a;
+  rx->band_a=rx->band_b;
+  rx->frequency_a=rx->frequency_b;
+  rx->mode_a=rx->mode_b;
+  rx->filter_a=rx->filter_b;
+  rx->filter_low_a=rx->filter_low_b;
+  rx->filter_high_a=rx->filter_high_b;
+  rx->lo_a=rx->lo_b;
+  rx->error_a=rx->error_b;
+  frequency_changed(rx);
+  if(m!=rx->mode_a) {
+    receiver_mode_changed(rx,m);
+  } else if(f!=rx->filter_a) {
+    receiver_filter_changed(rx,f);
+  }
+  update_vfo(rx);
+}
+
+static void aswapb_cb(GtkButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  gint temp_band;
+  gint64 temp_frequency;
+  gint temp_mode;
+  gint temp_filter_low;
+  gint temp_filter_high;
+  gint temp_filter;
+  gint64 temp_lo;
+  gint64 temp_error;
+
+  temp_band=rx->band_a;
+  temp_frequency=rx->frequency_a;
+  temp_mode=rx->mode_a;
+  temp_filter=rx->filter_a;
+  temp_filter_low=rx->filter_low_a;
+  temp_filter_high=rx->filter_high_a;
+  temp_lo=rx->lo_a;
+  temp_error=rx->error_a;
+
+  rx->band_a=rx->band_b;
+  rx->frequency_a=rx->frequency_b;
+  rx->mode_a=rx->mode_b;
+  rx->filter_a=rx->filter_b;
+  rx->filter_low_a=rx->filter_low_b;
+  rx->filter_high_a=rx->filter_high_b;
+  rx->lo_a=rx->lo_b;
+  rx->error_a=rx->error_b;
+
+  rx->band_b=temp_band;
+  rx->frequency_b=temp_frequency;
+  rx->mode_b=temp_mode;
+  rx->filter_b=temp_filter;
+  rx->filter_low_b=temp_filter_low;
+  rx->filter_high_b=temp_filter_high;
+  rx->lo_b=temp_lo;
+  rx->lo_b=temp_lo;
+  rx->lo_b=temp_lo;
+  rx->error_b=temp_error;
+
+  frequency_changed(rx);
+  receiver_mode_changed(rx,rx->mode_a);
+  if(radio->transmitter->rx==rx) {
+    if(rx->split!=SPLIT_OFF) {
+      transmitter_set_mode(radio->transmitter,rx->mode_b);
+    } else {
+      transmitter_set_mode(radio->transmitter,rx->mode_a);
+    }
+  }
+
+  if(rx->subrx_enable) {
+    if(rx->mode_b!=rx->mode_a) {
+      subrx_mode_changed(rx);
+    } else if(rx->filter_b!=rx->filter_a) {
+      subrx_filter_changed(rx);
+    }
+  }
+
+  update_vfo(rx);
+}
+
+static void split_b_cb(GtkToggleButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  rx->split=rx->split==SPLIT_OFF?SPLIT_ON:SPLIT_OFF;
+  g_signal_handlers_block_by_func(widget,G_CALLBACK(split_b_cb),user_data);
+  gtk_toggle_button_set_active(widget,rx->split!=SPLIT_OFF);
+  g_signal_handlers_unblock_by_func(widget,G_CALLBACK(split_b_cb),user_data);
+  gtk_button_set_label(GTK_BUTTON(widget),"SPLIT");
+  update_vfo(rx);
+}
+
+void split_cb(GtkWidget *menu_item,gpointer data) {
+  CHOICE *choice=(CHOICE *)data;
+  RECEIVER *rx=choice->rx;
+  rx->split=choice->selection;
+  switch(rx->split) {
+     case SPLIT_OFF:
+     case SPLIT_ON:
+       gtk_button_set_label(GTK_BUTTON(choice->button),"SPLIT");
+       break;
+     case SPLIT_SAT:
+       gtk_button_set_label(GTK_BUTTON(choice->button),"SAT");
+       break;
+     case SPLIT_RSAT:
+       gtk_button_set_label(GTK_BUTTON(choice->button),"RSAT");
+       break;
+  }
+  g_signal_handlers_block_by_func(choice->button,G_CALLBACK(split_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(choice->button),rx->split!=SPLIT_OFF);
+  g_signal_handlers_unblock_by_func(choice->button,G_CALLBACK(split_b_cb),rx);
+  frequency_changed(rx);
+  if(radio->transmitter->rx==rx) {
+    switch(rx->split) {
+      case SPLIT_OFF:
+        transmitter_set_mode(radio->transmitter,rx->mode_a);
+        break;
+      case SPLIT_ON:
+        // Split mode in CW, RX on VFO A, TX on VFO B.
+        // When mode turned on, default to VFO A +1 kHz
+        if (rx->mode_a == CWL || rx->mode_a ==CWU) {
+          // Most pile-ups start with UP 1
+          rx->frequency_b = rx->frequency_a + 1000;
+          rx->mode_b=rx->mode_a;
+        }
+        transmitter_set_mode(radio->transmitter,rx->mode_b);
+        break;
+      case SPLIT_SAT:
+      case SPLIT_RSAT:
+        transmitter_set_mode(radio->transmitter,rx->mode_b);
+        break;
+    }
+  }
+  g_free(choice);
+}
+
+static gboolean split_b_press_cb(GtkWidget *widget,GdkEvent *event,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  GtkWidget *menu=gtk_menu_new();
+  GtkWidget *menu_item;
+  CHOICE *choice;
+  switch(((GdkEventButton*)event)->button) {
+    case 3:  // RIGHT
+      menu=gtk_menu_new();
+      menu_item=gtk_menu_item_new_with_label("Off");
+      choice=g_new0(CHOICE,1);
+      choice->rx=rx;
+      choice->selection=SPLIT_OFF;
+      choice->button=widget;
+      g_signal_connect(menu_item,"activate",G_CALLBACK(split_cb),choice);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+      menu_item=gtk_menu_item_new_with_label("SPLIT");
+      choice=g_new0(CHOICE,1);
+      choice->rx=rx;
+      choice->selection=SPLIT_ON;
+      choice->button=widget;
+      g_signal_connect(menu_item,"activate",G_CALLBACK(split_cb),choice);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+      menu_item=gtk_menu_item_new_with_label("SAT");
+      choice=g_new0(CHOICE,1);
+      choice->rx=rx;
+      choice->selection=SPLIT_SAT;
+      choice->button=widget;
+      g_signal_connect(menu_item,"activate",G_CALLBACK(split_cb),choice);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+      menu_item=gtk_menu_item_new_with_label("RSAT");
+      choice=g_new0(CHOICE,1);
+      choice->rx=rx;
+      choice->selection=SPLIT_RSAT;
+      choice->button=widget;
+      g_signal_connect(menu_item,"activate",G_CALLBACK(split_cb),choice);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+      gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
+      gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+      gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
+      return TRUE;
+      break;
   }
   return FALSE;
 }
 
-static int which_button(RECEIVER *rx,int x,int y) {
-  int button=BUTTON_NONE;
-  if(y<=12) {
-    if(x>=355 && x<430) {
-      button=BUTTON_STEP;
-    } else if(x>285 && x<355) {
-      button=BUTTON_ZOOM;
-    } else if (x>195 && x<230) {
-      button=BUTTON_SPLIT;
-    } else {
-      if(x>=70 && x<175) {
-        button=(x/35)-2+BUTTON_ATOB;
-      }
-    }
-  } else if(y>=48) {; 
-    int click_loc = (x-5)/35;
-    if (click_loc < BUTTON_ATOB) button = click_loc;
-  } else if(x>=560) {
-    if(y<=35) {
-      button=SLIDER_AF;
-    } else {
-      button=SLIDER_AGC;
-    }
-  }
-  if(y>12 && y<48){
-    if(x>=rx->vfo_a_x && x<rx->vfo_b_x+rx->vfo_b_width){
-      button=BUTTON_VFO;
-    }
-  }
+void zoom_cb(GtkWidget *menu_item,gpointer data) {
+  CHOICE *choice=(CHOICE *)data;
+  RECEIVER *rx=choice->rx;
+  char temp[16];
+  receiver_change_zoom(rx,choice->selection);
+  sprintf(temp,"ZOOM x%d",rx->zoom);
+  gtk_button_set_label(GTK_BUTTON(choice->button),temp);
+  g_free(choice);
+}
 
-  return button;
+static void zoom_b_cb(GtkWidget *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  GtkWidget *menu=gtk_menu_new();
+  GtkWidget *menu_item;
+  CHOICE *choice;
+  menu=gtk_menu_new();
+  menu_item=gtk_menu_item_new_with_label("x1");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=1;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("x2");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=2;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("x3");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=3;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("x4");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=4;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("x5");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=5;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("x6");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=6;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("x7");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=7;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("x8");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=8;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
+  gtk_menu_popup_at_pointer(GTK_MENU(menu),NULL);
+#else
+  gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,NULL);
+#endif
+}
+
+void step_cb(GtkWidget *menu_item,gpointer data) {
+  CHOICE *choice=(CHOICE *)data;
+  choice->rx->step=steps[choice->selection];
+  char temp[16];
+  sprintf(temp,"STEP %s",step_labels[choice->selection]);
+  gtk_button_set_label(GTK_BUTTON(choice->button),temp);
+  g_free(choice);
+}
+
+static void step_b_cb(GtkWidget *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  GtkWidget *menu=gtk_menu_new();
+  GtkWidget *menu_item;
+  CHOICE *choice;
+  int i;
+
+  menu=gtk_menu_new();
+  for(i=0;i<STEPS;i++) {
+    menu_item=gtk_menu_item_new_with_label(step_labels[i]);
+    choice=g_new0(CHOICE,1);
+    choice->rx=rx;
+    choice->selection=i;
+    choice->button=widget;
+    g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  }
+  gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
+  gtk_menu_popup_at_pointer(GTK_MENU(menu),NULL);
+#else
+  gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,NULL);
+#endif
+}
+
+static void subrx_b_cb(GtkToggleButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  if(rx->subrx_enable) {
+    rx->subrx_enable=FALSE;
+    destroy_subrx(rx);
+    rx->subrx=NULL;
+  } else {
+    create_subrx(rx);
+    rx->subrx_enable=TRUE;
+  }
+}
+
+static void lock_b_cb(GtkToggleButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  rx->locked=gtk_toggle_button_get_active(widget);
 }
 
 void mode_cb(GtkWidget *menu_item,gpointer data) {
@@ -183,2232 +431,1285 @@ void mode_cb(GtkWidget *menu_item,gpointer data) {
       transmitter_set_mode(radio->transmitter,choice->rx->mode_a);
     }
   }
-  update_vfo(choice->rx);
+  gtk_button_set_label(GTK_BUTTON(choice->button),mode_string[choice->selection]);
   g_free(choice);
+}
+
+static void mode_b_cb(GtkButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  GtkWidget *menu=gtk_menu_new();
+  GtkWidget *menu_item;
+  CHOICE *choice;
+  int i;
+
+  for(i=0;i<MODES;i++) {
+    menu_item=gtk_menu_item_new_with_label(mode_string[i]);
+    choice=g_new0(CHOICE,1);
+    choice->rx=rx;
+    choice->selection=i;
+    choice->button=(GtkWidget *)widget;
+    g_signal_connect(menu_item,"activate",G_CALLBACK(mode_cb),choice);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+    }
+  gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
+  gtk_menu_popup_at_pointer(GTK_MENU(menu),NULL);
+#else
+  gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,NULL);
+#endif
 }
 
 void filter_cb(GtkWidget *menu_item,gpointer data) {
+  FILTER *mode_filters;
   CHOICE *choice=(CHOICE *)data;
   receiver_filter_changed(choice->rx,choice->selection);
-  update_vfo(choice->rx);
+  mode_filters=filters[choice->rx->mode_a];
+  gtk_button_set_label(GTK_BUTTON(choice->button),mode_filters[choice->selection].title);
   g_free(choice);
 }
 
+static void filter_b_cb(GtkButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  GtkWidget *menu=gtk_menu_new();
+  GtkWidget *menu_item;
+  CHOICE *choice;
+  FILTER *mode_filters;
+  char text[32];
+  int i;
+  if(rx->mode_a==FMN) {
+    menu=gtk_menu_new();
+    menu_item=gtk_menu_item_new_with_label("2.5k Dev");
+    choice=g_new0(CHOICE,1);
+    choice->rx=rx;
+    choice->selection=0;
+    choice->button=(GtkWidget *)widget;
+    g_signal_connect(menu_item,"activate",G_CALLBACK(filter_cb),choice);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+    menu_item=gtk_menu_item_new_with_label("5.0k Dev");
+    choice=g_new0(CHOICE,1);
+    choice->rx=rx;
+    choice->selection=1;
+    choice->button=(GtkWidget *)widget;
+    g_signal_connect(menu_item,"activate",G_CALLBACK(filter_cb),choice);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  } else {
+    mode_filters=filters[rx->mode_a];
+    menu=gtk_menu_new();
+    for(i=0;i<FILTERS;i++) {
+      if(i>=FVar1) {
+        sprintf(text,"%s (%d..%d)",mode_filters[i].title,mode_filters[i].low,mode_filters[i].high);
+        menu_item=gtk_menu_item_new_with_label(text);
+      } else {
+        menu_item=gtk_menu_item_new_with_label(mode_filters[i].title);
+      }
+      choice=g_new0(CHOICE,1);
+      choice->rx=rx;
+      choice->selection=i;
+      choice->button=(GtkWidget *)widget;
+      g_signal_connect(menu_item,"activate",G_CALLBACK(filter_cb),choice);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+    }
+  }
+  gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
+  gtk_menu_popup_at_pointer(GTK_MENU(menu),NULL);
+#else
+  gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,NULL);
+#endif
+}
+
+static gboolean nb_b_pressed_cb(GtkWidget *widget,GdkEventButton *event,gpointer user_data);
+
 void nb_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
+  VFO_DATA *v=(VFO_DATA *)g_object_get_data((GObject *)choice->rx->vfo,"vfo_data");
+    
   switch(choice->selection) {
     case 0:
       choice->rx->nb=FALSE;
       choice->rx->nb2=FALSE;
+      gtk_button_set_label(GTK_BUTTON(v->nb_b),"NB");
       break;
     case 1:
       choice->rx->nb=TRUE;
       choice->rx->nb2=FALSE;
+      gtk_button_set_label(GTK_BUTTON(v->nb_b),"NB");
       break;
     case 2:
       choice->rx->nb=FALSE;
       choice->rx->nb2=TRUE;
+      gtk_button_set_label(GTK_BUTTON(v->nb_b),"NB2");
       break;
   }
+  g_signal_handlers_block_by_func(v->nb_b,G_CALLBACK(nb_b_pressed_cb),data);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->nb_b),choice->rx->nb|choice->rx->nb2);
+  g_signal_handlers_unblock_by_func(v->nb_b,G_CALLBACK(nb_b_pressed_cb),data);
+
   update_noise(choice->rx);
+  
   g_free(choice);
 }
 
+static gboolean nb_b_pressed_cb(GtkWidget *widget,GdkEventButton *event,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  GtkWidget *menu;
+  GtkWidget *menu_item;
+  CHOICE *choice;
+
+  menu=gtk_menu_new();
+  menu_item=gtk_menu_item_new_with_label("OFF");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=0;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(nb_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("NB");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=1;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(nb_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("NB2");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=2;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(nb_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
+  gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+  gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
+  return TRUE;
+}
+
+static gboolean nr_b_pressed_cb(GtkWidget *widget,GdkEventButton *event,gpointer user_data);
+
 void nr_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
+  VFO_DATA *v=(VFO_DATA *)g_object_get_data((GObject *)choice->rx->vfo,"vfo_data");
+
   switch(choice->selection) {
     case 0:
       choice->rx->nr=FALSE;
       choice->rx->nr2=FALSE;
+      gtk_button_set_label(GTK_BUTTON(v->nr_b),"NR");
       break;
     case 1:
       choice->rx->nr=TRUE;
       choice->rx->nr2=FALSE;
+      gtk_button_set_label(GTK_BUTTON(v->nr_b),"NR");
       break;
     case 2:
       choice->rx->nr=FALSE;
       choice->rx->nr2=TRUE;
+      gtk_button_set_label(GTK_BUTTON(v->nr_b),"NR2");
       break;
   }
+  g_signal_handlers_block_by_func(v->nr_b,G_CALLBACK(nr_b_pressed_cb),data);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->nr_b),choice->rx->nr|choice->rx->nr2);
+  g_signal_handlers_unblock_by_func(v->nr_b,G_CALLBACK(nr_b_pressed_cb),data);
+
   update_noise(choice->rx);
+
   g_free(choice);
 }
 
-void agc_cb(GtkWidget *menu_item,gpointer data) {
-  CHOICE *choice=(CHOICE *)data;
-  choice->rx->agc=choice->selection;
-  set_agc(choice->rx);
-  update_vfo(choice->rx);
-  g_free(choice);
-}
+static gboolean nr_b_pressed_cb(GtkWidget *widget,GdkEventButton *event,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  GtkWidget *menu;
+  GtkWidget *menu_item;
+  CHOICE *choice;
 
-void zoom_cb(GtkWidget *menu_item,gpointer data) {
-  CHOICE *choice=(CHOICE *)data;
-  receiver_change_zoom(choice->rx,choice->selection);
-  update_vfo(choice->rx);
-  g_free(choice);
-}
-
-void band_cb(GtkWidget *menu_item,gpointer data) {
-  CHOICE *choice=(CHOICE *)data;
-  BAND *b;
-  int mode_a;
-  long long frequency_a;
-  long long lo_a=0LL;
-  long long error_a=0LL;
-
-  switch(choice->selection) {
-    case band2200:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          frequency_a=136000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          frequency_a=136000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          frequency_a=136000LL;
-          break;
-      }
-      break;
-    case band630:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-        case CWL:
-        case CWU:
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=CWL;
-          frequency_a=472100LL;
-          break;
-      }
-      break;
-    case band160:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          frequency_a=1900000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          frequency_a=1830000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          frequency_a=1900000LL;
-          break;
-      }
-      break;
-    case band80:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          frequency_a=3700000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          frequency_a=3520000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          frequency_a=3700000LL;
-          break;
-      }
-      break;
-    case band60:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          switch(radio->region) {
-            case REGION_OTHER:
-              frequency_a=5330000LL;
-              break;
-            case REGION_UK:
-              frequency_a=5280000LL;
-              break;
-          }
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          switch(radio->region) {
-            case REGION_OTHER:
-              frequency_a=5330000LL;
-              break;
-            case REGION_UK:
-              frequency_a=5280000LL;
-              break;
-          }
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          switch(radio->region) {
-            case REGION_OTHER:
-              frequency_a=5330000LL;
-              break;
-            case REGION_UK:
-              frequency_a=5280000LL;
-              break;
-          }
-          break;
-      }
-      break;
-    case band40:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          frequency_a=7100000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          frequency_a=7020000LL;
-          break;
-        case DIGU:
-        case SPEC:
-        case DIGL:
-          mode_a=LSB;
-          frequency_a=7070000LL;
-          break;
-        case FMN:
-        case AM:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          frequency_a=7100000LL;
-          break;
-      }
-      break;
-    case band30:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=10145000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=10120000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=10145000LL;
-          break;
-      }
-      break;
-    case band20:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=14150000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=14020000LL;
-          break;
-        case DIGU:
-        case SPEC:
-        case DIGL:
-          mode_a=USB;
-          frequency_a=14070000LL;
-          break;
-        case FMN:
-        case AM:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=14020000LL;
-          break;
-      }
-      break;
-    case band17:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=18140000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=18080000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=18140000LL;
-          break;
-      }
-      break;
-    case band15:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=21200000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=21080000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=21200000LL;
-          break;
-      }
-      break;
-    case band12:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=24960000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=24900000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=24960000LL;
-          break;
-      }
-      break;
-    case band10:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=28300000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=28020000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=28300000LL;
-          break;
-      }
-      break;
-    case band6:
-      switch(choice->rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=51000000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=50090000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=51000000LL;
-          break;
-      }
-      break;
-#ifdef SOAPYSDR
-    case band70:
-      mode_a=USB;
-      frequency_a=70300000LL;
-      break;
-    case band220:
-      mode_a=USB;
-      frequency_a=430300000LL;
-      break;
-    case band430:
-      mode_a=USB;
-      frequency_a=430300000LL;
-      break;
-    case band902:
-      mode_a=USB;
-      frequency_a=430300000LL;
-      break;
-    case band1240:
-      mode_a=USB;
-      frequency_a=1240300000LL;
-      break;
-    case band2300:
-      mode_a=USB;
-      frequency_a=2300300000LL;
-      break;
-    case band3400:
-      mode_a=USB;
-      frequency_a=3400300000LL;
-      break;
-    case bandAIR:
-      mode_a=AM;
-      frequency_a=126825000LL;
-      break;
+  menu=gtk_menu_new();
+  menu_item=gtk_menu_item_new_with_label("OFF");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=0;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(nr_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("NR");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=1;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(nr_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("NR2");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=2;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(nr_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
+  gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+  gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
 #endif
-    case bandGen:
-      mode_a=AM;
-      frequency_a=5975000LL;
-      break;
-    case bandWWV:
-      mode_a=SAM;
-      frequency_a=10000000LL;
-      break;
-    default:
-      b=band_get_band(choice->selection);
-      mode_a=USB;
-      frequency_a=b->frequencyMin;
-      lo_a=b->frequencyLO;
-      error_a=b->errorLO;
-      break;
-  }
-  choice->rx->band_a=choice->selection;
-  choice->rx->mode_a=mode_a;
-  choice->rx->frequency_a=frequency_a;
-  choice->rx->lo_a=lo_a;
-  choice->rx->error_a=error_a;
-  choice->rx->ctun=FALSE;
-  choice->rx->ctun_offset=0;
-  receiver_band_changed(choice->rx,band);
-  if(radio->transmitter) {
-    if(radio->transmitter->rx==choice->rx) {
-      if(choice->rx->split!=SPLIT_OFF) {
-        transmitter_set_mode(radio->transmitter,choice->rx->mode_b);
-      } else {
-        transmitter_set_mode(radio->transmitter,choice->rx->mode_a);
-      }
-    }
-  }
-  g_free(choice);
+  return TRUE;
 }
 
-void split_cb(GtkWidget *menu_item,gpointer data) {
-  CHOICE *choice=(CHOICE *)data;
-  RECEIVER *rx=choice->rx;
-  rx->split=choice->selection;
+static void snb_b_cb(GtkToggleButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  rx->snb=gtk_toggle_button_get_active(widget);
+}
+
+static void anf_b_cb(GtkToggleButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  rx->anf=gtk_toggle_button_get_active(widget);
+}
+
+static void bpsk_b_cb(GtkToggleButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  rx->bpsk_enable=gtk_toggle_button_get_active(widget);
+  if(rx->bpsk_enable) {
+    rx->bpsk=create_bpsk(BPSK_CHANNEL,rx->band_a);
+    rx->bpsk_enable=TRUE;
+  } else {
+    destroy_bpsk(rx->bpsk);
+    rx->bpsk=NULL;
+    rx->bpsk_enable=FALSE;
+  }
+}
+
+static void rit_b_cb(GtkToggleButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  rx->rit_enabled=gtk_toggle_button_get_active(widget);
   frequency_changed(rx);
-  if(radio->transmitter->rx==rx) {
-    switch(rx->split) {
-      case SPLIT_OFF:
-        transmitter_set_mode(radio->transmitter,rx->mode_a);
-        break;
-      case SPLIT_ON:
-        // Split mode in CW, RX on VFO A, TX on VFO B.
-        // When mode turned on, default to VFO A +1 kHz
-        if (rx->mode_a == CWL || rx->mode_a ==CWU) {
-          // Most pile-ups start with UP 1
-          rx->frequency_b = rx->frequency_a + 1000; 
-          rx->mode_b=rx->mode_a;
-        }
-        transmitter_set_mode(radio->transmitter,rx->mode_b);
-        break;
-      case SPLIT_SAT:
-      case SPLIT_RSAT:
-        transmitter_set_mode(radio->transmitter,rx->mode_b);
-        break;
-    }
-  }
-  update_vfo(rx);
-  g_free(choice);
+  update_frequency(rx);
 }
 
-void step_cb(GtkWidget *menu_item,gpointer data) {
-  CHOICE *choice=(CHOICE *)data;
-  choice->rx->step=choice->selection;
-  update_vfo(choice->rx);
-  g_free(choice);
+static gboolean rit_b_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  VFO_DATA *v=(VFO_DATA *)g_object_get_data((GObject *)rx->vfo,"vfo_data");
+  char text[16];
+  if(event->direction==GDK_SCROLL_UP) {
+    rx->rit=rx->rit+rx->rit_step;
+    if(rx->rit>10000) rx->rit=10000;
+  } else {
+    rx->rit=rx->rit-rx->rit_step;
+    if(rx->rit<-10000) rx->rit=-10000;
+  }
+  sprintf(text,"%+05ld",rx->rit); 
+  gtk_label_set_text(GTK_LABEL(v->rit_value),text);
+  frequency_changed(rx);
+  update_frequency(rx);
+  return TRUE;
 }
 
 void rit_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
   choice->rx->rit_step=choice->selection;
-  update_vfo(choice->rx);
   g_free(choice);
+}
+
+static gboolean rit_b_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  GtkWidget *menu=gtk_menu_new();
+  GtkWidget *menu_item;
+  CHOICE *choice;
+  if(event->button==3) {  // RIGHT
+    menu=gtk_menu_new();
+
+    menu_item=gtk_menu_item_new_with_label("1Hz");
+    choice=g_new0(CHOICE,1);
+    choice->rx=rx;
+    choice->selection=1;
+    g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+    menu_item=gtk_menu_item_new_with_label("5Hz");
+    choice=g_new0(CHOICE,1);
+    choice->rx=rx;
+    choice->selection=5;
+    g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+    menu_item=gtk_menu_item_new_with_label("10Hz");
+    choice=g_new0(CHOICE,1);
+    choice->rx=rx;
+    choice->selection=10;
+    g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+    menu_item=gtk_menu_item_new_with_label("100Hz");
+    choice=g_new0(CHOICE,1);
+    choice->rx=rx;
+    choice->selection=100;
+    g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+    menu_item=gtk_menu_item_new_with_label("1000Hz");
+    choice=g_new0(CHOICE,1);
+    choice->rx=rx;
+    choice->selection=1000;
+    g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+    gtk_widget_show_all(menu);
+    gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
+    gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+    gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
+    return TRUE;
+  }
+  return FALSE;
+}
+
+
+static gboolean rit_b_press_cb(GtkWidget *widget,GdkEvent *event,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  GtkWidget *menu=gtk_menu_new();
+  GtkWidget *menu_item;
+  CHOICE *choice;
+  switch(((GdkEventButton*)event)->button) {
+    case 3:  // RIGHT
+     menu=gtk_menu_new();
+
+     menu_item=gtk_menu_item_new_with_label("1Hz");
+     choice=g_new0(CHOICE,1);
+     choice->rx=rx;
+     choice->selection=1;
+     g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
+     gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+     menu_item=gtk_menu_item_new_with_label("5Hz");
+     choice=g_new0(CHOICE,1);
+     choice->rx=rx;
+     choice->selection=5;
+     g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
+     gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+     menu_item=gtk_menu_item_new_with_label("10Hz");
+     choice=g_new0(CHOICE,1);
+     choice->rx=rx;
+     choice->selection=10;
+     g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
+     gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+     menu_item=gtk_menu_item_new_with_label("100Hz");
+     choice=g_new0(CHOICE,1);
+     choice->rx=rx;
+     choice->selection=100;
+     g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
+     gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+     menu_item=gtk_menu_item_new_with_label("1000Hz");
+     choice=g_new0(CHOICE,1);
+     choice->rx=rx;
+     choice->selection=1000;
+     g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
+     gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+     gtk_widget_show_all(menu);
+     gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
+     gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+     gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
+      return TRUE;
+      break;
+  }
+  return FALSE;
+}
+
+static void xit_b_cb(GtkToggleButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  if(radio->transmitter!=NULL && radio->transmitter->rx==rx) {
+    radio->transmitter->xit_enabled=gtk_toggle_button_get_active(widget);
+  }
+}
+
+static gboolean xit_b_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  VFO_DATA *v=(VFO_DATA *)g_object_get_data((GObject *)rx->vfo,"vfo_data");
+  char text[16];
+  if(radio->transmitter!=NULL && radio->transmitter->rx==rx) {
+    if(event->direction==GDK_SCROLL_UP) {
+      radio->transmitter->xit=radio->transmitter->xit+radio->transmitter->xit_step;
+      if(radio->transmitter->xit>10000) radio->transmitter->xit=10000;
+    } else {
+      radio->transmitter->xit=radio->transmitter->xit-radio->transmitter->xit_step;
+      if(radio->transmitter->xit<-10000) radio->transmitter->xit=-10000;
+    }
+    sprintf(text,"%+05ld",radio->transmitter->xit); 
+    gtk_label_set_text(GTK_LABEL(v->xit_value),text);
+  }
+  return TRUE;
 }
 
 void xit_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
   radio->transmitter->xit_step=choice->selection;
-  update_vfo(choice->rx);
   g_free(choice);
 }
 
+static gboolean xit_b_press_cb(GtkWidget *widget,GdkEvent *event,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  GtkWidget *menu=gtk_menu_new();
+  GtkWidget *menu_item;
+  CHOICE *choice;
+  switch(((GdkEventButton*)event)->button) {
+    case 3:  // RIGHT
+     menu=gtk_menu_new();
 
-static gboolean vfo_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
+     menu_item=gtk_menu_item_new_with_label("1Hz");
+     choice=g_new0(CHOICE,1);
+     choice->rx=rx;
+     choice->selection=1;
+     g_signal_connect(menu_item,"activate",G_CALLBACK(xit_cb),choice);
+     gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+     menu_item=gtk_menu_item_new_with_label("5Hz");
+     choice=g_new0(CHOICE,1);
+     choice->rx=rx;
+     choice->selection=5;
+     g_signal_connect(menu_item,"activate",G_CALLBACK(xit_cb),choice);
+     gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+     menu_item=gtk_menu_item_new_with_label("10Hz");
+     choice=g_new0(CHOICE,1);
+     choice->rx=rx;
+     choice->selection=10;
+     g_signal_connect(menu_item,"activate",G_CALLBACK(xit_cb),choice);
+     gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+     menu_item=gtk_menu_item_new_with_label("100Hz");
+     choice=g_new0(CHOICE,1);
+     choice->rx=rx;
+     choice->selection=100;
+     g_signal_connect(menu_item,"activate",G_CALLBACK(xit_cb),choice);
+     gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+     menu_item=gtk_menu_item_new_with_label("1000Hz");
+     choice=g_new0(CHOICE,1);
+     choice->rx=rx;
+     choice->selection=1000;
+     g_signal_connect(menu_item,"activate",G_CALLBACK(xit_cb),choice);
+     gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+     gtk_widget_show_all(menu);
+     gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
+     gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+     gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
+      return TRUE;
+      break;
+  }
+  return FALSE;
+}
+
+static void dup_b_cb(GtkToggleButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  rx->duplex=gtk_toggle_button_get_active(widget);
+}
+
+static void ctun_b_cb(GtkToggleButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  rx->ctun=!rx->ctun;
+  receiver_set_ctun(rx);
+}
+
+static gboolean bmk_b_pressed_cb(GtkWidget *widget,GdkEventButton *event,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  switch(event->button) {
+    case 1:  // LEFT
+      if(rx->bookmark_dialog==NULL) {
+        rx->bookmark_dialog=create_bookmark_dialog(rx,VIEW_BOOKMARKS,NULL);
+      }
+      break;
+    case 3:  // RIGHT
+      if(rx->bookmark_dialog==NULL) {
+        rx->bookmark_dialog=create_bookmark_dialog(rx,ADD_BOOKMARK,NULL);
+      }
+      break;
+  }
+  return TRUE;
+}
+
+static gboolean agc_b_pressed_cb(GtkWidget *widget,GdkEventButton *event,gpointer user_data);
+
+void agc_cb(GtkWidget *menu_item,gpointer data) {
+  CHOICE *choice=(CHOICE *)data;
+  VFO_DATA *v=(VFO_DATA *)g_object_get_data((GObject *)choice->rx->vfo,"vfo_data");
+
+  choice->rx->agc=choice->selection;
+  set_agc(choice->rx);
+  switch(choice->selection) {
+    case AGC_OFF:
+      gtk_button_set_label(GTK_BUTTON(choice->button),"AGC");
+      break;
+    case AGC_LONG:
+      gtk_button_set_label(GTK_BUTTON(choice->button),"AGC LONG");
+      break;
+    case AGC_SLOW:
+      gtk_button_set_label(GTK_BUTTON(choice->button),"AGC SLOW");
+      break;
+    case AGC_MEDIUM:
+      gtk_button_set_label(GTK_BUTTON(choice->button),"AGC MED");
+      break;
+    case AGC_FAST:
+      gtk_button_set_label(GTK_BUTTON(choice->button),"AGC FAST");
+      break;
+  }
+  g_signal_handlers_block_by_func(v->agc_b,G_CALLBACK(agc_b_pressed_cb),data);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->agc_b),choice->rx->agc!=AGC_OFF);
+  g_signal_handlers_unblock_by_func(v->agc_b,G_CALLBACK(agc_b_pressed_cb),data);
+
+  update_noise(choice->rx);
+
+  g_free(choice);
+}
+
+static gboolean agc_b_pressed_cb(GtkWidget *widget,GdkEventButton *event,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
   GtkWidget *menu;
   GtkWidget *menu_item;
-  RECEIVER *rx=(RECEIVER *)data;
-  gint temp_band;
-  gint64 temp_frequency;
-  gint temp_mode;
-  gint temp_filter;
-  gint64 temp_lo;
-  gint64 temp_error;
-  int i;
   CHOICE *choice;
-  FILTER *mode_filters;
+
+  menu=gtk_menu_new();
+  menu_item=gtk_menu_item_new_with_label("OFF");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=AGC_OFF;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(agc_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("LONG");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=AGC_LONG;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(agc_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("SLOW");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=AGC_SLOW;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(agc_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("MEDIUM");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=AGC_MEDIUM;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(agc_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  menu_item=gtk_menu_item_new_with_label("FAST");
+  choice=g_new0(CHOICE,1);
+  choice->rx=rx;
+  choice->selection=AGC_FAST;
+  choice->button=widget;
+  g_signal_connect(menu_item,"activate",G_CALLBACK(agc_cb),choice);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+  gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
+  gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+  gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
+#endif
+  return TRUE;
+}
+
+static gboolean afgain_scale_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
+ return TRUE;
+}
+
+static gboolean afgain_scale_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  VFO_DATA *v=(VFO_DATA *)g_object_get_data((GObject *)rx->vfo,"vfo_data");
+  if(event->direction==GDK_SCROLL_DOWN) {
+    if(rx->volume>0.0) {
+      rx->volume=rx->volume-0.01;
+    }
+  } else if(event->direction==GDK_SCROLL_UP) {
+    if(rx->volume<1.0) {
+      rx->volume=rx->volume+0.01;
+    }
+  }
+  gtk_level_bar_set_value(GTK_LEVEL_BAR(v->afgain_scale),rx->volume);
+  receiver_set_volume(rx);
+  return TRUE;
+}
+
+static gboolean agcgain_scale_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
+ return TRUE;
+}
+
+static gboolean agcgain_scale_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  VFO_DATA *v=(VFO_DATA *)g_object_get_data((GObject *)rx->vfo,"vfo_data");
+  if(event->direction==GDK_SCROLL_DOWN) {
+    if(rx->agc_gain>-20.0) {
+      rx->agc_gain=rx->agc_gain-1.0;
+    }
+  } if(event->direction==GDK_SCROLL_UP) {
+    if(rx->agc_gain<120.0) {
+      rx->agc_gain=rx->agc_gain+1.0;
+    }
+  }
+  gtk_level_bar_set_value(GTK_LEVEL_BAR(v->agcgain_scale),rx->agc_gain+20.0);
+  receiver_set_agc_gain(rx);
+  return TRUE;
+}
+
+void band_cb(GtkWidget *menu_item,gpointer data) {
+  CHOICE *choice=(CHOICE *)data;
+  set_band(choice->rx,choice->selection);
+  g_free(choice);
+}
+
+static gboolean frequency_a_press_cb(GtkWidget *widget,GdkEvent *event,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  GtkWidget *menu=gtk_menu_new();
+  GtkWidget *menu_item;
+  CHOICE *choice;
   BAND *band;
-  int x=(int)event->x;
-  int y=(int)event->y;
-  char text[32];
-
-//fprintf(stderr,"vfo_press_event_cb: x=%d y=%d\n",x,y);
-
-  switch(which_button(rx,x,y)) {
-    case BUTTON_LOCK:
-      switch(event->button) {
-        case 1:  // LEFT
-            rx->locked=!rx->locked;
-            update_vfo(rx);
-          break;
-        case 3:  // RIGHT
-          break;
-      }
-      break;
-    case BUTTON_MODE:
-      switch(event->button) {
-        case 1:  // LEFT
-          menu=gtk_menu_new();
-          for(i=0;i<MODES;i++) {
-            menu_item=gtk_menu_item_new_with_label(mode_string[i]);
-            choice=g_new0(CHOICE,1);
-            choice->rx=rx;
-            choice->selection=i;
-            g_signal_connect(menu_item,"activate",G_CALLBACK(mode_cb),choice);
-            gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          }
-          gtk_widget_show_all(menu);
-#if GTK_CHECK_VERSION(3,22,0)
-          gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
-#else
-          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
-#endif
-          break;
-        case 3:  // RIGHT
-          break;
-      }
-      break;
-    case BUTTON_FILTER:
-      switch(event->button) {
-        case 1:  // LEFT
-          if(rx->mode_a==FMN) {
-            menu=gtk_menu_new();
-            menu_item=gtk_menu_item_new_with_label("2.5k Dev");
-            choice=g_new0(CHOICE,1);
-            choice->rx=rx;
-            choice->selection=0;
-            g_signal_connect(menu_item,"activate",G_CALLBACK(filter_cb),choice);
-            gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-            menu_item=gtk_menu_item_new_with_label("5.0k Dev");
-            choice=g_new0(CHOICE,1);
-            choice->rx=rx;
-            choice->selection=1;
-            g_signal_connect(menu_item,"activate",G_CALLBACK(filter_cb),choice);
-            gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          } else {
-            mode_filters=filters[rx->mode_a];
-            menu=gtk_menu_new();
-            for(i=0;i<FILTERS;i++) {
-              if(i>=FVar1) {
-                sprintf(text,"%s (%d..%d)",mode_filters[i].title,mode_filters[i].low,mode_filters[i].high);
-                menu_item=gtk_menu_item_new_with_label(text);
-              } else {
-                menu_item=gtk_menu_item_new_with_label(mode_filters[i].title);
-              }
-              choice=g_new0(CHOICE,1);
-              choice->rx=rx;
-              choice->selection=i;
-              g_signal_connect(menu_item,"activate",G_CALLBACK(filter_cb),choice);
-              gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-            }
-          }
-          gtk_widget_show_all(menu);
-#if GTK_CHECK_VERSION(3,22,0)
-          gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
-#else
-          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
-#endif
-          break;
-        case 3:  // RIGHT
-          break;
-      }
-      break;
-    case BUTTON_NB:
-      switch(event->button) {
-        case 1:  // LEFT
-          menu=gtk_menu_new();
-          menu_item=gtk_menu_item_new_with_label("OFF");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=0;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(nb_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("NB");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=1;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(nb_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("NB2");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=2;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(nb_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          gtk_widget_show_all(menu);
-#if GTK_CHECK_VERSION(3,22,0)
-          gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
-#else
-          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
-#endif
-          break;
-        case 3:  // RIGHT
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=0;
-          nb_cb(0, choice);
-          break;
-      }
-      break;
-    case BUTTON_NR:
-      switch(event->button) {
-        case 1:  // LEFT
-          menu=gtk_menu_new();
-          menu_item=gtk_menu_item_new_with_label("OFF");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=0;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(nr_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("NR");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=1;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(nr_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("NR2");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=2;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(nr_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          gtk_widget_show_all(menu);
-#if GTK_CHECK_VERSION(3,22,0)
-          gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
-#else
-          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
-#endif
-          break;
-        case 3:  // RIGHT
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=0;
-          nr_cb(0, choice);
-          break;
-      }
-      break;
-    case BUTTON_SNB:
-      switch(event->button) {
-        case 1:  // LEFT
-          rx->snb=!rx->snb;
-          SetRXASNBARun(rx->channel, rx->snb);
-          break;
-        case 3:  // RIGHT
-          break;
-      }
-      break;
-    case BUTTON_ANF:
-      switch(event->button) {
-        case 1:  // LEFT
-          rx->anf=!rx->anf;
-          SetRXAANFRun(rx->channel, rx->anf);
-          break;
-        case 3:  // RIGHT
-          break;
-      }
-      break;
-    case BUTTON_AGC1:
-    case BUTTON_AGC2:
-      switch(event->button) {
-        case 1:  // LEFT
-          menu=gtk_menu_new();
-          menu_item=gtk_menu_item_new_with_label("OFF");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=AGC_OFF;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(agc_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("LONG");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=AGC_LONG;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(agc_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("SLOW");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=AGC_SLOW;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(agc_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("MEDIUM");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=AGC_MEDIUM;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(agc_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("FAST");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=AGC_FAST;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(agc_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          gtk_widget_show_all(menu);
-#if GTK_CHECK_VERSION(3,22,0)
-          gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
-#else
-          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
-#endif
-          break;
-        case 3:  // RIGHT
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=AGC_OFF;
-          agc_cb(0, choice);
-          break;
-      }
-      break;
-    case BUTTON_BMK:
-      switch(event->button) {
-        case 1:  // LEFT
-          if(rx->bookmark_dialog==NULL) {
-            rx->bookmark_dialog=create_bookmark_dialog(rx,VIEW_BOOKMARKS,NULL);
-          }
-          break;
-        case 3:  // RIGHT
-          if(rx->bookmark_dialog==NULL) {
-            rx->bookmark_dialog=create_bookmark_dialog(rx,ADD_BOOKMARK,NULL);
-          }
-          break;
-      }
-      break;
-    case BUTTON_RIT:
-      switch(event->button) {
-        case 1:  // LEFT
-          rx->rit_enabled=!rx->rit_enabled;
-          frequency_changed(rx);
-          update_frequency(rx);
-          break;
-        case 3:  // RIGHT
-          menu=gtk_menu_new();
-
-          menu_item=gtk_menu_item_new_with_label("1Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=1;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-
-          menu_item=gtk_menu_item_new_with_label("5Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=5;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-
-          menu_item=gtk_menu_item_new_with_label("10Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=10;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-
-          menu_item=gtk_menu_item_new_with_label("100Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=100;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-
-          menu_item=gtk_menu_item_new_with_label("1000Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=1000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(rit_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-
-          gtk_widget_show_all(menu);
-          gtk_widget_show_all(menu);
-#if GTK_CHECK_VERSION(3,22,0)
-          gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
-#else
-          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
-#endif
-          break;
-      }
-      break;
-    case VALUE_RIT1:
-    case VALUE_RIT2:
-      switch(event->button) {
-        case 1:  // LEFT
-          break;
-        case 3:  // RIGHT
-          rx->rit=0;
-          frequency_changed(rx);
-          update_frequency(rx);
-          break;
-      }
-      break;
-    case BUTTON_XIT:
-      switch(event->button) {
-        case 1:  // LEFT
-          if(radio->transmitter!=NULL) {
-            radio->transmitter->xit_enabled=!radio->transmitter->xit_enabled;
-          }
-          break;
-        case 3:  // RIGHT
-          menu=gtk_menu_new();
-
-          menu_item=gtk_menu_item_new_with_label("1Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=1;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(xit_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-
-          menu_item=gtk_menu_item_new_with_label("5Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=5;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(xit_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-
-          menu_item=gtk_menu_item_new_with_label("10Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=10;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(xit_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-
-          menu_item=gtk_menu_item_new_with_label("100Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=100;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(xit_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-
-          menu_item=gtk_menu_item_new_with_label("1000Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=1000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(xit_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-
-          gtk_widget_show_all(menu);
-#if GTK_CHECK_VERSION(3,22,0)
-          gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
-#else
-          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
-#endif
-          break;
-      }
-      break;
-
-
-    case VALUE_XIT1:
-    case VALUE_XIT2:
-      switch(event->button) {
-        case 1:  // LEFT
-          break;
-        case 3:  // RIGHT
-          radio->transmitter->xit=0;
-          break;
-      }
-      break;
-
-    case BUTTON_UP1:
-      radio->transmitter->xit_enabled=TRUE;
-      if(rx->mode_b==CWL || rx->mode_b==CWU) {
-        radio->transmitter->xit=1000LL;
-      } else {
-        radio->transmitter->xit=5000LL;
-      }
-      break;
-    case BUTTON_UP2:
-      radio->transmitter->xit_enabled=TRUE;
-      if(rx->mode_b==CWL || rx->mode_b==CWU) {
-        radio->transmitter->xit=2000LL;
-      } else {
-        radio->transmitter->xit=10000LL;
-      }
-      break;
-
-    case BUTTON_CTUN1:
-    case BUTTON_CTUN2:
-      rx->ctun=!rx->ctun;
-      rx->ctun_offset=0;
-      rx->ctun_frequency=rx->frequency_a;
-      rx->ctun_min=rx->frequency_a-(rx->sample_rate/2);
-      rx->ctun_max=rx->frequency_a+(rx->sample_rate/2);
-      if(!rx->ctun) {
-        SetRXAShiftRun(rx->channel, 0);
-      } else {
-        SetRXAShiftRun(rx->channel, 1);
-      }
-      frequency_changed(rx);
-      update_frequency(rx);
-      break;
-    case BUTTON_DUP:
-      rx->duplex=!rx->duplex;
-      break;
-    case BUTTON_BPSK:
-      if(rx->bpsk) {
-        destroy_bpsk(rx);
-      } else {
-        create_bpsk(rx);
-      }
-      break;
-    case BUTTON_ATOB:
-      switch(event->button) {
-        case 1:  // LEFT
-          rx->band_b=rx->band_a;
-          rx->frequency_b=rx->frequency_a;
-          rx->mode_b=rx->mode_a;
-          rx->filter_b=rx->filter_a;
-          rx->lo_b=rx->lo_a;
-          rx->error_b=rx->error_a;
-          frequency_changed(rx);
-          break;
-        case 3:  // RIGHT
-          break;
-      }
-      break;
-    case BUTTON_BTOA:
-      switch(event->button) {
-        case 1:  // LEFT
-          rx->band_a=rx->band_b;
-          rx->frequency_a=rx->frequency_b;
-          rx->mode_a=rx->mode_b;
-          rx->filter_a=rx->filter_b;
-          rx->lo_a=rx->lo_b;
-          rx->error_a=rx->error_b;
-          frequency_changed(rx);
-          break;
-        case 3:  // RIGHT
-          break;
-      }
-      break;
-    case BUTTON_ASWAPB:
-      switch(event->button) {
-        case 1:  // LEFT
-          temp_band=rx->band_a;
-          temp_frequency=rx->frequency_a;
-          temp_mode=rx->mode_a;
-          temp_filter=rx->filter_a;
-          temp_lo=rx->lo_a;
-          temp_error=rx->error_a;
-
-          rx->band_a=rx->band_b;
-          rx->frequency_a=rx->frequency_b;
-          rx->mode_a=rx->mode_b;
-          rx->filter_a=rx->filter_b;
-          rx->lo_a=rx->lo_b;
-          rx->error_a=rx->error_b;
-
-          rx->band_b=temp_band;
-          rx->frequency_b=temp_frequency;
-          rx->mode_b=temp_mode;
-          rx->filter_b=temp_filter;
-          rx->lo_b=temp_lo;
-          rx->error_b=temp_error;
-
-          frequency_changed(rx);
-          receiver_mode_changed(rx,rx->mode_a);
-          if(radio->transmitter->rx==rx) {
-            if(rx->split!=SPLIT_OFF) {
-              transmitter_set_mode(radio->transmitter,rx->mode_b);
-            } else {
-              transmitter_set_mode(radio->transmitter,rx->mode_a);
-            }
-          }
-          break;
-        case 3:  // RIGHT
-          break;
-      }
-      break;
-    case BUTTON_SPLIT:
-      switch(event->button) {
-        case 1:  // RIGHT
-          if(rx->split==SPLIT_OFF) {
-            // turn on standard SPLIT
-            CHOICE *choice=g_new0(CHOICE,1);
-            choice->rx=rx;
-            choice->selection=SPLIT_ON;
-            split_cb(NULL,(void *)choice);
-          } else {
-            // turns off regardless of split mode
-            CHOICE *choice=g_new0(CHOICE,1);
-            choice->rx=rx;
-            choice->selection=SPLIT_OFF;
-            split_cb(NULL,(void *)choice);
-          }
-          break;
-        case 3:  // RIGHT
-          menu=gtk_menu_new();
-          menu_item=gtk_menu_item_new_with_label("Off");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=SPLIT_OFF;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(split_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("SPLIT");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=SPLIT_ON;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(split_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("SAT");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=SPLIT_SAT;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(split_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("RSAT");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=SPLIT_RSAT;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(split_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          gtk_widget_show_all(menu);
-#if GTK_CHECK_VERSION(3,22,0)
-          gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
-#else
-          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
-#endif
-          break;
-      }
-      break;
-    case BUTTON_STEP:
-      switch(event->button) {
-        case 1:  // LEFT
-          menu=gtk_menu_new();
-          menu_item=gtk_menu_item_new_with_label("1Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=1;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("10Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=10;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("25Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=25;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("50Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=50;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("100Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=100;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("250Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=250;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("500Hz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=500;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("1kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=1000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("2kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=2000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("2.5kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=2500;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("5kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=5000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("6.25kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=6250;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("9kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=9000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("10kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=10000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("12.5kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=12500;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("15kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=15000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("20kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=20000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("25kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=25000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("30kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=30000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("50kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=50000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("100kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=100000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("250kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=250000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("500kHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=500000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("1MHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=1000000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("10MHz");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=10000000;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(step_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          gtk_widget_show_all(menu);
-#if GTK_CHECK_VERSION(3,22,0)
-          gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
-#else
-          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
-#endif
-          break;
-        case 3:  // RIGHT
-          break;
-      }
-      break;
-    case BUTTON_ZOOM:
-      switch(event->button) {
-        case 1:  // LEFT
-          menu=gtk_menu_new();
-          menu_item=gtk_menu_item_new_with_label("x1");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=1;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("x2");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=2;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("x3");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=3;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("x4");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=4;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("x5");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=5;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("x6");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=6;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("x7");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=7;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          menu_item=gtk_menu_item_new_with_label("x8");
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=8;
-          g_signal_connect(menu_item,"activate",G_CALLBACK(zoom_cb),choice);
-          gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-          gtk_widget_show_all(menu);
-#if GTK_CHECK_VERSION(3,22,0)
-          gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
-#else
-          gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
-#endif
-          break;
-        case 3:  // RIGHT
-          break;
-      }
-      break;
-      
-    case BUTTON_VFO:
-      if(x>4 && x<230) {
-        switch(event->button) {
-          case 1: //LEFT
-            if(!rx->locked) {
-              menu=gtk_menu_new();
-              for(i=0;i<BANDS+XVTRS;i++) {
-#ifdef SOAPYSDR
-                if(radio->discovered->protocol!=PROTOCOL_SOAPYSDR) {
-                  if(i>=band70 && i<=band3400) {
-                    continue;
-                  }
-                }
-#endif
-                band=(BAND*)band_get_band(i);
-                if(strlen(band->title)>0) {
-                menu_item=gtk_menu_item_new_with_label(band->title);
-                choice=g_new0(CHOICE,1);
-                choice->rx=rx;
-                choice->selection=i;
-                g_signal_connect(menu_item,"activate",G_CALLBACK(band_cb),choice);
-                gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-                }
-              }
-              gtk_widget_show_all(menu);
-#if GTK_CHECK_VERSION(3,22,0)
-              gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
-#else
-              gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
-#endif
-            }
-            break;
-          case 3: //RIGHT
-            break;
-        }
-      }
-      break;
-    case SLIDER_AF:
-      slider=SLIDER_AF;
-      slider_moved=FALSE;
-      slider_lastx=x;
-      break;
-    case SLIDER_AGC:
-      slider=SLIDER_AGC;
-      slider_moved=FALSE;
-      slider_lastx=x;
-/*
-      rx->agc_gain=(double)(x-560)-20.0;
-      if(rx->agc_gain>120.0) rx->agc_gain=120.0;
-      if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
-      SetRXAAGCTop(rx->channel, rx->agc_gain);
-      update_vfo(rx);
-*/
-      break;
-    default:
-      switch(event->button) {
-        case 1:  // LEFT
-          break;
-        case 3:  // RIGHT
-          if(rx->dialog==NULL) {
-            rx->dialog=create_receiver_dialog(rx);
-          }
-          break;
-      }
-      break;
-  }
-  update_vfo(rx);
-  return TRUE;
-}
-
-static gboolean vfo_release_event_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
-  RECEIVER *rx=(RECEIVER *)data;
-  int x=(int)event->x;
-  int y=(int)event->y;
-
-  switch(slider) {
-    case SLIDER_AF:
-      if(slider_moved) {
-        int moved=x-slider_lastx;
-        rx->volume+=(double)moved/100.0;
-      } else {
-        rx->volume=(double)(x-560)/100.0;
-      }
-      if(rx->volume>1.0) rx->volume=1.0;
-      if(rx->volume<0.0) rx->volume=0.0;
-      if(rx->volume==0.0) {
-        SetRXAPanelRun(rx->channel,0);
-      } else {
-        SetRXAPanelRun(rx->channel,1);
-        SetRXAPanelGain1(rx->channel,rx->volume);
-      }
-      slider=BUTTON_NONE;
-      slider_moved=FALSE;
-      update_vfo(rx);
-      break;
-    case SLIDER_AGC:
-      if(slider_moved) {
-        int moved=x-slider_lastx;
-        rx->agc_gain+=(double)moved;
-      } else {
-        rx->agc_gain=(double)(x-560)-20.0;
-      }
-      if(rx->agc_gain>120.0) rx->agc_gain=120.0;
-      if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
-      SetRXAAGCTop(rx->channel, rx->agc_gain);
-      slider=BUTTON_NONE;
-      slider_moved=FALSE;
-      update_vfo(rx);
-      break;
-  }
-
-  return TRUE;
-}
-
-static gboolean vfo_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
-  RECEIVER *rx=(RECEIVER *)data;
-  CHOICE *choice;
-  int x=(int)event->x;
-  int y=(int)event->y;
   int i;
 
-  switch(which_button(rx,x,y)) {
-    case BUTTON_STEP:
-      for(i=0;i<STEPS;i++) {
-        if(steps[i]==rx->step) {
-          if(event->direction==GDK_SCROLL_UP) {
-            if(i<STEPS-1) {
-              choice=g_new0(CHOICE,1);
-              choice->rx=rx;
-              choice->selection=steps[i+1];
-              step_cb(widget,choice);
-            }
-          } else {
-            if(i>0) {
-              choice=g_new0(CHOICE,1);
-              choice->rx=rx;
-              choice->selection=steps[i-1];
-              step_cb(widget,choice);
-            }
-          }
-          break;
+  if(!rx->locked) {
+    menu=gtk_menu_new();
+    for(i=0;i<BANDS+XVTRS;i++) {
+#ifdef SOAPYSDR
+      if(radio->discovered->protocol!=PROTOCOL_SOAPYSDR) {
+        if(i>=band70 && i<=band3400) {
+          continue;
         }
       }
-      break;
-    case BUTTON_ZOOM:
-      if(event->direction==GDK_SCROLL_UP) {
-        if(rx->zoom<8) {
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=rx->zoom+1;
-          zoom_cb(widget,choice);
-        }
-      } else {
-        if(rx->zoom>1) {
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=rx->zoom-1;
-          zoom_cb(widget,choice);
-        }
+#endif
+      band=(BAND*)band_get_band(i);
+      if(strlen(band->title)>0) {
+      menu_item=gtk_menu_item_new_with_label(band->title);
+      choice=g_new0(CHOICE,1);
+      choice->rx=rx;
+      choice->selection=i;
+      g_signal_connect(menu_item,"activate",G_CALLBACK(band_cb),choice);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
       }
-      break;
-    case BUTTON_SPLIT:
-      if(event->direction==GDK_SCROLL_UP) {
-        if(rx->split<SPLIT_RSAT) {
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=rx->split+1;
-          split_cb(widget,choice);
-        }
-      } else {
-        if(rx->split>SPLIT_OFF) {
-          choice=g_new0(CHOICE,1);
-          choice->rx=rx;
-          choice->selection=rx->split-1;
-          split_cb(widget,choice);
-        }
-      }
-      break;
-    case BUTTON_RIT:
-    case VALUE_RIT1:
-    case VALUE_RIT2:
-      if(rx->rit_enabled) {
-        if(event->direction==GDK_SCROLL_UP) {
-          rx->rit=rx->rit+rx->rit_step;
-          if(rx->rit>10000) rx->rit=10000;
-        } else {
-          rx->rit=rx->rit-rx->rit_step;
-          if(rx->rit<-10000) rx->rit=-10000;
-        }
-        frequency_changed(rx);
-        update_frequency(rx);
-      }
-      break;
-    case BUTTON_XIT:
-    case VALUE_XIT1:
-    case VALUE_XIT2:
-      if(radio->transmitter->xit_enabled) {
-        if(event->direction==GDK_SCROLL_UP) {
-          radio->transmitter->xit=radio->transmitter->xit+radio->transmitter->xit_step;
-          if(radio->transmitter->xit>10000) radio->transmitter->xit=10000;
-        } else {
-          radio->transmitter->xit=radio->transmitter->xit-radio->transmitter->xit_step;
-          if(radio->transmitter->xit<-10000) radio->transmitter->xit=-10000;
-        }
-      }
-      break;
-    case SLIDER_AF:
-      if(event->direction==GDK_SCROLL_UP) {
-        rx->volume=rx->volume+0.01;
-        if(rx->volume>1.0) rx->volume=1.0;
-      } else {
-        rx->volume=rx->volume-0.01;
-        if(rx->volume<0.0) rx->volume=0.0;
-      }
-      if(rx->volume==0.0) {
-        SetRXAPanelRun(rx->channel,0);
-      } else {
-        SetRXAPanelRun(rx->channel,1);
-        SetRXAPanelGain1(rx->channel,rx->volume);
-      }
-      break;
-    case SLIDER_AGC:
-      if(event->direction==GDK_SCROLL_UP) {
-        rx->agc_gain=rx->agc_gain+1.0;
-        if(rx->agc_gain>120.0) rx->agc_gain=120.0;
-      } else {
-        rx->agc_gain=rx->agc_gain-1.0;
-        if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
-      }
-      SetRXAAGCTop(rx->channel, rx->agc_gain);
-      break;
-    case BUTTON_VFO:
-      if(x>=rx->vfo_a_x && x<(rx->vfo_a_x+rx->vfo_a_width)) {
-        // VFO A 
-        if(!rx->locked) {
-          int digit=(x-rx->vfo_a_x)/(rx->vfo_a_width/rx->vfo_a_digits);
-          long long step=0LL;
-          if(digit<13) {
-            step=ll_step[digit];
-          }
-          if(event->direction==GDK_SCROLL_DOWN && rx->ctun) {
-            step=-step;
-          }                    
-          if(event->direction==GDK_SCROLL_UP && !rx->ctun) {
-            step=-step;
-          }                    
-          receiver_move(rx,step,TRUE);
-        }
-      } else if(x>=rx->vfo_b_x && x<(rx->vfo_b_x+rx->vfo_b_width)) {
-        // VFO B
-        if(!rx->locked) {
-          int digit=(x-rx->vfo_b_x)/(rx->vfo_b_width/rx->vfo_b_digits);
-          long long step=0LL;
-          if(digit<13) {
-            step=ll_step[digit];
-          }
-          if (event->direction==GDK_SCROLL_DOWN) {
-            step=-step;
-          }
-          //receiver_move_b(rx,step,FALSE);
-          switch(rx->split) {
-            case SPLIT_OFF:
-            case SPLIT_ON:
-              receiver_move_b(rx,step,TRUE);
-              break;
-            case SPLIT_SAT:
-            case SPLIT_RSAT:
-              receiver_move_b(rx,step,FALSE);
-              break;
-          }
-        }
-      }
-      break;
+    }
+    gtk_widget_show_all(menu);
+#if GTK_CHECK_VERSION(3,22,0)
+    gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+#else
+    gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,NULL,NULL);
+#endif
   }
-  update_vfo(rx);
   return TRUE;
 }
 
-static gboolean vfo_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
-  gint x=event->x;
-  gint y=event->y;
-  GdkModifierType state;
+static gboolean frequency_a_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
+  VFO_DATA *v=(VFO_DATA *)g_object_get_data((GObject *)rx->vfo,"vfo_data");
   int digit;
 
-  switch(slider) {
-    case BUTTON_NONE:
-      if(!rx->locked) {
-        //gdk_window_get_device_position(event->window,event->device,&x,&y,&state);
-        switch(which_button(rx,x,y)) {
-          case BUTTON_VFO:
-            if(!rx->locked) {
-              if(x>=rx->vfo_a_x && x<(rx->vfo_a_x+rx->vfo_a_width)) {
-                // VFO A
-                digit=(x-rx->vfo_a_x)/(rx->vfo_a_width/rx->vfo_a_digits);
-              } else if(x>=rx->vfo_b_x && x<(rx->vfo_b_x+rx->vfo_b_width)) {
-                // VFO B
-                digit=(x-rx->vfo_b_x)/(rx->vfo_b_width/rx->vfo_b_digits);
-              } else {
-                // between the vfo frequencies
-                digit=-1;
-              }
-              if(digit>=0 && digit<13) {
-                long long step=ll_step[digit];
-                if(step==0LL) {
-                  gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_ARROW));
-                } else {
-                  gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_DOUBLE_ARROW));
-                }
-              } else {
-                gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_ARROW));
-                  }
-            }
-            break;
-          default:
-            gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_ARROW));
-            break;
-        }
-      }
-      break;
-    case SLIDER_AF:
-      rx->volume+=(double)(x-slider_lastx)/100.0;
-      if(rx->volume>1.0) rx->volume=1.0;
-      if(rx->volume<0.0) rx->volume=0.0;
-      if(rx->volume==0.0) {
-        SetRXAPanelRun(rx->channel,0);
-      } else {
-        SetRXAPanelRun(rx->channel,1);
-        SetRXAPanelGain1(rx->channel,rx->volume);
-      }
-      slider_moved=TRUE;
-      slider_lastx=x;
-      update_vfo(rx);
-      break;
-    case SLIDER_AGC:
-      rx->agc_gain+=(double)(x-slider_lastx);
-      rx->agc_gain=(double)(x-560)-20.0;
-      if(rx->agc_gain>120.0) rx->agc_gain=120.0;
-      if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
-      SetRXAAGCTop(rx->channel, rx->agc_gain);
-      slider_moved=TRUE;
-      slider_lastx=x;
-      update_vfo(rx);
-      break;
+  if(!rx->locked) {
+    digit=event->x/(gtk_widget_get_allocated_width(v->frequency_a_text)/rx->vfo_a_digits);
+    long long step=0LL;
+    if(digit<13) {
+      step=ll_step[digit];
+    }
+    if(event->direction==GDK_SCROLL_DOWN && rx->ctun) {
+      step=-step;
+    }                    
+    if(event->direction==GDK_SCROLL_UP && !rx->ctun) {
+      step=-step;
+    }                    
+g_print("%s: digit=%d step=%lld\n",__FUNCTION__,digit,step);
+    receiver_move(rx,step,FALSE);
   }
+  update_vfo(rx);
   return TRUE;
 }
 
-GtkWidget *create_vfo(RECEIVER *rx) {
-  g_print("create_vfo: rx=%d\n",rx->channel);
-  rx->vfo_surface=NULL;
-  GtkWidget *vfo = gtk_drawing_area_new ();
-  g_signal_connect (vfo,"configure-event",G_CALLBACK(vfo_configure_event_cb),(gpointer)rx);
-  g_signal_connect (vfo,"draw",G_CALLBACK(vfo_draw_cb),(gpointer)rx);
-  g_signal_connect(vfo,"motion-notify-event",G_CALLBACK(vfo_motion_notify_event_cb),rx);
-  g_signal_connect (vfo,"button-press-event",G_CALLBACK(vfo_press_event_cb),(gpointer)rx);
-  g_signal_connect (vfo,"button-release-event",G_CALLBACK(vfo_release_event_cb),(gpointer)rx);
-  g_signal_connect(vfo,"scroll_event",G_CALLBACK(vfo_scroll_event_cb),(gpointer)rx);
-  gtk_widget_set_events (vfo, gtk_widget_get_events (vfo)
-                     | GDK_BUTTON_PRESS_MASK
-                     | GDK_BUTTON_RELEASE_MASK
-                     | GDK_SCROLL_MASK
-                     | GDK_POINTER_MOTION_MASK
-                     | GDK_POINTER_MOTION_HINT_MASK);
-  return vfo;
+static gboolean frequency_a_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  VFO_DATA *v=(VFO_DATA *)g_object_get_data((GObject *)rx->vfo,"vfo_data");
+  int digit;
+
+  if(!rx->locked) {
+    digit=event->x/(gtk_widget_get_allocated_width(v->frequency_a_text)/rx->vfo_a_digits);
+    if(digit>=0 && digit<13) {
+      long long step=ll_step[digit];
+      if(step==0LL) {
+        gdk_window_set_cursor(gtk_widget_get_window(v->frequency_a_text),gdk_cursor_new(GDK_ARROW));
+      } else {
+        gdk_window_set_cursor(gtk_widget_get_window(v->frequency_a_text),gdk_cursor_new(GDK_DOUBLE_ARROW));
+      }
+    } else {
+      gdk_window_set_cursor(gtk_widget_get_window(v->frequency_a_text),gdk_cursor_new(GDK_ARROW));
+    }
+ }
+ return TRUE;
 }
 
-void update_vfo(RECEIVER *rx) {
-  char temp[32];
-  cairo_t *cr;
-  cairo_text_extents_t extents;
+static gboolean frequency_b_press_cb(GtkWidget *widget,GdkEvent *event,gpointer user_data) {
+  return TRUE;
+}
 
-  if(rx!=NULL && rx->vfo_surface!=NULL) {
-    cr = cairo_create (rx->vfo_surface);
-    SetColour(cr, BACKGROUND);
-    cairo_paint(cr);
-    long long af=rx->ctun?rx->ctun_frequency:rx->frequency_a;
-    long long bf=rx->frequency_b;
+static gboolean frequency_b_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  VFO_DATA *v=(VFO_DATA *)g_object_get_data((GObject *)rx->vfo,"vfo_data");
+  int digit;
 
-    cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-
-    // ************* Draw buttons ******************
-    // Lock
-    if(rx->locked) {
-      RoundedRectangle(cr, 8.0, 51.0, 22.0, 6.0, CLICK_ON);
-    } 
-    else {
-      RoundedRectangle(cr, 8.0, 51.0, 22.0, 6.0, CLICK_OFF);       
+  if(!rx->locked) {
+    digit=event->x/(gtk_widget_get_allocated_width(v->frequency_b_text)/rx->vfo_b_digits);
+    long long step=0LL;
+    if(digit<13) {
+      step=ll_step[digit];
     }
-    // Mode
-    RoundedRectangle(cr, 43.0, 51.0, 22.0, 6.0, CLICK_ON);    
-    // Filter bandwidth
-    RoundedRectangle(cr, 78.0, 51.0, 20.0, 6.0, CLICK_ON);
-    // NB    
-    if((rx->nb) || (rx->nb2)) {
-      RoundedRectangle(cr, 110.0, 51.0, 22.0, 6.0, CLICK_ON);  
-    }
-    else {
-      RoundedRectangle(cr, 110.0, 51.0, 22.0, 6.0, CLICK_OFF);      
-    }
-    // NR
-    if((rx->nr) || (rx->nr2)) {
-      RoundedRectangle(cr, 148.0, 51.0, 18.0, 6.0, CLICK_ON);   
-    }  
-    else {
-      RoundedRectangle(cr, 148.0, 51.0, 18.0, 6.0, CLICK_OFF);
-    }
-    // SNB
-    if(rx->snb) {
-      RoundedRectangle(cr, 184.0, 51.0, 18.0, 6.0, CLICK_ON);
-    }
-    else {
-      RoundedRectangle(cr, 184.0, 51.0, 18.0, 6.0, CLICK_OFF);      
-    }
-    // ANF
-    if(rx->anf) {
-      RoundedRectangle(cr, 218.0, 51.0, 18.0, 6.0, CLICK_ON);       
-    } 
-    else {
-      RoundedRectangle(cr, 218.0, 51.0, 18.0, 6.0, CLICK_OFF); 
-    }
-    // AGC
-    if(rx->agc == AGC_OFF) {
-      RoundedRectangle(cr, 252.0, 51.0, 60.0, 6.0, CLICK_OFF);  
-    }
-    else {   
-      RoundedRectangle(cr, 252.0, 51.0, 60.0, 6.0, CLICK_ON);
-    }
-    // BMK
-    RoundedRectangle(cr, 325.0, 51.0, 18.0, 6.0, CLICK_OFF);      
-    
-    // CTUN
-    if(rx->ctun) {    
-      RoundedRectangle(cr, 360.0, 51.0, 35.0, 6.0, CLICK_ON);   
-    }
-    else {
-      RoundedRectangle(cr, 360.0, 51.0, 35.0, 6.0, CLICK_OFF);       
-    } 
-
-    // DUP
-    if(rx->duplex) {    
-      RoundedRectangle(cr, 430.0, 51.0, 18.0, 6.0, CLICK_ON);   
-    }
-    else {
-      RoundedRectangle(cr, 430.0, 51.0, 18.0, 6.0, CLICK_OFF);       
-    } 
-
-    // RIT
-    if(rx->rit_enabled) {    
-      RoundedRectangle(cr, 465.0, 51.0, 18.0, 6.0, CLICK_ON);   
-    }
-    else {
-      RoundedRectangle(cr, 465.0, 51.0, 18.0, 6.0, CLICK_OFF);       
-    } 
-
-    // XIT
-    if(radio->transmitter!=NULL) {
-      if(radio->transmitter->xit_enabled) {    
-        RoundedRectangle(cr, 570.0, 51.0, 18.0, 6.0, CLICK_ON);   
-      }
-      else {
-        RoundedRectangle(cr, 570.0, 51.0, 18.0, 6.0, CLICK_OFF);       
-      } 
-    }
-
-    if(rx->split!=SPLIT_OFF) {
-      RoundedRectangle(cr, 200.0, 6.0, 30.0, 5.0, CLICK_ON);    
-    }  
-    else {
-      RoundedRectangle(cr, 200.0, 6.0, 30.0, 5.0, CLICK_OFF);
-    }
-
-
-    //****************************** VFO A and B frequencies
-    if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split!=SPLIT_OFF) {
-      SetColour(cr, TEXT_B);
-    } else {
-      SetColour(cr, TEXT_B);
-    }
-
-    cairo_move_to(cr, 5, 12);
-    cairo_set_font_size(cr, 12);
-    cairo_show_text(cr, "VFO A");
-
-    if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split==SPLIT_OFF && isTransmitting(radio)) {
-      SetColour(cr, WARNING);
-    } else {
-      SetColour(cr, TEXT_B);
-    }
-
-
-    sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);      
-  
-    cairo_select_font_face(cr, "Noto Mono", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-
-    rx->vfo_a_x = 5;
-    rx->vfo_a_digits=strlen(temp);
-    cairo_set_font_size(cr, 28);
-    cairo_text_extents(cr, temp, &extents);
-    rx->vfo_a_width=(int)extents.x_advance;
-        
-    cairo_move_to(cr, rx->vfo_a_x, 38);
-    cairo_show_text(cr, temp);
-    
-    cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-
-    if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split!=SPLIT_OFF) {
-      SetColour(cr, WARNING);
-    } else {
-      SetColour(cr, TEXT_C);
-    }
-    cairo_move_to(cr, 240, 12);
-    cairo_set_font_size(cr, 12);
-    cairo_show_text(cr, "VFO B");
-
-    if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split!=SPLIT_OFF && isTransmitting(radio)) {
-      SetColour(cr, WARNING);
-    } else {
-      SetColour(cr, TEXT_C);
-    }
-    
-    sprintf(temp,"%5lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);      
-
-    cairo_select_font_face(cr, "Noto Mono", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-    cairo_set_font_size(cr, 21);
-    rx->vfo_b_x = 240;
-    rx->vfo_b_digits=strlen(temp);
-    cairo_text_extents(cr, temp, &extents);
-    rx->vfo_b_width=(int)extents.x_advance;
-    
-    cairo_move_to(cr, rx->vfo_b_x, 38);
-    cairo_show_text(cr, temp);
-
-
-    //********************* Write text on buttons ***********************
-    cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    FILTER* band_filters=filters[rx->mode_a];
-    cairo_set_font_size(cr, 12);
-
-    int x=5;
-    // NB
-    cairo_move_to(cr, x, 58);  
-    if(rx->locked) {
-      SetColour(cr, OFF_WHITE);
-    } else {      
-      SetColour(cr, DARK_TEXT);
-    }
-    cairo_show_text(cr, "Lock");
-    x+=35;
-
-    cairo_move_to(cr, x, 58);
-    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    cairo_show_text(cr, mode_string[rx->mode_a]);
-    x+=35;
-
-    cairo_move_to(cr, x, 58);
-    if(rx->mode_a==FMN) {
-      if(rx->deviation==2500) {
-        cairo_show_text(cr, "8000");
-      } else {
-        cairo_show_text(cr, "16000");
-      }
-    } else {
-      cairo_show_text(cr, band_filters[rx->filter_a].title);
-    }
-    x+=35;
-
-    cairo_move_to(cr, x, 58);
-    if(rx->nb) {
-      SetColour(cr, OFF_WHITE);
-      cairo_show_text(cr, "NB");
-    } else if(rx->nb2) {
-      SetColour(cr, OFF_WHITE);
-      cairo_show_text(cr, "NB2");
-    } else {
-      SetColour(cr, DARK_TEXT);
-      cairo_show_text(cr, "NB");
-    }
-    x+=35;
-
-    cairo_move_to(cr, x, 58);
-    if(rx->nr) {
-      SetColour(cr, OFF_WHITE);
-      cairo_show_text(cr, "NR");
-    } else if(rx->nr2) {
-      SetColour(cr, OFF_WHITE);
-      cairo_show_text(cr, "NR2");
-    } else {
-      SetColour(cr, DARK_TEXT);
-      cairo_show_text(cr, "NR");
-    }
-    x+=35;
-
-
-    if(rx->snb) {
-      SetColour(cr, OFF_WHITE);
-    } else {
-      SetColour(cr, DARK_TEXT);
-    }
-    cairo_move_to(cr, x, 58);
-    cairo_show_text(cr, "SNB");
-    x+=35;
-
-    if(rx->anf) {
-      SetColour(cr, OFF_WHITE);
-    } else {
-      SetColour(cr, DARK_TEXT);
-    }
-    cairo_move_to(cr, x, 58);
-    cairo_show_text(cr, "ANF");
-    x+=35;
-
-    cairo_move_to(cr, x, 58);
-    switch(rx->agc) {
-      case AGC_OFF:
-        SetColour(cr, DARK_TEXT);
-        cairo_show_text(cr, "AGC OFF");
-        break;
-      case AGC_LONG:
-        SetColour(cr, OFF_WHITE);
-        cairo_show_text(cr, "AGC LONG");
-        break;
-      case AGC_SLOW:
-        SetColour(cr, OFF_WHITE);
-        cairo_show_text(cr, "AGC SLOW");
-        break;
-      case AGC_MEDIUM:
-        SetColour(cr, OFF_WHITE);
-        cairo_show_text(cr, "AGC MED");
-        break;
-      case AGC_FAST:
-        SetColour(cr, OFF_WHITE);
-        cairo_show_text(cr, "AGC FAST");
-        break;
-    }
-    x+=35;
-    x+=35;
-    
-    cairo_move_to(cr, x, 58);
-    SetColour(cr, DARK_TEXT); 
-    cairo_show_text(cr, "BMK");
-    x+=35;
-
-    cairo_move_to(cr,x,58);
-    if(rx->ctun) {
-      SetColour(cr, OFF_WHITE);
-    } else {
-      SetColour(cr, DARK_TEXT);
-    }
-    cairo_show_text(cr, "CTUN");
-    x+=70;
-
-    cairo_move_to(cr,x,58);
-    if(rx->duplex) {
-      SetColour(cr, OFF_WHITE);
-    } else {
-      SetColour(cr, DARK_TEXT);
-    }
-    cairo_show_text(cr, "DUP");
-    x+=35;
-
-    cairo_move_to(cr,x,58);
-    if(rx->rit_enabled) {
-      SetColour(cr, OFF_WHITE);
-    } else {
-      SetColour(cr, DARK_TEXT); 
-    }
-    cairo_show_text(cr, "RIT");
-    x+=35;
- 
-    if(rx->rit_enabled) {
-      cairo_move_to(cr,x,58);
-      SetColour(cr, OFF_WHITE);
-      sprintf(temp,"%ld",rx->rit);
-      cairo_show_text(cr, temp);
-    }
-    x+=35;
-    x+=35;
-
-    cairo_move_to(cr,x,58);
-    if(radio->transmitter!=NULL) {
-      if(radio->transmitter->xit_enabled) {
-        SetColour(cr, OFF_WHITE);
-      } else {
-        SetColour(cr, DARK_TEXT);
-      }
-      cairo_show_text(cr, "XIT");
-      x+=35;
-
-      if(radio->transmitter->xit_enabled) {
-        cairo_move_to(cr,x,58);
-        SetColour(cr, OFF_WHITE);
-        sprintf(temp,"%ld",radio->transmitter->xit);
-        cairo_show_text(cr, temp);
-      }
-      x+=35;
-      x+=35;
-    }
-
-    
-    x=70;
-    SetColour(cr, OFF_WHITE);
-    cairo_move_to(cr, x, 12);
-    cairo_show_text(cr, "A>B");
-    x+=35;
-
-    cairo_move_to(cr, x, 12);
-    cairo_show_text(cr, "A<B");
-    x+=35;
-
-    cairo_move_to(cr, x, 12);
-    cairo_show_text(cr, "A<>B");
-    x+=57;
-
-    cairo_move_to(cr, x, 12);
-    if(rx->split!=SPLIT_OFF) {
-      SetColour(cr, OFF_WHITE);
-    } else {
-      SetColour(cr, DARK_TEXT); 
+    if(event->direction==GDK_SCROLL_DOWN) {
+      step=-step;
     }
     switch(rx->split) {
       case SPLIT_OFF:
       case SPLIT_ON:
-        cairo_show_text(cr, "SPLIT");
+        receiver_move_b(rx,step,FALSE,FALSE);
         break;
       case SPLIT_SAT:
-        cairo_show_text(cr, "SAT");
-        break;
       case SPLIT_RSAT:
-        cairo_show_text(cr, "RSAT");
+        receiver_move_b(rx,step,FALSE,FALSE);
         break;
     }
-    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    cairo_move_to(cr,285,12);
-    sprintf(temp,"ZOOM x%d",rx->zoom);
-    cairo_show_text(cr, temp);
-
-    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    cairo_move_to(cr,355,12);
-    sprintf(temp,"STEP %ld Hz",rx->step);
-    cairo_show_text(cr, temp);
-
-    
-    if (radio!=NULL && radio->transmitter!=NULL) {
-      if (radio->transmitter->rx==rx) {
-        SetColour(cr, WARNING);
-        cairo_move_to(cr,450,12);
-        sprintf(temp,"ASSIGNED TX");
-        cairo_show_text(cr, temp);
-      }
-    }
-    
-    x=500;
-    // --------------------------------------- AF Gain control
-    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    cairo_set_font_size(cr,10);
-    cairo_move_to(cr,x,30);
-    cairo_show_text(cr,"AF GAIN");
-    x+=60;
-
-    SetColour(cr, TEXT_B);
-    cairo_rectangle(cr,x,25,rx->volume*100,5);
-    cairo_fill(cr);
-
-    cairo_set_line_width(cr, 1.0);
-    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    cairo_move_to(cr,x,30);
-    cairo_line_to(cr,x+100,30);
-    cairo_stroke(cr);
-
-    cairo_move_to(cr,x,30);
-    cairo_line_to(cr,x,24);
-    cairo_stroke(cr);
-    x+=25;
-    cairo_move_to(cr,x,30);
-    cairo_line_to(cr,x,27);
-    cairo_stroke(cr);
-    x+=25;
-    cairo_move_to(cr,x,30);
-    cairo_line_to(cr,x,24);
-    cairo_stroke(cr);
-    x+=25;
-    cairo_move_to(cr,x,30);
-    cairo_line_to(cr,x,27);
-    cairo_stroke(cr);
-    x+=25;
-    cairo_move_to(cr,x,30);
-    cairo_line_to(cr,x,24);
-    cairo_stroke(cr);
-
-
-    x=500;
-    // --------------------------------------- AGC Gain control
-    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    cairo_set_font_size(cr,10);
-    cairo_move_to(cr,x,45);
-    cairo_show_text(cr,"AGC GAIN");
-    x+=60;
-
-    SetColour(cr, TEXT_C);
-    cairo_rectangle(cr,x,40,rx->agc_gain+20.0,5);
-    cairo_fill(cr);
-
-    cairo_set_line_width(cr, 1.0);
-    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-    cairo_move_to(cr,x,45);
-    cairo_line_to(cr,x+140,45);
-    cairo_stroke(cr);
-
-    cairo_move_to(cr,x,45);
-    cairo_line_to(cr,x,42);
-    cairo_stroke(cr);
-    x+=20;
-    cairo_move_to(cr,x,45);
-    cairo_line_to(cr,x,39);
-    cairo_stroke(cr);
-    x+=20;
-    cairo_move_to(cr,x,45);
-    cairo_line_to(cr,x,42);
-    cairo_stroke(cr);
-    x+=20;
-    cairo_move_to(cr,x,45);
-    cairo_line_to(cr,x,42);
-    cairo_stroke(cr);
-    x+=20;
-    cairo_move_to(cr,x,45);
-    cairo_line_to(cr,x,42);
-    cairo_stroke(cr);
-    x+=20;
-    cairo_move_to(cr,x,45);
-    cairo_line_to(cr,x,42);
-    cairo_stroke(cr);
-    x+=20;
-    cairo_move_to(cr,x,45);
-    cairo_line_to(cr,x,42);
-    cairo_stroke(cr);
-    x+=20;
-    cairo_move_to(cr,x,45);
-    cairo_line_to(cr,x,39);
-    cairo_stroke(cr);
-    // --------------------------------------- House keeping
-    cairo_destroy (cr);
-    gtk_widget_queue_draw (rx->vfo);
   }
+  frequency_changed(rx);
+  update_vfo(rx);
+  return TRUE;
 }
 
-void RoundedRectangle(cairo_t *cr, double x, double y, double width, double height, int state) {
-    double aspect        = 1.0;     
-    double        corner_radius = height / 10.0;   
+static gboolean frequency_b_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  VFO_DATA *v=(VFO_DATA *)g_object_get_data((GObject *)rx->vfo,"vfo_data");
+  int digit;
 
-    double radius = corner_radius / aspect;
-    double degrees = (22/7) / 180.0;           
-           
-           
-    cairo_arc (cr, x + width - radius, y + radius, radius, -90 * degrees, 0 * degrees);
-    cairo_arc (cr, x + width - radius, y + height - radius, radius, 0 * degrees, 90 * degrees);
-    cairo_arc (cr, x + radius, y + height - radius, radius, 90 * degrees, 180 * degrees);
-    cairo_arc (cr, x + radius, y + radius, radius, 180 * degrees, 270 * degrees);
-    cairo_close_path (cr);
+  if(!rx->locked) {
+    digit=event->x/(gtk_widget_get_allocated_width(v->frequency_b_text)/rx->vfo_b_digits);
+    if(digit>=0 && digit<13) {
+      long long step=ll_step[digit];
+      if(step==0LL) {
+        gdk_window_set_cursor(gtk_widget_get_window(v->frequency_b_text),gdk_cursor_new(GDK_ARROW));
+      } else {
+        gdk_window_set_cursor(gtk_widget_get_window(v->frequency_b_text),gdk_cursor_new(GDK_DOUBLE_ARROW));
+      }
+    } else {
+      gdk_window_set_cursor(gtk_widget_get_window(v->frequency_b_text),gdk_cursor_new(GDK_ARROW));
+    }
+ }
+ return TRUE;
+}
 
-    switch(state) {
-      case CLICK_ON : SetColour(cr, BOX_ON);
-                      break;
-      
-      case CLICK_OFF : SetColour(cr, BOX_OFF);
-                       break;
-      
-      case INFO_TRUE : SetColour(cr, INFO_ON);
-                     break;      
-      
-      case INFO_FALSE : SetColour(cr, INFO_OFF);
-                      break;          
-            
-      case WARNING_ON : SetColour(cr, WARNING);
-                        break;                     
+GtkWidget *create_vfo(RECEIVER *rx) {
+  char temp[32];
+
+  g_print("%s: rx=%d\n",__FUNCTION__,rx->channel);
+
+  int x=0;
+  int y=0;
+
+  VFO_DATA *v=g_new(VFO_DATA,1);
+
+  v->vfo=gtk_layout_new(NULL,NULL);
+
+
+  gtk_widget_set_name(v->vfo,"vfo");
+
+  v->vfo_a_text=gtk_label_new("VFO A");
+  gtk_widget_set_name(v->vfo_a_text,"vfo-a-text");
+  gtk_widget_set_size_request(v->vfo_a_text,40,15);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->vfo_a_text,x,y);
+  x+=50;
+
+  v->a2b=gtk_button_new_with_label("A>B");
+  gtk_widget_set_name(v->a2b,"vfo-button");
+  gtk_widget_set_size_request(v->a2b,40,15);
+  g_signal_connect(v->a2b, "pressed", G_CALLBACK(a2b_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->a2b,x,y);
+  x+=45;
+
+  v->b2a=gtk_button_new_with_label("A<B");
+  gtk_widget_set_name(v->b2a,"vfo-button");
+  gtk_widget_set_size_request(v->b2a,40,15);
+  g_signal_connect(v->b2a, "pressed", G_CALLBACK(b2a_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->b2a,x,y);
+  x+=45;
+
+  v->aswapb=gtk_button_new_with_label("A<>B");
+  gtk_widget_set_name(v->aswapb,"vfo-button");
+  gtk_widget_set_size_request(v->aswapb,40,15);
+  g_signal_connect(v->aswapb, "pressed", G_CALLBACK(aswapb_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->aswapb,x,y);
+  x+=45;
+
+  switch(rx->split) {
+    case SPLIT_OFF:
+    case SPLIT_ON:
+      strcpy(temp, "SPLIT");
+      break;
+    case SPLIT_SAT:
+      strcpy(temp, "SAT");
+      break;
+    case SPLIT_RSAT:
+      strcpy(temp, "RSAT");
+      break;
+  }
+  v->split_b=gtk_toggle_button_new_with_label(temp);
+  gtk_widget_set_name(v->split_b,"vfo-toggle");
+  gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(v->split_b),FALSE);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->split_b),rx->split!=SPLIT_OFF);
+  gtk_widget_set_size_request(v->split_b,40,15);
+  g_signal_connect(v->split_b, "toggled", G_CALLBACK(split_b_cb),rx);
+  g_signal_connect(v->split_b, "button_press_event", G_CALLBACK(split_b_press_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->split_b,x,y);
+
+  x=240;
+
+  v->vfo_b_text=gtk_label_new("VFO B");
+  gtk_widget_set_name(v->vfo_b_text,"vfo-b-text");
+  gtk_widget_set_size_request(v->vfo_b_text,40,15);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->vfo_b_text,x,y);
+  x+=50;
+
+  sprintf(temp,"ZOOM x%d",rx->zoom);
+  v->zoom_b=gtk_button_new_with_label(temp);
+  gtk_widget_set_name(v->zoom_b,"vfo-button");
+  gtk_widget_set_size_request(v->zoom_b,60,15);
+  g_signal_connect(v->zoom_b, "pressed",G_CALLBACK(zoom_b_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->zoom_b,x,y);
+  x+=70;
+
+  sprintf(temp,"STEP %s",step_labels[get_step(rx->step)]);
+  v->step_b=gtk_button_new_with_label(temp);
+  gtk_widget_set_name(v->step_b,"vfo-button");
+  gtk_widget_set_size_request(v->step_b,70,15);
+  g_signal_connect(v->step_b, "pressed",G_CALLBACK(step_b_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->step_b,x,y);
+  x+=100;
+
+  v->tx_label=gtk_label_new("");
+  gtk_widget_set_name(v->tx_label,"warning-label");
+  gtk_widget_set_size_request(v->tx_label,60,15);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->tx_label,x,y);
+  if(radio!=NULL && radio->transmitter!=NULL) {
+    if(radio->transmitter->rx==rx) {
+      gtk_label_set_text(GTK_LABEL(v->tx_label),"ASSIGNED TX");
+    }
+  }
+  
+  /* ... */
+
+  x=0;
+  y=16;
+
+  long long af=rx->ctun?rx->ctun_frequency:rx->frequency_a;
+  sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
+  v->frequency_a_text=gtk_label_new(temp);
+  rx->vfo_a_digits=strlen(temp);
+  gtk_widget_set_name(v->frequency_a_text,"frequency-a-text");
+  gtk_label_set_width_chars(GTK_LABEL(v->frequency_a_text),rx->vfo_a_digits);
+
+  GtkWidget *event_box_a=gtk_event_box_new();
+  gtk_container_add(GTK_CONTAINER(event_box_a),v->frequency_a_text);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),event_box_a,x,y);
+  gtk_widget_set_events(event_box_a, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
+  g_signal_connect(event_box_a,"button_press_event",G_CALLBACK(frequency_a_press_cb),rx);
+  g_signal_connect(event_box_a,"motion-notify-event",G_CALLBACK(frequency_a_motion_notify_event_cb),rx);
+  g_signal_connect(event_box_a,"scroll_event",G_CALLBACK(frequency_a_scroll_event_cb),(gpointer)rx);
+
+  x+=240;
+  y=20;
+
+  long long bf=rx->frequency_b;
+  sprintf(temp,"%5lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
+  v->frequency_b_text=gtk_label_new(temp);
+  rx->vfo_b_digits=strlen(temp);
+  gtk_widget_set_name(v->frequency_b_text,"frequency-b-text");
+  gtk_label_set_width_chars(GTK_LABEL(v->frequency_b_text),rx->vfo_b_digits);
+
+  GtkWidget *event_box_b=gtk_event_box_new();
+  gtk_container_add(GTK_CONTAINER(event_box_b),v->frequency_b_text);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),event_box_b,x,y);
+  g_signal_connect(event_box_b,"motion-notify-event",G_CALLBACK(frequency_b_motion_notify_event_cb),rx);
+  g_signal_connect(event_box_b,"scroll_event",G_CALLBACK(frequency_b_scroll_event_cb),(gpointer)rx);
+  gtk_widget_set_events(event_box_b, GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
+
+  x+=180;
+  y=23;
+
+  v->subrx_b=gtk_toggle_button_new_with_label("SUBRX");
+  gtk_widget_set_name(v->subrx_b,"vfo-toggle");
+  gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(v->subrx_b),FALSE);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->subrx_b),FALSE);
+  gtk_widget_set_size_request(v->subrx_b,35,6);
+  g_signal_connect(v->subrx_b, "toggled", G_CALLBACK(subrx_b_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->subrx_b,x,y);
+
+  x=x+60;
+  y=17;
+
+  GtkWidget *afgain_label=gtk_label_new("AF Gain:");
+  gtk_widget_set_name(afgain_label,"afgain-text");
+  gtk_layout_put(GTK_LAYOUT(v->vfo),afgain_label,x,y);
+  x+=60;
+  y=18;
+
+
+  v->afgain_scale=gtk_level_bar_new();
+  gtk_level_bar_remove_offset_value(GTK_LEVEL_BAR(v->afgain_scale),GTK_LEVEL_BAR_OFFSET_LOW);
+  gtk_level_bar_remove_offset_value(GTK_LEVEL_BAR(v->afgain_scale),GTK_LEVEL_BAR_OFFSET_HIGH);
+  gtk_level_bar_remove_offset_value(GTK_LEVEL_BAR(v->afgain_scale),GTK_LEVEL_BAR_OFFSET_FULL);
+  gtk_widget_set_name(v->afgain_scale,"afgain-scale");
+  gtk_widget_set_size_request(v->afgain_scale,100,15);
+  gtk_level_bar_set_value(GTK_LEVEL_BAR(v->afgain_scale),rx->volume);
+
+  GtkWidget *event_box_afgain=gtk_event_box_new();
+  gtk_container_add(GTK_CONTAINER(event_box_afgain),v->afgain_scale);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),event_box_afgain,x,y);
+  g_signal_connect(event_box_afgain,"motion-notify-event",G_CALLBACK(afgain_scale_motion_notify_event_cb),rx);
+  g_signal_connect(event_box_afgain,"scroll_event",G_CALLBACK(afgain_scale_scroll_event_cb),(gpointer)rx);
+  gtk_widget_set_events(event_box_afgain, GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
+
+  x=480;
+  y=31;
+
+  GtkWidget *agcgain_label=gtk_label_new("AGC Gain:");
+  gtk_widget_set_name(agcgain_label,"agcgain-text");
+  gtk_layout_put(GTK_LAYOUT(v->vfo),agcgain_label,x,y);
+
+  x+=60;
+  y=32;
+
+  v->agcgain_scale=gtk_level_bar_new_for_interval(0.0,140.0);
+  gtk_level_bar_remove_offset_value(GTK_LEVEL_BAR(v->agcgain_scale),GTK_LEVEL_BAR_OFFSET_LOW);
+  gtk_level_bar_remove_offset_value(GTK_LEVEL_BAR(v->agcgain_scale),GTK_LEVEL_BAR_OFFSET_HIGH);
+  gtk_level_bar_remove_offset_value(GTK_LEVEL_BAR(v->agcgain_scale),GTK_LEVEL_BAR_OFFSET_FULL);
+  gtk_widget_set_name(v->agcgain_scale,"agcgain-scale");
+  gtk_widget_set_size_request(v->agcgain_scale,140,15);
+  gtk_level_bar_set_value(GTK_LEVEL_BAR(v->agcgain_scale),rx->agc_gain+20.0);
+
+  GtkWidget *event_box_agcgain=gtk_event_box_new();
+  gtk_container_add(GTK_CONTAINER(event_box_agcgain),v->agcgain_scale);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),event_box_agcgain,x,y);
+  g_signal_connect(event_box_agcgain,"motion-notify-event",G_CALLBACK(agcgain_scale_motion_notify_event_cb),rx);
+  g_signal_connect(event_box_agcgain,"scroll_event",G_CALLBACK(agcgain_scale_scroll_event_cb),(gpointer)rx);
+  gtk_widget_set_events(event_box_agcgain, GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
+
+
+  y=47;
+  x=0;
+
+  v->lock_b=gtk_toggle_button_new_with_label("Lock");
+  gtk_widget_set_name(v->lock_b,"vfo-toggle");
+  gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(v->lock_b),FALSE);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->lock_b),FALSE);
+  gtk_widget_set_size_request(v->lock_b,35,6);
+  g_signal_connect(v->lock_b, "toggled", G_CALLBACK(lock_b_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->lock_b,x,y);
+  x=x+40;
+
+  v->mode_b=gtk_button_new_with_label(mode_string[rx->mode_a]);
+  gtk_widget_set_name(v->mode_b,"vfo-mode-filter-button");
+  gtk_widget_set_size_request(v->mode_b,35,6);
+  g_signal_connect(v->mode_b, "pressed", G_CALLBACK(mode_b_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->mode_b,x,y);
+  x=x+40;
+
+  FILTER *band_filters=filters[rx->mode_a];
+  
+  if(rx->mode_a==FMN) {
+    if(rx->deviation==2500) {
+      strcpy(temp,"8000");
+    } else {
+      strcpy(temp,"16000");
+    }
+  } else {
+    strcpy(temp,band_filters[rx->filter_a].title);
+  }
+
+  v->filter_b=gtk_button_new_with_label(temp);
+  gtk_widget_set_name(v->filter_b,"vfo-mode-filter-button");
+  gtk_widget_set_size_request(v->filter_b,35,6);
+  g_signal_connect(v->filter_b, "pressed", G_CALLBACK(filter_b_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->filter_b,x,y);
+  x=x+40;
+
+  strcpy(temp,"NB");
+  if(rx->nb2) {
+    strcpy(temp,"NB2");
+  }
+  v->nb_b=gtk_toggle_button_new_with_label(temp);
+  gtk_widget_set_name(v->nb_b,"vfo-toggle");
+  gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(v->nb_b),FALSE);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->nb_b),rx->nb|rx->nb2);
+  gtk_widget_set_size_request(v->nb_b,35,6);
+  g_signal_connect(v->nb_b, "button-press-event", G_CALLBACK(nb_b_pressed_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->nb_b,x,y);
+  x=x+40;
+
+  v->nr_b=gtk_toggle_button_new_with_label("NR");
+  gtk_widget_set_name(v->nr_b,"vfo-toggle");
+  gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(v->nr_b),FALSE);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->nr_b),rx->nr|rx->nr2);
+  gtk_widget_set_size_request(v->nr_b,35,6);
+  g_signal_connect(v->nr_b, "button-press-event", G_CALLBACK(nr_b_pressed_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->nr_b,x,y);
+  x=x+40;
+
+  v->snb_b=gtk_toggle_button_new_with_label("SNB");
+  gtk_widget_set_name(v->snb_b,"vfo-toggle");
+  gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(v->snb_b),FALSE);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->snb_b),rx->snb);
+  gtk_widget_set_size_request(v->snb_b,35,6);
+  g_signal_connect(v->snb_b, "toggled", G_CALLBACK(snb_b_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->snb_b,x,y);
+  x=x+40;
+
+  v->anf_b=gtk_toggle_button_new_with_label("ANF");
+  gtk_widget_set_name(v->anf_b,"vfo-toggle");
+  gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(v->anf_b),FALSE);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->anf_b),rx->anf);
+  gtk_widget_set_size_request(v->anf_b,35,6);
+  g_signal_connect(v->anf_b, "toggled", G_CALLBACK(anf_b_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->anf_b,x,y);
+  x=x+40;
+
+  switch(rx->agc) {
+    case AGC_OFF:
+      strcpy(temp,"AGC");
+      break;
+    case AGC_LONG:
+      strcpy(temp,"AGC LONG");
+      break;
+    case AGC_SLOW:
+      strcpy(temp,"AGC SLOW");
+      break;
+    case AGC_MEDIUM:
+      strcpy(temp,"AGC MED");
+      break;
+    case AGC_FAST:
+      strcpy(temp,"AGC FAST");
+      break;
+  }
+  v->agc_b=gtk_toggle_button_new_with_label(temp);
+  gtk_widget_set_name(v->agc_b,"vfo-toggle");
+  gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(v->agc_b),FALSE);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->agc_b),rx->agc!=AGC_OFF);
+  gtk_widget_set_size_request(v->agc_b,75,6);
+  g_signal_connect(v->agc_b, "button-press-event", G_CALLBACK(agc_b_pressed_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->agc_b,x,y);
+  x=x+80;
+
+  v->rit_b=gtk_toggle_button_new_with_label("RIT");
+  gtk_widget_set_name(v->rit_b,"vfo-toggle");
+  gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(v->rit_b),FALSE);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->rit_b),rx->rit_enabled);
+  gtk_widget_set_size_request(v->rit_b,35,6);
+  g_signal_connect(v->rit_b, "toggled", G_CALLBACK(rit_b_cb),rx);
+  g_signal_connect(v->rit_b, "button-press-event", G_CALLBACK(rit_b_press_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->rit_b,x,y);
+  x=x+40;
+
+  sprintf(temp,"%+05ld",rx->rit); 
+  v->rit_value=gtk_label_new(temp);
+  gtk_widget_set_name(v->rit_value,"rit-value");
+
+  GtkWidget *event_box_rit_b=gtk_event_box_new();
+  gtk_container_add(GTK_CONTAINER(event_box_rit_b),v->rit_value);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),event_box_rit_b,x,y);
+  g_signal_connect(event_box_rit_b,"scroll_event",G_CALLBACK(rit_b_scroll_event_cb),(gpointer)rx);
+  gtk_widget_set_events(event_box_rit_b, GDK_SCROLL_MASK);
+
+  x=x+50;
+
+  v->xit_b=gtk_toggle_button_new_with_label("XIT");
+  gtk_widget_set_name(v->xit_b,"vfo-toggle");
+  gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(v->xit_b),FALSE);
+  if(radio->transmitter!=NULL && radio->transmitter->rx==rx) {
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->xit_b),radio->transmitter->xit_enabled);
+  }
+  gtk_widget_set_size_request(v->xit_b,35,6);
+  g_signal_connect(v->xit_b, "toggled", G_CALLBACK(xit_b_cb),rx);
+  g_signal_connect(v->xit_b, "button-press-event", G_CALLBACK(xit_b_press_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->xit_b,x,y);
+  x=x+40;
+
+  if(radio->transmitter!=NULL && radio->transmitter->rx==rx) {
+    sprintf(temp,"%+05ld",radio->transmitter->xit); 
+  } else {
+    sprintf(temp,"%+05ld",0L); 
+  }
+  v->xit_value=gtk_label_new(temp);
+  gtk_widget_set_name(v->xit_value,"xit-value");
+
+  GtkWidget *event_box_xit_b=gtk_event_box_new();
+  gtk_container_add(GTK_CONTAINER(event_box_xit_b),v->xit_value);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),event_box_xit_b,x,y);
+  g_signal_connect(event_box_xit_b,"scroll_event",G_CALLBACK(xit_b_scroll_event_cb),(gpointer)rx);
+  gtk_widget_set_events(event_box_xit_b, GDK_SCROLL_MASK);
+
+  x=x+50;
+
+  v->ctun_b=gtk_toggle_button_new_with_label("CTUN");
+  gtk_widget_set_name(v->ctun_b,"vfo-toggle");
+  gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(v->ctun_b),FALSE);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->ctun_b),rx->ctun);
+  gtk_widget_set_size_request(v->ctun_b,35,6);
+  g_signal_connect(v->ctun_b, "toggled", G_CALLBACK(ctun_b_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->ctun_b,x,y);
+  x=x+40;
+
+  v->dup_b=gtk_toggle_button_new_with_label("DUP");
+  gtk_widget_set_name(v->dup_b,"vfo-toggle");
+  gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(v->dup_b),FALSE);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->dup_b),rx->duplex);
+  gtk_widget_set_size_request(v->dup_b,35,6);
+  g_signal_connect(v->dup_b, "toggled", G_CALLBACK(dup_b_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->dup_b,x,y);
+  x=x+40;
+
+  v->bpsk_b=gtk_toggle_button_new_with_label("BPSK");
+  gtk_widget_set_name(v->bpsk_b,"vfo-toggle");
+  gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(v->bpsk_b),FALSE);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->bpsk_b),rx->bpsk_enable);
+  gtk_widget_set_size_request(v->bpsk_b,35,6);
+  g_signal_connect(v->bpsk_b, "toggled", G_CALLBACK(bpsk_b_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->bpsk_b,x,y);
+  x=x+40;
+
+  v->bmk_b=gtk_button_new_with_label("BMK");
+  gtk_widget_set_name(v->bmk_b,"vfo-button");
+  gtk_widget_set_size_request(v->bmk_b,35,6);
+  g_signal_connect(v->bmk_b, "button-press-event", G_CALLBACK(bmk_b_pressed_cb),rx);
+  gtk_layout_put(GTK_LAYOUT(v->vfo),v->bmk_b,x,y);
+  x=x+40;
+
+  gtk_widget_show_all(v->vfo);
+
+  g_object_set_data ((GObject *)v->vfo,"vfo_data",v);
+  return v->vfo;
+}
+
+void update_vfo(RECEIVER *rx) {
+  char temp[32];
+  char *markup;
+
+  if(rx->vfo==NULL) return;
+
+  VFO_DATA *v=(VFO_DATA *)g_object_get_data((GObject *)rx->vfo,"vfo_data");
+
+  if(v==NULL) return;
+
+  // VFO A
+  long long af=rx->ctun?rx->ctun_frequency:rx->frequency_a;
+  sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
+  if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split==SPLIT_OFF && isTransmitting(radio)) {
+    markup=g_markup_printf_escaped("<span foreground=\"#D94545\">%s</span>",temp);
+  } else {
+    markup=g_markup_printf_escaped("<span foreground=\"#A3CCD1\">%s</span>",temp);
+  }
+  gtk_label_set_markup(GTK_LABEL(v->frequency_a_text),markup);
+
+  // VFO B
+  if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split!=SPLIT_OFF && isTransmitting(radio)) {
+    markup=g_markup_printf_escaped("<span foreground=\"#D94545\">%s</span>","VFO B");
+  } else {
+    markup=g_markup_printf_escaped("<span foreground=\"#ED9D80\">%s</span>","VFO B");
+  }
+  gtk_label_set_markup(GTK_LABEL(v->vfo_b_text),markup);
+
+  long long bf=rx->frequency_b;
+  sprintf(temp,"%5lld.%03lld.%03lld",bf/(long long)1000000,(bf%(long long)1000000)/(long long)1000,bf%(long long)1000);
+  if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split!=SPLIT_OFF && isTransmitting(radio)) {
+    markup=g_markup_printf_escaped("<span foreground=\"#D94545\">%s</span>",temp);
+  } else {
+    markup=g_markup_printf_escaped("<span foreground=\"#ED9D80\">%s</span>",temp);
+  }
+  gtk_label_set_markup(GTK_LABEL(v->frequency_b_text),markup);
+
+  // ASSIGNED TX
+  if(radio!=NULL && radio->transmitter!=NULL) {
+    TRANSMITTER *tx=radio->transmitter;
+
+    if(tx->rx==rx) {
+      gtk_label_set_text(GTK_LABEL(v->tx_label),"ASSIGNED TX");
+    } else {
+      gtk_label_set_text(GTK_LABEL(v->tx_label),"");
     }
 
-    cairo_fill_preserve (cr);
-    cairo_set_line_width (cr, 10.0);
-    cairo_stroke (cr);    
+    g_signal_handlers_block_by_func(v->xit_b,G_CALLBACK(xit_b_cb),rx);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->xit_b),tx->xit_enabled);
+    g_signal_handlers_unblock_by_func(v->xit_b,G_CALLBACK(xit_b_cb),rx);
+  }
+
+  // update AF Gain scale
+  gtk_level_bar_set_value(GTK_LEVEL_BAR(v->afgain_scale),rx->volume);
+
+  // update AGC Gain scale
+  gtk_level_bar_set_value(GTK_LEVEL_BAR(v->agcgain_scale),rx->agc_gain+20.0);
+
+  // update Lock button
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->lock_b),rx->locked);
+
+  // update mode button
+  gtk_button_set_label(GTK_BUTTON(v->mode_b),mode_string[rx->mode_a]);
+
+  // update filter button
+  FILTER *band_filters=filters[rx->mode_a];
+  if(rx->mode_a==FMN) {
+    if(rx->deviation==2500) {
+      strcpy(temp,"8000");
+    } else {
+      strcpy(temp,"16000");
+    }
+  } else {
+    strcpy(temp,band_filters[rx->filter_a].title);
+  }
+  gtk_button_set_label(GTK_BUTTON(v->filter_b),temp);
+
+  // update NB button
+  // update NR button
+  // update AGC button
+  // update RIT button
+  // update XIT button
+  // update CTUN button
+  // update DUP button
+  // update BPSK button
+ 
 }
+
+
+// now only used by meter.c
 
 void SetColour(cairo_t *cr, const int colour) {
-    
+
   switch(colour) {
     case BACKGROUND: {
-      cairo_set_source_rgb (cr, 0.1, 0.1, 0.1); 
+      cairo_set_source_rgb (cr, 0.1, 0.1, 0.1);
       break;
     }
     case OFF_WHITE: {
-      cairo_set_source_rgb (cr, 0.9, 0.9, 0.9);       
+      cairo_set_source_rgb (cr, 0.9, 0.9, 0.9);
       break;
     }
     case BOX_ON: {
-      cairo_set_source_rgb (cr, 0.624, 0.427, 0.690); 
-      break;     
+      cairo_set_source_rgb (cr, 0.624, 0.427, 0.690);
+      break;
     }
     case BOX_OFF: {
-      cairo_set_source_rgb (cr, 0.2, 0.2,	0.2);      
+      cairo_set_source_rgb (cr, 0.2, 0.2,       0.2);
       break;
-    }    
+    }
     case TEXT_A: {
       cairo_set_source_rgb(cr, 0.929, 0.616, 0.502);
       break;
@@ -2420,32 +1721,30 @@ void SetColour(cairo_t *cr, const int colour) {
     }
     case TEXT_C: {
       // Pale orange
-      cairo_set_source_rgb(cr, 0.929,	0.616,	0.502);     
+      cairo_set_source_rgb(cr, 0.929,   0.616,  0.502);
       break;
     }
     case WARNING: {
       // Pale red
-        cairo_set_source_rgb (cr, 0.851, 0.271, 0.271);    
+        cairo_set_source_rgb (cr, 0.851, 0.271, 0.271);
       break;
-    }    
+    }
     case DARK_LINES: {
       // Dark grey
-        cairo_set_source_rgb (cr, 0.3, 0.3, 0.3);   
+        cairo_set_source_rgb (cr, 0.3, 0.3, 0.3);
       break;
-    }  
+    }
     case DARK_TEXT: {
       cairo_set_source_rgb(cr, 0.7, 0.7, 0.7);
       break;
     }
     case INFO_ON: {
       cairo_set_source_rgb(cr, 0.15, 0.58, 0.6);
-      break;      
+      break;
     }
     case INFO_OFF: {
       cairo_set_source_rgb(cr, 0.2, 0.2, 0.2);
-      break;      
-    }    
+      break;
+    }
   }
 }
-  
-  

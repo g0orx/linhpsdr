@@ -28,6 +28,7 @@
 #endif
 
 #include "discovered.h"
+#include "bpsk.h"
 #include "band.h"
 #include "adc.h"
 #include "dac.h"

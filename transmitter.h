@@ -20,6 +20,9 @@
 #ifndef TRANSMITTER_H
 #define TRANSMITTER_H
 
+#define CTCSS_FREQUENCIES 38
+extern double ctcss_frequencies[CTCSS_FREQUENCIES];
+
 typedef struct _transmitter {
   gint channel; // WDSP channel
 
@@ -94,8 +97,8 @@ typedef struct _transmitter {
   gint equalizer[4];
   gboolean leveler;
 
-  gboolean ctcss;
-  gdouble ctcss_frequency;
+  gboolean ctcss_enabled;
+  gint ctcss;
   gdouble tone_level;
 
   gdouble deviation;
@@ -159,7 +162,7 @@ extern void transmitter_set_mode(TRANSMITTER *tx,int mode);
 extern void transmitter_set_deviation(TRANSMITTER *tx);
 extern void transmitter_set_am_carrier_level(TRANSMITTER *tx);
 extern void transmitter_fps_changed(TRANSMITTER *tx);
-extern void transmitter_set_ctcss(TRANSMITTER *tx,gboolean run,gdouble frequency);
+extern void transmitter_set_ctcss(TRANSMITTER *tx,gboolean run,int f);
 
 extern void transmitter_set_ps(TRANSMITTER *tx,gboolean state);
 extern void transmitter_set_twotone(TRANSMITTER *tx,gboolean state);

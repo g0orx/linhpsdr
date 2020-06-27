@@ -28,6 +28,7 @@
 
 #include "band.h"
 #include "bandstack.h"
+#include "bpsk.h"
 #include "mode.h"
 #include "filter.h"
 #include "receiver.h"
@@ -164,15 +165,15 @@ void lo_error_cb(GtkEditable *editable,gpointer user_data) {
   update_receiver(band,TRUE);
 }
 
-void lo_error_update(RECEIVER *rx,long long offset) {
-  BAND *xvtr=band_get_band(rx->band_a);
+void lo_error_update(int band,long long offset) {
+  BAND *xvtr=band_get_band(band);
+  xvtr->errorLO=xvtr->errorLO+offset;
+  update_receiver(band,TRUE);
   if(radio->dialog!=NULL) {
     char temp[32];
     sprintf(temp,"%lld",xvtr->errorLO);
-    gtk_entry_set_text(GTK_ENTRY(lo_error[rx->band_a]),temp);
+    gtk_entry_set_text(GTK_ENTRY(lo_error[band]),temp);
   }
-  xvtr->errorLO=xvtr->errorLO+offset;
-  update_receiver(rx->band_a,TRUE);
 }
 
 GtkWidget *create_xvtr_dialog(RADIO *radio) {

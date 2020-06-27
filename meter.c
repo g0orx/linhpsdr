@@ -23,6 +23,7 @@
 #include <wdsp.h>
 
 #include "discovered.h"
+#include "bpsk.h"
 #include "adc.h"
 #include "dac.h"
 #include "receiver.h"
@@ -32,11 +33,6 @@
 #include "meter.h"
 #include "main.h"
 #include "vfo.h"
-
-//static int meter_width;
-//static int meter_height;
-
-static gdouble m=0.0;
 
 typedef struct _choice {
   RECEIVER *rx;
@@ -113,15 +109,12 @@ GtkWidget *create_meter_visual(RECEIVER *rx) {
 
 }
 
-void update_meter(RECEIVER *rx,gdouble value) {
+void update_meter(RECEIVER *rx) {
   char sf[32];
   cairo_t *cr;
 
   int meter_width=gtk_widget_get_allocated_width (rx->meter);
   int meter_height=gtk_widget_get_allocated_height (rx->meter);
-
-
-  m=value;
 
   cr = cairo_create (rx->meter_surface);
 
@@ -136,7 +129,7 @@ void update_meter(RECEIVER *rx,gdouble value) {
       attenuation = attenuation * -1;
   }
 
-  double level=value+attenuation;
+  double level=rx->meter_db+attenuation;
 
   double offset=210.0;
   int i;

@@ -1,5 +1,5 @@
 /* Copyright (C)
-* 201h - John Melton, G0ORX/N6LYT
+* 2020 - John Melton, G0ORX/N6LYT
 *
 * This program is free software; you can redistribute it and/or
 * modify it under the terms of the GNU General Public License
@@ -17,6 +17,27 @@
 *
 */
 
-extern GtkWidget *create_xvtr_dialog(RADIO *radio);
-extern void save_xvtr();
-extern void lo_error_update(int band,long long offset);
+#ifndef SUBRX_H
+#define SUBRX_H
+
+#include "receiver.h"
+
+#define SUBRX_BASE_CHANNEL 16
+
+typedef struct _subrx {
+  gint channel;
+  gint buffer_size;
+  gint fft_size;
+  gdouble *audio_output_buffer;
+  GMutex mutex;
+} SUBRX;
+
+extern void create_subrx(RECEIVER *rx);
+extern void destroy_subrx(RECEIVER *rx);
+extern void subrx_iq_buffer(RECEIVER *rx);
+extern void subrx_frequency_changed(RECEIVER *rx);
+extern void subrx_mode_changed(RECEIVER *rx);
+extern void subrx_filter_changed(RECEIVER *rx);
+extern void subrx_volume_changed(RECEIVER *rx);
+
+#endif

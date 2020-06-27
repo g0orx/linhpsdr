@@ -26,6 +26,7 @@
 
 #define TRANSMITTER_CHANNEL 8
 #define WIDEBAND_CHANNEL 9
+#define BPSK_CHANNEL 10
 
 enum {
   ANAN_10=0,
@@ -44,7 +45,7 @@ enum {
   HERMES_LITE,
   HERMES_LITE_2
 #ifdef SOAPYSDR
-  ,SOAPYSDR_USB
+  ,SOAPY_DEVICE
 #endif
 };
 
@@ -226,6 +227,7 @@ extern void vox_changed(RADIO *r);
 extern void ptt_changed(RADIO *r);
 extern gboolean radio_button_press_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data);
 extern void set_mox(RADIO *r,gboolean state);
+extern void set_tune(RADIO *r,gboolean state);
 extern void radio_change_region(RADIO *r);
 extern void radio_change_audio(RADIO *r,int selected);
 extern void radio_change_audio_backend(RADIO *r,int selected);

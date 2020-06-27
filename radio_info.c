@@ -23,6 +23,7 @@
 #include <wdsp.h>
 
 #include "discovered.h"
+#include "bpsk.h"
 #include "adc.h"
 #include "dac.h"
 #include "receiver.h"
@@ -101,138 +102,94 @@ static gboolean radio_info_press_event_cb(GtkWidget *widget,GdkEventButton *even
 }
 
 GtkWidget *create_radio_info_visual(RECEIVER *rx) {
-  GtkWidget *radio_info = gtk_drawing_area_new();
+  RADIO_INFO *info=g_new(RADIO_INFO,1);
+  info->radio_info=gtk_layout_new(NULL,NULL);
+  gtk_widget_set_name(info->radio_info,"info");
 
-  g_signal_connect(radio_info,"configure-event", G_CALLBACK (info_configure_event_cb), (gpointer)rx);
-  g_signal_connect(radio_info, "draw", G_CALLBACK (radio_info_draw_cb), (gpointer)rx);
-  //g_signal_connect(radio_info, "button-press-event", G_CALLBACK (radio_info_press_event_cb), (gpointer)rx);
-  gtk_widget_set_events(radio_info, gtk_widget_get_events (radio_info) | GDK_BUTTON_PRESS_MASK);
+  int x=0;
+  int y=10;
 
-  return radio_info;
+  // ********** WARNINGS ****************************
+  // HL2 Buffer over/underflow
+  if (radio->discovered->device == DEVICE_HERMES_LITE2) {
+    info->buffer_overflow_underflow_b=gtk_toggle_button_new_with_label("BUF");
+    gtk_widget_set_name(info->buffer_overflow_underflow_b,"info-warning");
+    gtk_layout_put(GTK_LAYOUT(info->radio_info),info->buffer_overflow_underflow_b,x,y);
+    x+=40;
+  }
+
+  // HERMES/HL2 ADC Clipping
+  info->adc_overload_b=gtk_toggle_button_new_with_label("ADC");
+  gtk_widget_set_name(info->adc_overload_b,"info-warning");
+  gtk_layout_put(GTK_LAYOUT(info->radio_info),info->adc_overload_b,x,y);
+  x+=40;
+
+  // SWR is above a threshold
+  info->swr_b=gtk_toggle_button_new_with_label("SWR");
+  gtk_widget_set_name(info->swr_b,"info-warning");
+  gtk_layout_put(GTK_LAYOUT(info->radio_info),info->swr_b,x,y);
+  x+=40;
+
+  if (radio->discovered->device == DEVICE_HERMES_LITE2) {
+    info->temp_b=gtk_toggle_button_new_with_label("TEMP");
+    gtk_widget_set_name(info->temp_b,"info-warning");
+    gtk_layout_put(GTK_LAYOUT(info->radio_info),info->temp_b,x,y);
+    x+=40;
+  }
+
+
+  x=0;
+  y=36;
+
+  // CAT
+  info->cat_b=gtk_toggle_button_new_with_label("CAT");
+  gtk_widget_set_name(info->cat_b,"info-button");
+  gtk_layout_put(GTK_LAYOUT(info->radio_info),info->cat_b,x,y);
+
+  x+=40;
+
+  // MIDI
+  info->midi_b=gtk_toggle_button_new_with_label("MIDI");
+  gtk_widget_set_name(info->midi_b,"info-button");
+  gtk_layout_put(GTK_LAYOUT(info->radio_info),info->midi_b,x,y);
+
+#ifdef CWDAEMON
+  x+=40;
+  info->cwdaemon_b=gtk_toggle_button_new_with_label("CWX");
+  gtk_widget_set_name(info->cwdaemon_b,"info-button");
+  gtk_layout_put(GTK_LAYOUT(info->radio_info),info->cwdaemon_b,x,y);
+#endif
+
+  g_object_set_data ((GObject *)info->radio_info,"info_data",info);
+
+  return info->radio_info;
 }
 
 void update_radio_info(RECEIVER *rx) {
-  char sf[32];
-  cairo_t *cr;
-
-  int info_width=gtk_widget_get_allocated_width(rx->radio_info);
-  int info_height=gtk_widget_get_allocated_height(rx->radio_info);
 
 
-  cr = cairo_create (rx->radio_info_surface);
-  SetColour(cr, BACKGROUND);
-  cairo_paint(cr);
-  cairo_set_font_size(cr,12);
-  cairo_select_font_face(cr, "Noto Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-  
-  double top_y = 18;
-  double y_space = 24;
-  double x = 5;
-  
-  // ********** WARNINGS ****************************
-  // HL2 Buffer over/underflow
-  if (radio->discovered->device == DEVICE_HERMES_LITE2) {  
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);  
-    x+=40;  
-  }
-  // HERMES/HL2 ADC Clipping
-  if ((radio->adc_overload) && (!isTransmitting(radio))) {
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, WARNING_ON);     
-  } else {
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);  
-  }
-  x+=40; 
-  // SWR is above a threshold   
-  if (radio->transmitter!=NULL && radio->transmitter->swr > radio->swr_alarm_value) {
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, WARNING_ON);   
-  } else {
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);       
-  }
-  x+=40;   
+  RADIO_INFO *info=(RADIO_INFO *)g_object_get_data((GObject *)rx->radio_info,"info_data");
+
+  if(info==NULL) return;
+
   if (radio->discovered->device == DEVICE_HERMES_LITE2) {
-    // Temperature   
-    if (radio->transmitter->temperature > radio->temperature_alarm_value) {  
-      RoundedRectangle(cr, x, top_y, 25.0, 6.0, WARNING_ON);     
-    } else {
-      RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);     
-    }
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->adc_overload_b),radio->adc_overload && (!isTransmitting(radio)));
   }
-  // ********** Radio Info/Settings *****************
-  x = 5;
-  top_y += y_space;
-    
-  // Rigctl CAT control
-  if (rx->cat_control>-1) {  
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_TRUE);  
-  } else {
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);    
-  }
-  x+=40;  
-  // Alsa MIDI server  
-  if (radio->midi) {  
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_TRUE);  
-  } else {
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);  
-  }
-  x+=40;    
-  #ifdef CWDAEMON
-  // CWdaemon CWX mode (only HL2 for now)
-  if (radio->cwdaemon) {
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_TRUE);
-  } else {
-    RoundedRectangle(cr, x, top_y, 25.0, 6.0, INFO_FALSE);    
-  }
-  #endif  
 
 
-
-
-  // ********** WARNINGS ****************************
-  top_y = 18;
-  x = 5;  
-  // HL2 Buffer over/underflow 
   if (radio->discovered->device == DEVICE_HERMES_LITE2) {
-    SetColour(cr, BACKGROUND);
-    cairo_move_to(cr, x, top_y + 7);  
-    cairo_show_text(cr, "BUF");
-    x += 40;
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->temp_b),radio->transmitter->temperature>radio->temperature_alarm_value);
   }
-  // HERMES/HL2 ADC Clipping   
-  SetColour(cr, BACKGROUND);
-  cairo_move_to(cr, x, top_y + 7);  
-  cairo_show_text(cr, "ADC");  
-  x += 40;  
-  // SWR is above a threshold  
-  SetColour(cr, BACKGROUND);
-  cairo_move_to(cr, x, top_y + 7);  
-  cairo_show_text(cr, "SWR");  
-  x += 40;  
-  // INFO  
-  if (radio->discovered->device == DEVICE_HERMES_LITE2) {  
-    SetColour(cr, BACKGROUND);
-    cairo_move_to(cr, x-3, top_y + 7);  
-    cairo_show_text(cr, "TEMP");  
+
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->swr_b),radio->transmitter->swr>radio->swr_alarm_value);
+
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->midi_b),radio->midi!=0);
+
+#ifdef CWDAEMON
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->cwdaemon_b),radio->cwdaemon);
+#endif
+
+  if (radio->discovered->device == DEVICE_HERMES_LITE2) {
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->temp_b),radio->transmitter->temperature>radio->temperature_alarm_value);
   }
-  // ********** Radio Info/Settings *****************
-  top_y += y_space;
-  x = 5;
-  // CWdaemon CWX mode (only HL2+Hermes for now)
-
-  // Rigctl CAT control  
-  SetColour(cr, OFF_WHITE);
-  cairo_move_to(cr, 5, top_y + 7);    
-  cairo_show_text(cr, "CAT");
-  // Alsa MIDI server
-  SetColour(cr, OFF_WHITE);
-  cairo_move_to(cr, 43, top_y + 7);    
-  cairo_show_text(cr, "MIDI"); 
-  #ifdef CWDAEMON
-  SetColour(cr, OFF_WHITE);
-  cairo_move_to(cr, 83, top_y + 7);    
-  cairo_show_text(cr, "CWX"); 
-  #endif 
-
-  cairo_destroy(cr);
-  gtk_widget_queue_draw(rx->radio_info);
-
 }

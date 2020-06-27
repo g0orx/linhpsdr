@@ -18,4 +18,4 @@
 */
 
 extern GtkWidget *create_meter_visual(RECEIVER *rx);
-extern void update_meter(RECEIVER *r,gdouble value);
+extern void update_meter(RECEIVER *r);

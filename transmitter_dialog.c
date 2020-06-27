@@ -28,6 +28,7 @@
 #include <arpa/inet.h>
 #include <wdsp.h>
 
+#include "bpsk.h"
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"
@@ -136,7 +137,7 @@ static void use_rx_filter_cb(GtkWidget *widget,gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
   tx->use_rx_filter=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
   if(tx->use_rx_filter) {
-    transmitter_set_filter(tx,tx->rx->filter_low,tx->rx->filter_high);
+    transmitter_set_filter(tx,tx->rx->filter_low_a,tx->rx->filter_high_a);
   } else {
     transmitter_set_filter(tx,tx->filter_low,tx->filter_high);
   }
@@ -218,13 +219,13 @@ static void panadapter_low_value_changed_cb(GtkWidget *widget, gpointer data) {
 static void ctcss_enable_cb (GtkWidget *widget, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
   int state=gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (widget));
-  transmitter_set_ctcss(tx,state,tx->ctcss_frequency);
+  transmitter_set_ctcss(tx,state,tx->ctcss);
 }
 
-static void ctcss_spin_cb (GtkWidget *widget, gpointer data) {
+static void ctcss_frequency_cb(GtkWidget *widget, gpointer data) {
   TRANSMITTER *tx=(TRANSMITTER *)data;
-  double frequency=gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
-  transmitter_set_ctcss(tx,tx->ctcss,frequency);
+  int i=gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
+  transmitter_set_ctcss(tx,tx->ctcss_enabled,i);
 }
 
 void update_transmitter_dialog(TRANSMITTER *tx) {
@@ -259,6 +260,7 @@ g_print("adding: %s\n",input_devices[i].description);
 
 GtkWidget *create_transmitter_dialog(TRANSMITTER *tx) {
   int i;
+  char temp[32];
 
   GtkWidget *grid=gtk_grid_new();
   gtk_grid_set_row_homogeneous(GTK_GRID(grid),FALSE);
@@ -408,14 +410,18 @@ GtkWidget *create_transmitter_dialog(TRANSMITTER *tx) {
   gtk_grid_attach(GTK_GRID(grid),ctcss_frame,col,row++,1,1);
 
   GtkWidget *ctcss_enable=gtk_check_button_new_with_label("Enable CTCSS");
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ctcss_enable), tx->ctcss);
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ctcss_enable), tx->ctcss_enabled);
   gtk_grid_attach(GTK_GRID(ctcss_grid),ctcss_enable,0,0,1,1);
   g_signal_connect(ctcss_enable,"toggled",G_CALLBACK(ctcss_enable_cb),tx);
 
-  GtkWidget *ctcss_spin=gtk_spin_button_new_with_range(67.0,250.3,0.1);
-  gtk_spin_button_set_value(GTK_SPIN_BUTTON(ctcss_spin),(double)tx->ctcss_frequency);
-  gtk_grid_attach(GTK_GRID(ctcss_grid),ctcss_spin,1,0,1,1);
-  g_signal_connect(ctcss_spin,"value-changed",G_CALLBACK(ctcss_spin_cb),tx);
+  GtkWidget *ctcss_frequency_b=gtk_combo_box_text_new();
+  for(i=0;i<CTCSS_FREQUENCIES;i++) {
+    sprintf(temp,"%0.1f",ctcss_frequencies[i]);
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(ctcss_frequency_b),NULL,temp);
+  }
+  gtk_combo_box_set_active(GTK_COMBO_BOX(ctcss_frequency_b),tx->ctcss);
+  gtk_grid_attach(GTK_GRID(ctcss_grid),ctcss_frequency_b,1,0,1,1);
+  g_signal_connect(ctcss_frequency_b,"changed",G_CALLBACK(ctcss_frequency_cb),tx);
 
   GtkWidget *panadapter_frame=gtk_frame_new("Panadapter");
   GtkWidget *panadapter_grid=gtk_grid_new();

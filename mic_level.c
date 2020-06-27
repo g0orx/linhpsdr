@@ -22,6 +22,7 @@
 #include <wdsp.h>
 
 #include "discovered.h"
+#include "bpsk.h"
 #include "wideband.h"
 #include "adc.h"
 #include "dac.h"

@@ -24,6 +24,7 @@
 #include <wdsp.h>
 
 #include "agc.h"
+#include "bpsk.h"
 #include "mode.h"
 #include "filter.h"
 #include "bandstack.h"

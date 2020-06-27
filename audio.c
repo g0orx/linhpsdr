@@ -46,6 +46,7 @@
 #include "dac.h"
 #include "discovered.h"
 #include "wideband.h"
+#include "bpsk.h"
 #include "receiver.h"
 #include "transmitter.h"
 #include "radio.h"
@@ -177,8 +178,9 @@ static void read_callback(struct SoundIoInStream *instream, int frame_count_min,
     struct SoundIoChannelArea *areas;
     int err;
 
-    if(frame_count_min!=frame_count_max) {
-      g_print("read_callback: frame_counts differ min=%d max=%d\n",frame_count_min,frame_count_max);
+    //if(frame_count_min!=frame_count_max) {
+    if(frame_count_min<=0) {
+      //g_print("read_callback: frame_counts differ min=%d max=%d\n",frame_count_min,frame_count_max);
       return;
     }
 
@@ -431,6 +433,7 @@ int audio_open_input(RADIO *r) {
   pa_sample_spec sample_spec;
 #endif
 
+  g_print("%s\n",__FUNCTION__);
   switch(radio->which_audio) {
     case USE_SOUNDIO: {
       if(r->microphone_name==NULL) {
@@ -499,6 +502,7 @@ int audio_open_input(RADIO *r) {
       }
       r->input_started=TRUE;
       running=TRUE;
+      g_print("%s: SOUNDIO mic_read_thread\n",__FUNCTION__);
       mic_read_thread_id = g_thread_new( "mic_thread", mic_read_thread, r);
       if(!mic_read_thread_id ) {
         fprintf(stderr,"g_thread_new failed on mic_read_thread\n");
@@ -551,6 +555,7 @@ int audio_open_input(RADIO *r) {
         r->local_microphone_buffer_offset=0;
         r->local_microphone_buffer=g_new0(float,r->local_microphone_buffer_size);
         running=TRUE;
+        g_print("%s: PULSEAUDIO mic_read_thread\n",__FUNCTION__);
         mic_read_thread_id = g_thread_new( "mic_thread", mic_read_thread, r);
         if(!mic_read_thread_id ) {
           fprintf(stderr,"g_thread_new failed on mic_read_thread\n");
@@ -637,7 +642,7 @@ g_print("audio_open_input: mic_buffer: size=%d channels=%d sample=%ld bytes\n",r
       //r->local_microphone_buffer=g_new0(float,r->local_microphone_buffer_size);
       running=TRUE;
 
-g_print("audio_open_input: creating mic_read_thread\n");
+      g_print("%s: ALSA mic_read_thread\n",__FUNCTION__);
       GError *error;
       mic_read_thread_id = g_thread_try_new("microphone",mic_read_thread,r,&error);
       if(!mic_read_thread_id ) {

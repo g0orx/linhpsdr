@@ -20,7 +20,6 @@
 extern GtkWidget *create_vfo(RECEIVER *rx);
 extern void update_vfo(RECEIVER *r);
 
-extern void RoundedRectangle(cairo_t *cr, double x, double y, double width, double height, int state);
 extern void SetColour(cairo_t *cr, const int colour);
 
 enum {
@@ -45,3 +44,42 @@ enum {
   INFO_FALSE = 3,
   WARNING_ON = 4
 };
+
+typedef struct _vfo_data {
+  GtkWidget *vfo;
+  GtkWidget *vfo_a_text;
+  GtkWidget *a2b;
+  GtkWidget *b2a;
+  GtkWidget *aswapb;
+  GtkWidget *split_b;
+  GtkWidget *vfo_b_text;
+  GtkWidget *zoom_b;
+  GtkWidget *step_b;
+  GtkWidget *tx_label;
+  GtkWidget *frequency_a_text;
+  GtkWidget *frequency_b_text;
+  GtkWidget *subrx_b;
+  GtkWidget *afgain_scale;
+  GtkWidget *agcgain_scale;
+  GtkWidget *lock_b;
+  GtkWidget *mode_b;
+  GtkWidget *filter_b;
+  GtkWidget *nb_b;
+  GtkWidget *nr_b;
+  GtkWidget *snb_b;
+  GtkWidget *anf_b;
+  GtkWidget *agc_b;
+  GtkWidget *bmk_b;
+  GtkWidget *ctun_b;
+  GtkWidget *bpsk_b;
+  GtkWidget *rit_b;
+  GtkWidget *rit_value;
+  GtkWidget *xit_b;
+  GtkWidget *xit_value;
+  GtkWidget *dup_b;
+} VFO_DATA;
+
+#define STEPS 15
+extern gint64 steps[STEPS];
+extern char *step_labels[STEPS];
+

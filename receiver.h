@@ -96,9 +96,12 @@ typedef struct _receiver {
   gboolean mute_while_transmitting;
   gboolean duplex;
 
-  gint filter_low;
-  gint filter_high;
+  gint filter_low_a;
+  gint filter_high_a;
   gint deviation;
+
+  gint filter_low_b;
+  gint filter_high_b;
 
   gint agc;
   gdouble agc_gain;
@@ -148,6 +151,7 @@ typedef struct _receiver {
   GtkWidget *bookmark_dialog;
 
   gint smeter;
+  double meter_db;
 
   gint window_x;
   gint window_y;
@@ -168,6 +172,7 @@ typedef struct _receiver {
 
   gint panadapter_low;
   gint panadapter_high;
+  gint panadapter_step;
   gboolean panadapter_filled;
   gboolean panadapter_gradient;
   gboolean panadapter_agc_line;  
@@ -236,25 +241,11 @@ typedef struct _receiver {
 
   GMutex mutex;
 
-  gint rigctl_listening_port;
-  GThread *rigctl_server_thread_id;
-  gint rigctl_server_socket;
-  gint rigctl_server_address_length;
-  struct sockaddr_in rigctl_server_address;
+  gboolean bpsk_enable;
+  void *bpsk;
 
-  GMutex rigctl_mutex;
-  gint rigctl_client_socket;
-  struct sockaddr_in rigctl_client_address;
-  guint rigctl_client_address_length;
-  gint cat_control;
-  gboolean rigctl_running;
-
-  gboolean bpsk;
-  gint bpsk_counter;
-  gint bpsk_channel;
-  double *bpsk_audio_output_buffer;
-  gint bpsk_buffer_size;
-  gint bpsk_offset;
+  gboolean subrx_enable;
+  void *subrx;
 
   int resample_step;
 
@@ -264,6 +255,18 @@ typedef struct _receiver {
   gulong audio_choice_signal_id;
   gulong local_audio_signal_id;
   gulong tx_control_signal_id;
+
+  gint rigctl_port;
+  gboolean rigctl_enable;
+
+  GtkWidget *serial_port_entry;
+  char rigctl_serial_port[80];
+  gint rigctl_serial_baudrate;
+  gboolean rigctl_serial_enable;
+  
+
+  gboolean rigctl_debug;
+  void *rigctl;
 
 } RECEIVER;
 
@@ -300,6 +303,10 @@ extern void receiver_fps_changed(RECEIVER *rx);
 extern void receiver_change_zoom(RECEIVER *rx,int zoom);
 extern void update_frequency(RECEIVER *rx);
 extern void receiver_move(RECEIVER *rx,long long hz,gboolean round);
-extern void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only);
+extern void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only,gboolean round);
 extern void receiver_move_to(RECEIVER *rx,long long hz);
+extern void receiver_set_volume(RECEIVER *rx);
+extern void receiver_set_agc_gain(RECEIVER *rx);
+extern void receiver_set_ctun(RECEIVER *rx);
+extern void set_band(RECEIVER *rx,int band);
 #endif

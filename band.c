@@ -22,12 +22,23 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "bandstack.h"
+#include "agc.h"
 #include "mode.h"
 #include "filter.h"
+#include "bandstack.h"
 #include "band.h"
+#include "discovered.h"
+#include "bpsk.h"
+#include "receiver.h"
+#include "transmitter.h"
+#include "wideband.h"
+#include "adc.h"
+#include "dac.h"
+#include "radio.h"
+#include "main.h"
 #include "alex.h"
 #include "property.h"
+
 
 int band=band20;
 int xvtr_band=BANDS;
@@ -577,4 +588,454 @@ int get_band_from_frequency(gint64 f) {
   }
   if (found < 0) found=bandGen;
   return found;  
+}
+
+int next_band(int current_band) {
+  int b=current_band+1;
+  if(b>=BANDS) {
+    b=bandWWV;
+  } else {
+    BAND *band=&bands[b];
+    if(band->frequencyMin>radio->discovered->frequency_max) {
+      b=bandGen;
+    }
+  }
+  return b;
+}
+
+int previous_band(int current_band) {
+  int b=current_band-1;
+  if(b<0) {
+    b=0;
+  } else {
+    BAND *band=&bands[b];
+    while(band->frequencyMin>radio->discovered->frequency_max && b>0) {
+      b--;
+      band=&bands[b];
+    }
+  }
+  return b;
+}
+
+void set_band(RECEIVER *rx,int band) {
+  BAND *b;
+  int mode_a;
+  long long frequency_a;
+  long long lo_a=0LL;
+  long long error_a=0LL;
+
+  switch(band) {
+    case band2200:
+      switch(rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=LSB;
+          frequency_a=136000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWL;
+          frequency_a=136000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=LSB;
+          frequency_a=136000LL;
+          break;
+      }
+      break;
+    case band630:
+      switch(rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+        case CWL:
+        case CWU:
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=CWL;
+          frequency_a=472100LL;
+          break;
+      }
+      break;
+    case band160:
+      switch(rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=LSB;
+          frequency_a=1900000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWL;
+          frequency_a=1830000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=LSB;
+          frequency_a=1900000LL;
+          break;
+      }
+      break;
+    case band80:
+      switch(rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=LSB;
+          frequency_a=3700000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWL;
+          frequency_a=3520000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=LSB;
+          frequency_a=3700000LL;
+          break;
+      }
+      break;
+    case band60:
+      switch(rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=LSB;
+          switch(radio->region) {
+            case REGION_OTHER:
+              frequency_a=5330000LL;
+              break;
+            case REGION_UK:
+              frequency_a=5280000LL;
+              break;
+          }
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWL;
+          switch(radio->region) {
+            case REGION_OTHER:
+              frequency_a=5330000LL;
+              break;
+            case REGION_UK:
+              frequency_a=5280000LL;
+              break;
+          }
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=LSB;
+          switch(radio->region) {
+            case REGION_OTHER:
+              frequency_a=5330000LL;
+              break;
+            case REGION_UK:
+              frequency_a=5280000LL;
+              break;
+          }
+          break;
+      }
+      break;
+    case band40:
+      switch(rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=LSB;
+          frequency_a=7100000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWL;
+          frequency_a=7020000LL;
+          break;
+        case DIGU:
+        case SPEC:
+        case DIGL:
+          mode_a=LSB;
+          frequency_a=7070000LL;
+          break;
+        case FMN:
+        case AM:
+        case SAM:
+        case DRM:
+          mode_a=LSB;
+          frequency_a=7100000LL;
+          break;
+      }
+      break;
+    case band30:
+      switch(rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=USB;
+          frequency_a=10145000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWU;
+          frequency_a=10120000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=USB;
+          frequency_a=10145000LL;
+          break;
+      }
+      break;
+    case band20:
+      switch(rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=USB;
+          frequency_a=14150000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWU;
+          frequency_a=14020000LL;
+          break;
+        case DIGU:
+        case SPEC:
+        case DIGL:
+          mode_a=USB;
+          frequency_a=14070000LL;
+          break;
+        case FMN:
+        case AM:
+        case SAM:
+        case DRM:
+          mode_a=USB;
+          frequency_a=14020000LL;
+          break;
+      }
+      break;
+    case band17:
+      switch(rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=USB;
+          frequency_a=18140000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWU;
+          frequency_a=18080000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=USB;
+          frequency_a=18140000LL;
+          break;
+      }
+      break;
+    case band15:
+      switch(rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=USB;
+          frequency_a=21200000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWU;
+          frequency_a=21080000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=USB;
+          frequency_a=21200000LL;
+          break;
+      }
+      break;
+    case band12:
+      switch(rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=USB;
+          frequency_a=24960000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWU;
+          frequency_a=24900000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=USB;
+          frequency_a=24960000LL;
+          break;
+      }
+      break;
+   case band10:
+      switch(rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=USB;
+          frequency_a=28300000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWU;
+          frequency_a=28020000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=USB;
+          frequency_a=28300000LL;
+          break;
+      }
+      break;
+    case band6:
+      switch(rx->mode_a) {
+        case LSB:
+        case USB:
+        case DSB:
+          mode_a=USB;
+          frequency_a=51000000LL;
+          break;
+        case CWL:
+        case CWU:
+          mode_a=CWU;
+          frequency_a=50090000LL;
+          break;
+        case FMN:
+        case AM:
+        case DIGU:
+        case SPEC:
+        case DIGL:
+        case SAM:
+        case DRM:
+          mode_a=USB;
+          frequency_a=51000000LL;
+          break;
+      }
+      break;
+#ifdef SOAPYSDR
+    case band70:
+      mode_a=USB;
+      frequency_a=70300000LL;
+      break;
+    case band220:
+      mode_a=USB;
+      frequency_a=430300000LL;
+      break;
+    case band430:
+      mode_a=USB;
+      frequency_a=430300000LL;
+      break;
+    case band902:
+      mode_a=USB;
+      frequency_a=430300000LL;
+      break;
+    case band1240:
+      mode_a=USB;
+      frequency_a=1240300000LL;
+      break;
+    case band2300:
+      mode_a=USB;
+      frequency_a=2300300000LL;
+      break;
+    case band3400:
+      mode_a=USB;
+      frequency_a=3400300000LL;
+      break;
+    case bandAIR:
+      mode_a=AM;
+      frequency_a=126825000LL;
+      break;
+#endif
+    case bandGen:
+      mode_a=AM;
+      frequency_a=5975000LL;
+      break;
+    case bandWWV:
+      mode_a=SAM;
+      frequency_a=10000000LL;
+      break;
+    default:
+      b=band_get_band(band);
+      mode_a=USB;
+      frequency_a=b->frequencyMin;
+      lo_a=b->frequencyLO;
+      error_a=b->errorLO;
+      break;
+  }
+  rx->band_a=band;
+  rx->mode_a=mode_a;
+  rx->frequency_a=frequency_a;
+  rx->lo_a=lo_a;
+  rx->error_a=error_a;
+  rx->ctun=FALSE;
+  rx->ctun_offset=0;
+  receiver_band_changed(rx,band);
+  if(radio->transmitter) {
+    if(radio->transmitter->rx==rx) {
+      if(rx->split!=SPLIT_OFF) {
+        transmitter_set_mode(radio->transmitter,rx->mode_b);
+      } else {
+        transmitter_set_mode(radio->transmitter,rx->mode_a);
+      }
+    }
+  }
 }

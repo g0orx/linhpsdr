@@ -32,6 +32,7 @@
 #endif
 
 #include "discovered.h"
+#include "bpsk.h"
 #include "receiver.h"
 #include "transmitter.h"
 #include "receiver.h"

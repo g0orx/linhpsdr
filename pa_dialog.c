@@ -28,6 +28,7 @@
 #include <arpa/inet.h>
 #include <wdsp.h>
 
+#include "bpsk.h"
 #include "receiver.h"
 #include "transmitter.h"
 #include "wideband.h"
