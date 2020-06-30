@@ -1,0 +1,74 @@
+#
+# Sample midi.inp file, suitable for a Behringer CMD Studio 2A controller
+#
+# Note that the Attenuator is implemented twice, as a key and as a wheel
+# The key is suitable for radios with a step (ALEX) attenuator, the wheel
+# fits best for radios with a programmable attenuator (0-31 dB).
+# The button (Key 2) also works for STEMlab and CHARLY25
+#
+# The preamp button (Key 1) only has function with STEMlab and CHARLY25
+#
+# Do not assign the "Key" with number 31. You will unintentionally
+# "push" it most of the times you change the VFO frequency.
+#
+# NOTE: we could just leave out all lines with ACTION=NONE. In this case
+#       a diagnostic message ("unknown MIDI event") is printed to stderr.
+#
+DEVICE=Studio 2A
+#
+# Big Wheel and Big Slider
+#
+CTRL=3 WHEEL THR=-1 -1 -1 -1 1 63 64 127 128 128 128 128 ACTION=VFOA # Left large knob
+CTRL=51 WHEEL THR=-1 -1 -1 -1 1 63 64 127 128 128 128 128 ACTION=VFOB # Right large knob
+CTRL=24 ACTION=AFGAIN     				# Left Vertical Slider: AF Gain
+#CTRL=32 ACTION=AGCVAL        				# Horizontal Slider: AGC Gain
+CTRL=32 ACTION=PAN        				# Horizontal Slider: PAN
+CTRL=72 ACTION=AGCVAL        				# Right Vertical Slider: RF Power (Drive)
+CTRL=5 WHEEL THR=-1 -1 -1 -1 -1 63 64 128 128 128 128 128 ACTION=PAN # Top Left knob: RF Gain
+#CTRL=53 WHEEL THR=-1 -1 -1 -1 -1 63 64 128 128 128 128 128 ACTION=MICGAIN # Top Right knob: Mic Gain
+#CTRL=67 ACTION=COMPRESS					# Right High: TX Compression
+#CTRL=19 ACTION=VOXLEVEL		        		# Left High: VOX Level Gain
+#CTRL=20 ACTION=DIVCOARSEGAIN				# Left Mid: Diversity Gain
+#CTRL=21 ACTION=DIVCOARSEPHASE				# Left Low: Diversity PHAAS
+#CTRL=68 ACTION=DIVFINEGAIN				# Right Mid: Diversity Gain
+#CTRL=69 ACTION=DIVFINEPHASE				# Right Low: Diversity PHAAS
+#
+# 8 Knobs (top left).
+# Note that you can push each knob and this generates
+# Note On/Off messages for KEY=0...8 which we do not
+# assign: we want to glue labels on the Controller and therefore
+# we do not have two labels per knob.
+#
+#CTRL=0 WHEEL THR=-1 -1 63 65 128 128 ACTION=ATT          # Knob 1        : RX att
+#CTRL=1 WHEEL THR=-1 -1 63 65 128 128 ACTION=COMPRESS     # Knob 2        : TX compression
+#CTRL=2 WHEEL THR=-1 -1 63 65 128 128 ACTION=RITVAL       # Knob 3        : RIT value
+#CTRL=3 WHEEL THR=-1 -1 63 65 128 128 ACTION=PANLOW       # Knob 4        : Panadapter low
+#CTRL=4 WHEEL THR=-1 -1 63 65 128 128 ACTION=AGC          # Knob 5        : AGC
+#CTRL=5 WHEEL THR=-1 -1 63 65 128 128 ACTION=MICGAIN      # Knob 6        : MIC gain
+#CTRL=6 WHEEL THR=-1 -1 63 65 128 128 ACTION=RFPOWER      # Knob 7        : TX drive
+#CTRL=7 WHEEL THR=-1 -1 63 65 128 128 ACTION=FILTERUP     # Knob 8        : cycle through the filters
+
+
+KEY=1 ACTION=MOX					# Left Key Cue
+KEY=2 ACTION=TUNE					# Left Key >||
+KEY=4 ACTION=LOCK					# Left Key SYNC
+KEY=6 ACTION=ZOOMDOWN					# Left Key -
+KEY=7 ACTION=ZOOMUP					# Left Key +
+KEY=8 ACTION=FILTERDOWN					# Left Key A
+KEY=9 ACTION=FILTERUP					# Left Key B
+KEY=10 ACTION=MODEDOWN					# Left Key 1 (CUE)
+KEY=11 ACTION=MODEUP					# Left Key 2 (CUE)
+KEY=12 ACTION=DUP					# Left Key 3 (CUE)
+KEY=13 ACTION=SPLIT					# Left Key 4 (CUE)
+KEY=14 ACTION=SAT					# Left Key 1 (SAMPLE)
+KEY=22 ACTION=NOISEBLANKER				# KEY CUE A
+KEY=23 ACTION=NOISEREDUCTION				# KEY LOAD A
+KEY=34 ACTION=VOX					# Key VINYL
+KEY=36 ACTION=BANDUP					# Key UP
+KEY=37 ACTION=VFOSTEPUP					# Key FOLDER
+KEY=38 ACTION=VFOSTEPDOWN				# Key FILE
+KEY=39 ACTION=BANDDOWN					# Key DOWN
+KEY=49 ACTION=AGCATTACK					# Right Key Cue
+KEY=50 ACTION=SWAPRX					# Right Key >||
+
+
