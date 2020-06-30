@@ -45,6 +45,9 @@
 int signal_vertices_size=-1;
 float *signal_vertices=NULL;
 
+static const double dashed2[] = {2.0, 2.0};
+static int len2  = sizeof(dashed2) / sizeof(dashed2[0]);        
+
 static gboolean resize_timeout(void *data) {
   RECEIVER *rx=(RECEIVER *)data;
 
@@ -155,7 +158,6 @@ static gboolean rx_panadapter_render(GtkGLArea *area, GdkGLContext *context)
 
 static void rx_panadapter_realize (GtkGLArea *area)
 {
-g_print("rx_panadapter_realize\n");
   // We need to make the context current if we want to
   // call GL API
   gtk_gl_area_make_current (area);
@@ -189,7 +191,6 @@ g_print("rx_panadapter_realize\n");
 #endif
 
 void rx_panadapter_resize(GtkGLArea *area, gint width, gint height, gpointer data) {
-  g_print("rx_panadapter_resize: width=%d height=%d\n",width,height);
   RECEIVER *rx=(RECEIVER *)data;
   if(width!=rx->panadapter_width || height!=rx->panadapter_height) {
     rx->panadapter_resize_width=width;
@@ -202,7 +203,6 @@ void rx_panadapter_resize(GtkGLArea *area, gint width, gint height, gpointer dat
 }
 
 static gboolean rx_panadapter_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
-g_print("rx_panadapter_configure_event_cb\n");
   RECEIVER *rx=(RECEIVER *)data;
   gint width=gtk_widget_get_allocated_width (widget);
   gint height=gtk_widget_get_allocated_height (widget);
@@ -442,17 +442,13 @@ void update_rx_panadapter(RECEIVER *rx) {
     cairo_rectangle(cr,0,0,40,display_height);
     cairo_fill(cr);    
     
+    cairo_set_dash(cr, dashed2, len2, 0);
     for(i=rx->panadapter_high;i>=rx->panadapter_low;i--) {
       SetColour(cr, DARK_LINES);
       int mod=abs(i)%rx->panadapter_step;
       if(mod==0) {
         double y = (double)(rx->panadapter_high-i)*dbm_per_line;
         cairo_move_to(cr,0.0,y);
-        
-        static const double dashed2[] = {2.0, 2.0};
-        static int len2  = sizeof(dashed2) / sizeof(dashed2[0]);        
-        cairo_set_dash(cr, dashed2, len2, 0);
-
         cairo_line_to(cr,(double)display_width,y);
         if(rx->panadapter_gradient) SetColour(cr, TEXT_B);
         sprintf(temp," %d",i);
@@ -483,119 +479,25 @@ void update_rx_panadapter(RECEIVER *rx) {
     long long f2;
     long long divisor1=20000;
     long long divisor2=5000;
-    switch(rx->sample_rate) {
-      case 48000:
-        switch(rx->zoom) {
-          case 1:
-          case 3:
-            divisor1=5000LL;
-            divisor2=1000LL;
-            break;
-          case 5:
-            divisor1=1000LL;
-            divisor2=500LL;
-            break;
-          case 7:
-            divisor1=1000LL;
-            divisor2=200LL;
-            break;
-        }
+    long long factor=(long long)(rx->sample_rate/48000);
+    if(factor>10LL) factor=10LL;
+    switch(rx->zoom) {
+      case 1:
+      case 2:
+      case 3:
+        divisor1=5000LL*factor;
+        divisor2=1000LL*factor;
         break;
-      case 96000:
-      case 100000:
-        switch(rx->zoom) {
-          case 1:
-            divisor1=10000LL;
-            divisor2=5000LL;
-            break;
-          case 3:
-          case 5:
-          case 7:
-            divisor1=2000LL;
-            divisor2=1000LL;
-            break;
-        }
+      case 4:
+      case 5:
+      case 6:
+        divisor1=1000LL*factor;
+        divisor2=500LL*factor;
         break;
-      case 192000:
-        switch(rx->zoom) {
-          case 1:
-            divisor1=20000LL;
-            divisor2=5000LL;
-            break;
-          case 3:
-            divisor1=10000LL;
-            divisor2=5000LL;
-            break;
-          case 5:
-          case 7:
-            divisor1=5000LL;
-            divisor2=1000LL;
-            break;
-        }
-        break;
-      case 384000:
-        switch(rx->zoom) {
-          case 1:
-            divisor1=50000LL;
-            divisor2=10000LL;
-            break;
-          case 3:
-            divisor1=20000LL;
-            divisor2=5000LL;
-            break;
-          case 5:
-            divisor1=10000LL;
-            divisor2=5000LL;
-            break;
-          case 7:
-            divisor1=10000LL;
-            divisor2=2000LL;
-            break;
-        }
-        break;
-      case 512000:
-      case 524288:
-      case 768000:
-        switch(rx->zoom) {
-          case 1:
-            divisor1=50000LL;
-            divisor2=25000LL;
-            break;
-          case 3:
-            divisor1=50000LL;
-            divisor2=10000LL;
-            break;
-          case 5:
-            divisor1=50000LL;
-            divisor2=10000LL;
-            break;
-          case 7:
-            divisor1=20000LL;
-            divisor2=10000LL;
-            break;
-        }
-        break;
-      case 1048576:
-      case 1536000:
-      case 2048000:
-        switch(rx->zoom) {
-          case 1: 
-            divisor1=100000LL;
-            divisor2=50000LL;
-            break;
-          case 3: 
-            divisor1=100000LL;
-            divisor2=20000LL;
-            break;
-          case 5: 
-            divisor1=50000LL;
-            divisor2=10000LL;
-            break;
-          case 7: 
-            divisor1=20000LL;
-            divisor2=5000LL;
-            break;
-        }
+      case 7:
+      case 8:
+        divisor1=1000LL*factor;
+        divisor2=200LL*factor;
         break;
     }
     cairo_set_line_width(cr, 1.0);
@@ -615,8 +517,11 @@ void update_rx_panadapter(RECEIVER *rx) {
       if(x>70) {
         if((f2%divisor1)==0LL) {
           SetColour(cr, DARK_LINES);
+          cairo_set_dash(cr, 0, 0, 0);
           cairo_move_to(cr,(double)x,0);
           cairo_line_to(cr,(double)x,(double)display_height-20);
+          SetColour(cr, TEXT_B);
+          cairo_line_to(cr,(double)x,(double)display_height);
           cairo_stroke(cr);
           SetColour(cr, TEXT_B);
           cairo_select_font_face(cr, "Noto Sans",
@@ -629,6 +534,7 @@ void update_rx_panadapter(RECEIVER *rx) {
           cairo_show_text(cr, temp);
         } else if((f2%divisor2)==00LL) {
           SetColour(cr, DARK_LINES);
+          cairo_set_dash(cr, dashed2, len2, 0);
           cairo_move_to(cr,(double)x,0);
           cairo_line_to(cr,(double)x,(double)display_height-20);
           cairo_stroke(cr);

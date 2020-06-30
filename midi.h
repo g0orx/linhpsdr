@@ -46,10 +46,6 @@
 // MIDIaction encodes the "action" to be taken in Layer3
 // (sorted alphabetically by the keyword)
 //
-
-#ifndef _MIDI_H
-#define _MIDI_H
-
 enum MIDIaction {
   ACTION_NONE=0,	// NONE:		No-Op (unassigned key)
   VFO_A2B,		// A2B:			VFO A -> B
@@ -64,8 +60,8 @@ enum MIDIaction {
   COMPRESS,		// COMPRESS:		TX compressor value
   MIDI_CTUN,		// CTUN:		toggle CTUN on/off
   VFO,			// CURRVFO:		change VFO frequency
-  CWKEY,			// CWL:			Left paddle pressed (use with ONOFF)
-  CWR,			// CWR:			Right paddle pressed (use with ONOFF)
+  CWLEFT,		// CWL:			Left paddle pressed (use with ONOFF)
+  CWRIGHT,		// CWR:			Right paddle pressed (use with ONOFF)
   CWSPEED,		// CWSPEED:		Set speed of (iambic) CW keyer
   DIV_COARSEGAIN,	// DIVCOARSEGAIN:	change DIVERSITY gain in large increments
   DIV_COARSEPHASE,	// DIVPHASE:		change DIVERSITY phase in large increments
@@ -203,12 +199,10 @@ struct desc {
    struct desc       *next;       // Next defined action for a controller/key with that note value (NULL for end of list)
 };
 
-struct _MidiCommandsTable {
+struct {
    struct desc *desc[128];    // description for Note On/Off and ControllerChange
    struct desc *pitch;        // description for PitchChanges
-};
-
-extern struct _MidiCommandsTable MidiCommandsTable;
+} MidiCommandsTable;
 
 //
 // Layer-1 entry point, called once for all the MIDI devices
@@ -238,5 +232,3 @@ int MIDIstartup();
 //
 
 void DoTheMidi(enum MIDIaction code, enum MIDItype type, int val);
-
-#endif

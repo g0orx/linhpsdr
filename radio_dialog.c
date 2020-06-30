@@ -1067,9 +1067,8 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   GtkWidget *smeter_label=gtk_label_new(" S-Meter:");
   gtk_grid_attach(GTK_GRID(calibration_grid),smeter_label,0,1,1,1);
 
-  GtkWidget *smeter_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-100.0, 100.0, 1.00);
+  GtkWidget *smeter_scale=gtk_scale_new(GTK_ORIENTATION_HORIZONTAL,gtk_adjustment_new(radio->meter_calibration, -100.0, 100.0, 1.0, 1.0, 1.0));
   gtk_widget_set_size_request(smeter_scale,200,30);
-  gtk_range_set_value (GTK_RANGE(smeter_scale),radio->meter_calibration);
   gtk_widget_show(smeter_scale);
   g_signal_connect(G_OBJECT(smeter_scale),"value_changed",G_CALLBACK(smeter_calibrate_changed_cb),radio);
   gtk_grid_attach(GTK_GRID(calibration_grid),smeter_scale,1,1,1,1);
@@ -1077,7 +1076,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   GtkWidget *panadapter_label=gtk_label_new(" Panadapter:");
   gtk_grid_attach(GTK_GRID(calibration_grid),panadapter_label,0,2,1,1);
 
-  GtkWidget *panadapter_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-100.0, 100.0, 1.00);
+ GtkWidget *panadapter_scale=gtk_scale_new(GTK_ORIENTATION_HORIZONTAL,gtk_adjustment_new(radio->panadapter_calibration, -100.0, 100.0, 1.0, 1.0, 1.0));
   gtk_widget_set_size_request(panadapter_scale,200,30);
   gtk_range_set_value (GTK_RANGE(panadapter_scale),radio->panadapter_calibration);
   gtk_widget_show(panadapter_scale);

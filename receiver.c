@@ -802,7 +802,11 @@ void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only,gboolean round) {
         } else {
           rx->frequency_b=rx->frequency_b+hz;
         }
-        if(!b_only) receiver_move_a(rx,hz,round);
+        if(!b_only) {
+          receiver_move_a(rx,hz,round);
+          frequency_changed(rx);
+          update_frequency(rx);
+        }
         break;
       case SPLIT_RSAT:
         if(round) {
@@ -810,13 +814,19 @@ void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only,gboolean round) {
         } else {
           rx->frequency_b=rx->frequency_b-hz;
         }
-        if(!b_only) receiver_move_a(rx,-hz,round);
+        if(!b_only) {
+          receiver_move_a(rx,-hz,round);
+          frequency_changed(rx);
+          update_frequency(rx);
+        }
         break;
     }
   
     if(rx->subrx_enable) {
       // dont allow frequency outside of passband
     }
+
+
   }
 }
 
@@ -1398,7 +1408,7 @@ void receiver_init_analyzer(RECEIVER *rx) {
     double span_min_freq = 0.0;
     double span_max_freq = 0.0;
 
-g_print("receiver_init_analyzer: channel=%d zoom=%d pixels=%d pixel_samples=%p pan=%d\n",rx->channel,rx->zoom,rx->pixels,rx->pixel_samples,rx->pan);
+//g_print("receiver_init_analyzer: channel=%d zoom=%d pixels=%d pixel_samples=%p pan=%d\n",rx->channel,rx->zoom,rx->pixels,rx->pixel_samples,rx->pan);
 
   if(rx->pixel_samples!=NULL) {
 //g_print("receiver_init_analyzer: g_free: channel=%d pixel_samples=%p\n",rx->channel,rx->pixel_samples);
@@ -1407,14 +1417,13 @@ g_print("receiver_init_analyzer: channel=%d zoom=%d pixels=%d pixel_samples=%p p
   }
   if(rx->pixels>0) {
     rx->pixel_samples=g_new0(float,rx->pixels);
-g_print("receiver_init_analyzer: g_new0: channel=%d pixel_samples=%p\n",rx->channel,rx->pixel_samples);
     rx->hz_per_pixel=(gdouble)rx->sample_rate/(gdouble)rx->pixels;
 
     int max_w = fft_size + (int) fmin(keep_time * (double) rx->fps, keep_time * (double) fft_size * (double) rx->fps);
 
     //overlap = (int)max(0.0, ceil(fft_size - (double)rx->sample_rate / (double)rx->fps));
 
-g_print("SetAnalyzer id=%d buffer_size=%d fft_size=%d overlap=%d\n",rx->channel,rx->buffer_size,fft_size,overlap);
+//g_print("SetAnalyzer id=%d buffer_size=%d fft_size=%d overlap=%d\n",rx->channel,rx->buffer_size,fft_size,overlap);
 
 
     SetAnalyzer(rx->channel,
@@ -1442,6 +1451,7 @@ g_print("SetAnalyzer id=%d buffer_size=%d fft_size=%d overlap=%d\n",rx->channel,
 }
 
 void receiver_change_zoom(RECEIVER *rx,int zoom) {
+g_print("%s: %d\n",__FUNCTION__,zoom);
   rx->zoom=zoom;
   rx->pixels=rx->panadapter_width*rx->zoom;
   if(rx->zoom==1) {
@@ -1814,7 +1824,7 @@ g_print("receiver_change_sample_rate: resample_step=%d\n",rx->resample_step);
         gint paned_height=gtk_widget_get_allocated_height(rx->vpaned);
         gint position=(gint)((double)paned_height*rx->paned_percent);
         gtk_paned_set_position(GTK_PANED(rx->vpaned),position);
-g_print("receiver_configure_event: gtk_paned_set_position: rx=%d position=%d height=%d percent=%f\n",rx->channel,position,paned_height,rx->paned_percent);
+//g_print("receiver_configure_event: gtk_paned_set_position: rx=%d position=%d height=%d percent=%f\n",rx->channel,position,paned_height,rx->paned_percent);
       }
     }
 

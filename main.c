@@ -438,6 +438,7 @@ gboolean start_cb(GtkWidget *widget,gpointer data) {
 
     g_print("starting %s\n",title);
     gdk_window_set_cursor(gtk_widget_get_window(main_window),gdk_cursor_new(GDK_WATCH));
+    gtk_widget_set_name(main_window,"receiver-window");
     gtk_window_set_title(GTK_WINDOW (main_window),title);
     while(gtk_events_pending()) gtk_main_iteration();
 

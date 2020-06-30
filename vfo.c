@@ -80,8 +80,7 @@ static int get_step(gint64 step) {
   return 4; // 100Hz
 }
 
-static void a2b_cb(GtkButton *widget,gpointer user_data) {
-  RECEIVER *rx=(RECEIVER *)user_data;
+void vfo_a2b(RECEIVER *rx) {
   int m=rx->mode_b;
   int f=rx->filter_b;
   rx->band_b=rx->band_a;
@@ -103,8 +102,12 @@ static void a2b_cb(GtkButton *widget,gpointer user_data) {
   update_vfo(rx);
 }
 
-static void b2a_cb(GtkButton *widget,gpointer user_data) {
+static void a2b_cb(GtkButton *widget,gpointer user_data) {
   RECEIVER *rx=(RECEIVER *)user_data;
+  vfo_a2b(rx);
+}
+
+void vfo_b2a(RECEIVER *rx) {
   int m=rx->mode_a;
   int f=rx->filter_a;
   rx->band_a=rx->band_b;
@@ -124,8 +127,12 @@ static void b2a_cb(GtkButton *widget,gpointer user_data) {
   update_vfo(rx);
 }
 
-static void aswapb_cb(GtkButton *widget,gpointer user_data) {
+static void b2a_cb(GtkButton *widget,gpointer user_data) {
   RECEIVER *rx=(RECEIVER *)user_data;
+  vfo_b2a(rx);
+}
+
+void vfo_aswapb(RECEIVER *rx) {
   gint temp_band;
   gint64 temp_frequency;
   gint temp_mode;
@@ -183,6 +190,11 @@ static void aswapb_cb(GtkButton *widget,gpointer user_data) {
   }
 
   update_vfo(rx);
+}
+
+static void aswapb_cb(GtkButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  vfo_aswapb(rx);
 }
 
 static void split_b_cb(GtkToggleButton *widget,gpointer user_data) {
@@ -1678,14 +1690,119 @@ void update_vfo(RECEIVER *rx) {
   gtk_button_set_label(GTK_BUTTON(v->filter_b),temp);
 
   // update NB button
+  if(rx->nb) {
+      gtk_button_set_label(GTK_BUTTON(v->nb_b),"NB");
+  } else if(rx->nb2) {
+      gtk_button_set_label(GTK_BUTTON(v->nb_b),"NB2");
+  } else {
+      gtk_button_set_label(GTK_BUTTON(v->nb_b),"NB");
+  }
+  g_signal_handlers_block_by_func(v->nb_b,G_CALLBACK(nb_b_pressed_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->nb_b),rx->nb|rx->nb2);
+  g_signal_handlers_unblock_by_func(v->nb_b,G_CALLBACK(nb_b_pressed_cb),rx);
+
   // update NR button
-  // update AGC button
-  // update RIT button
-  // update XIT button
-  // update CTUN button
-  // update DUP button
-  // update BPSK button
+  if(rx->nr) {
+      gtk_button_set_label(GTK_BUTTON(v->nr_b),"NR");
+  } else if(rx->nr2) {
+      gtk_button_set_label(GTK_BUTTON(v->nr_b),"NR2");
+  } else {
+      gtk_button_set_label(GTK_BUTTON(v->nr_b),"NR");
+  }
+  g_signal_handlers_block_by_func(v->nr_b,G_CALLBACK(nr_b_pressed_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->nr_b),rx->nr|rx->nr2);
+  g_signal_handlers_unblock_by_func(v->nr_b,G_CALLBACK(nr_b_pressed_cb),rx);
+
+  // update SNB button
+  g_signal_handlers_block_by_func(v->snb_b,G_CALLBACK(snb_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->snb_b),rx->snb);
+  g_signal_handlers_unblock_by_func(v->snb_b,G_CALLBACK(snb_b_cb),rx);
  
+  // update ANF button
+  g_signal_handlers_block_by_func(v->anf_b,G_CALLBACK(anf_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->anf_b),rx->anf);
+  g_signal_handlers_unblock_by_func(v->anf_b,G_CALLBACK(anf_b_cb),rx);
+ 
+  // update AGC button
+  switch(rx->agc) {
+    case AGC_OFF:
+      strcpy(temp,"AGC");
+      break;
+    case AGC_LONG:
+      strcpy(temp,"AGC LONG");
+      break;
+    case AGC_SLOW:
+      strcpy(temp,"AGC SLOW");
+      break;
+    case AGC_MEDIUM:
+      strcpy(temp,"AGC MED");
+      break;
+    case AGC_FAST:
+      strcpy(temp,"AGC FAST");
+      break;
+  }
+  gtk_button_set_label(GTK_BUTTON(v->agc_b),temp);
+  g_signal_handlers_block_by_func(v->agc_b,G_CALLBACK(agc_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->agc_b),rx->agc!=AGC_OFF);
+  g_signal_handlers_unblock_by_func(v->agc_b,G_CALLBACK(agc_cb),rx);
+
+  // update RIT button
+  g_signal_handlers_block_by_func(v->rit_b,G_CALLBACK(rit_b_press_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->rit_b),rx->rit_enabled);
+  g_signal_handlers_unblock_by_func(v->rit_b,G_CALLBACK(rit_b_press_cb),rx);
+
+  // update XIT button
+  if(radio->transmitter!=NULL && radio->transmitter->rx==rx) {
+    g_signal_handlers_block_by_func(v->xit_b,G_CALLBACK(xit_b_press_cb),rx);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->xit_b),radio->transmitter->xit_enabled);
+    g_signal_handlers_unblock_by_func(v->xit_b,G_CALLBACK(xit_b_press_cb),rx);
+  }
+
+  // update CTUN button
+  g_signal_handlers_block_by_func(v->ctun_b,G_CALLBACK(ctun_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->ctun_b),rx->ctun);
+  g_signal_handlers_unblock_by_func(v->ctun_b,G_CALLBACK(ctun_b_cb),rx);
+
+  // update DUP button
+  g_signal_handlers_block_by_func(v->dup_b,G_CALLBACK(dup_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->dup_b),rx->duplex);
+  g_signal_handlers_unblock_by_func(v->dup_b,G_CALLBACK(dup_b_cb),rx);
+
+  // update BPSK button
+  g_signal_handlers_block_by_func(v->bpsk_b,G_CALLBACK(bpsk_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->bpsk_b),rx->bpsk_enable);
+  g_signal_handlers_unblock_by_func(v->bpsk_b,G_CALLBACK(bpsk_b_cb),rx);
+ 
+  // update ZOOM button
+  sprintf(temp,"ZOOM x%d",rx->zoom);
+  gtk_button_set_label(GTK_BUTTON(v->zoom_b),temp);
+
+  // update STEP button
+  sprintf(temp,"STEP %s",step_labels[get_step(rx->step)]);
+  gtk_button_set_label(GTK_BUTTON(v->step_b),temp);
+
+  // update SPLIT button
+  switch(rx->split) {
+     case SPLIT_OFF:
+     case SPLIT_ON:
+       gtk_button_set_label(GTK_BUTTON(v->split_b),"SPLIT");
+       break;
+     case SPLIT_SAT:
+       gtk_button_set_label(GTK_BUTTON(v->split_b),"SAT");
+       break;
+     case SPLIT_RSAT:
+       gtk_button_set_label(GTK_BUTTON(v->split_b),"RSAT");
+       break;
+  }
+  g_signal_handlers_block_by_func(v->split_b,G_CALLBACK(split_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->split_b),rx->split!=SPLIT_OFF);
+  g_signal_handlers_unblock_by_func(v->split_b,G_CALLBACK(split_b_cb),rx);
+
+  // SUBRX button
+  g_signal_handlers_block_by_func(v->subrx_b,G_CALLBACK(subrx_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->subrx_b),FALSE);
+  g_signal_handlers_unblock_by_func(v->subrx_b,G_CALLBACK(subrx_b_cb),rx);
+
 }
 
 

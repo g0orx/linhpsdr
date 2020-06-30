@@ -165,6 +165,8 @@ GtkWidget *create_radio_info_visual(RECEIVER *rx) {
   return info->radio_info;
 }
 
+extern int midi_rx;
+
 void update_radio_info(RECEIVER *rx) {
 
 
@@ -183,7 +185,7 @@ void update_radio_info(RECEIVER *rx) {
 
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->swr_b),radio->transmitter->swr>radio->swr_alarm_value);
 
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->midi_b),radio->midi!=0);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->midi_b),radio->midi && (radio->receiver[midi_rx]->channel==rx->channel));
 
 #ifdef CWDAEMON
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->cwdaemon_b),radio->cwdaemon);

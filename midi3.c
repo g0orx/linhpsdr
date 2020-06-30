@@ -12,10 +12,9 @@
  */
 #include <gtk/gtk.h>
 
-// All the following needed to access radio setting? 
-// TODO: look more closely if anything can be removed from the list
 #include "band.h"
 #include "channel.h"
+#include "agc.h"
 #include "discovered.h"
 #include "bpsk.h"
 #include "mode.h"
@@ -39,73 +38,65 @@
 #include <libcw.h>
 #endif
 
+int midi_rx;
 
-void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
+typedef struct _action {
+  enum MIDIaction action;
+  enum MIDItype type;
+  int val;
+} ACTION;
+
+static int midi_action(void *data) {
+    ACTION *a=(ACTION*)data;
+    enum MIDIaction action=a->action;
+    enum MIDItype type=a->type;
+    int val=a->val;
 
     int new;
     double dnew;
     double *dp;
     int    *ip;
-    
+    RECEIVER *rx=radio->receiver[midi_rx];
+
+    g_print("%s: action=%d type=%d val=%d\n",__FUNCTION__,action,type,val);
     //
     // Handle cases in alphabetical order of the key words in midi.props
     //
     switch (action) {
-      
-      	case CWR: // CW straight key
-          #ifdef CWDAEMON        
-          // CWdaemon must be running to produce the sidetone
-          if (radio->cwdaemon_running == TRUE) {
-            if (val) {
-              keysidetone = 1;
-              g_mutex_lock(&cwdaemon_mutex); 
-              keytx = true;
-              g_mutex_unlock(&cwdaemon_mutex);  
-            }
-            else {
-              keysidetone = 0;        
-              g_mutex_lock(&cwdaemon_mutex); 
-              keytx = false;               
-              g_mutex_unlock(&cwdaemon_mutex);  
-            }
-            cw_notify_straight_key_event(keysidetone); 
-          }
-          #endif
-          break;
-          // TODO: add dit dah and use unixcw built in iambic keyer
-      /*
 	/////////////////////////////////////////////////////////// "A2B"
 	case VFO_A2B: // only key supported
 	    if (type == MIDI_KEY) {
-	      g_idle_add(ext_vfo_a_to_b, NULL);
+              vfo_a2b(rx);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "AFGAIN"
 	case MIDI_AF_GAIN: // knob or wheel supported
             switch (type) {
 	      case MIDI_KNOB:
-		active_receiver->volume = 0.01*val;
+		rx->volume = 0.01*val;
 		break;
 	      case MIDI_WHEEL:	
-		dnew=active_receiver->volume += 0.01*val;
+		dnew=rx->volume += 0.01*val;
 		if (dnew < 0.0) dnew=0.0; if (dnew > 1.0) dnew=1.0;
-		active_receiver->volume = dnew;
+		rx->volume = dnew;
 		break;
 	      default:
 		// do not change volume
 		// we should not come here anyway
 		break;
 	    }
-	    g_idle_add(ext_update_af_gain, NULL);
+	    receiver_set_volume(rx);
+	    update_vfo(rx);
 	    break;
 	/////////////////////////////////////////////////////////// "AGCATTACK"
 	case AGCATTACK: // only key supported
 	    // cycle through fast/med/slow AGC attack
 	    if (type == MIDI_KEY) {
-	      new=active_receiver->agc + 1;
+	      new=rx->agc + 1;
 	      if (new > AGC_FAST) new=0;
-	      active_receiver->agc=new;
-	      g_idle_add(ext_vfo_update, NULL);
+	      rx->agc=new;
+	      set_agc(rx);
+	      update_vfo(rx);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "AGCVAL"
@@ -115,25 +106,27 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 		dnew = -20.0 + 1.4*val;
 		break;
 	      case MIDI_WHEEL:
-		dnew=active_receiver->agc_gain + val;
+		dnew=rx->agc_gain + val;
 		if (dnew < -20.0) dnew=-20.0; if (dnew > 120.0) dnew=120.0;
 		break;
 	      default:
 		// do not change value
 		// we should not come here anyway
-		dnew=active_receiver->agc_gain;
+		dnew=rx->agc_gain;
 		break;
 	    }
-	    dp=malloc(sizeof(double));
-	    *dp=dnew;
-	    g_idle_add(ext_set_agc_gain, (gpointer) dp);
+	    rx->agc_gain=dnew;
+            receiver_set_agc_gain(rx);
+	    update_vfo(rx);
 	    break;
 	/////////////////////////////////////////////////////////// "ANF"
 	case ANF:	// only key supported
 	    if (type == MIDI_KEY) {
-	      g_idle_add(ext_anf_update, NULL);
-	    }
+                rx->anf=!rx->anf;
+                update_noise(rx);
+            }
 	    break;
+/*
 	/////////////////////////////////////////////////////////// "ATT"
 	case ATT:	// Key for ALEX attenuator, wheel or knob for slider
 	    switch(type) {
@@ -179,15 +172,16 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 		break;
 	    }
 	    break;
+*/
 	/////////////////////////////////////////////////////////// "B2A"
 	case VFO_B2A: // only key supported
 	    if (type == MIDI_KEY) {
-	      g_idle_add(ext_vfo_b_to_a, NULL);
-	    }
+              vfo_b2a(rx);
+            }
 	    break;
 	/////////////////////////////////////////////////////////// "BANDDOWN"
 	/////////////////////////////////////////////////////////// "BANDUP"
-	case BAND_DOWN:
+        case BAND_DOWN:
 	case BAND_UP:
 	    switch (type) {
 	      case MIDI_KEY:
@@ -198,7 +192,7 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 		break;
 	      case MIDI_KNOB:
 		// cycle through the bands
-		new = ((BANDS-1) * val) / 100 - vfo[active_receiver->id].band;
+		new = ((BANDS-1) * val) / 100 - rx->band_a;
 		break;
 	      default:
 		// do not change
@@ -210,13 +204,20 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 	    // If the band has not changed, do nothing. Otherwise
 	    // vfo.c will loop through the band stacks
 	    //
-	    if (new != 0) {
-	      new+=vfo[active_receiver->id].band;
-	      if (new >= BANDS) new=0;
-	      if (new < 0) new=BANDS-1;
-	      g_idle_add(ext_vfo_band_changed, GINT_TO_POINTER(new));
+	    switch(new) {
+	      case -1:
+	        set_band(rx,previous_band(rx->band_a));
+		update_vfo(rx);
+		break;
+	      case 0:
+	        break;
+	      case 1:
+	        set_band(rx,next_band(rx->band_a));
+		update_vfo(rx);
+		break;
 	    }
 	    break;
+/*
 	/////////////////////////////////////////////////////////// "COMPRESS"
 	case COMPRESS: // wheel or knob
 	    switch (type) {
@@ -240,19 +241,22 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 	    if (dnew > 0.5) transmitter->compressor=1;
 	    g_idle_add(ext_set_compression, NULL);
 	    break;
+*/
 	/////////////////////////////////////////////////////////// "CTUN"
 	case MIDI_CTUN: // only key supported
 	    // toggle CTUN
 	    if (type == MIDI_KEY) {
-	      g_idle_add(ext_ctun_update, NULL);
+	         rx->ctun=!rx->ctun;
+                 receiver_set_ctun(rx);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "CURRVFO"
 	case VFO: // only wheel supported
-	    if (type == MIDI_WHEEL && !locked) {
-		g_idle_add(ext_vfo_step, GINT_TO_POINTER(val));
-	    }
+	    if (type == MIDI_WHEEL && !rx->locked) {
+              receiver_move(rx,(long long)(rx->step*val),TRUE);
+            }
 	    break;
+/*
 	/////////////////////////////////////////////////////////// "CWL"
 	/////////////////////////////////////////////////////////// "CWR"
 	case CWL: // only key
@@ -370,11 +374,12 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
                 g_idle_add(ext_vfo_update, NULL);
             }
             break;
+*/
 	/////////////////////////////////////////////////////////// "DUP"
         case MIDI_DUP:
-	    if (can_transmit && !isTransmitting()) {
-	      duplex=duplex==1?0:1;
-              g_idle_add(ext_set_duplex, NULL);
+	    if (radio->can_transmit && !isTransmitting(radio)) {
+              rx->duplex=!rx->duplex;
+	      update_vfo(rx);
 	    }
             break;
 	/////////////////////////////////////////////////////////// "FILTERDOWN"
@@ -394,7 +399,7 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 		break;
 	      case MIDI_KNOB:
 		// cycle through all the filters: val=100 maps to filter #0
-		new = ((FILTERS-1) * (val-100)) / 100 - vfo[active_receiver->id].filter;
+		new = ((FILTERS-1) * (val-100)) / 100 - rx->filter_a;
 		break;
 	      default:
 		// do not change filter setting
@@ -403,17 +408,17 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 		break;
 	    }
 	    if (new != 0) {
-	      new+=vfo[active_receiver->id].filter;
+	      new+=rx->filter_a;
 	      if (new >= FILTERS) new=0;
 	      if (new <0) new=FILTERS-1;
-	      g_idle_add(ext_vfo_filter_changed, GINT_TO_POINTER(new));
+	      receiver_filter_changed(rx,new);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "LOCK"
 	case MIDI_LOCK: // only key supported
 	    if (type == MIDI_KEY) {
-	      locked=!locked;
-	      g_idle_add(ext_vfo_update, NULL);
+	      rx->locked=!rx->locked;
+	      update_vfo(rx);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "MICGAIN"
@@ -424,18 +429,17 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 		dnew=-10.0 + 0.6*val;
 		break;
 	      case MIDI_WHEEL:
-		dnew = mic_gain + val;
+		dnew = radio->transmitter->mic_gain + val;
 		if (dnew < -10.0) dnew=-10.0; if (dnew > 50.0) dnew=50.0;
 		break;
 	      default:
 		// do not change mic gain
 		// we should not come here anyway
-		dnew = mic_gain;
+		dnew = radio->transmitter->mic_gain;
 		break;
 	    }
-	    dp=malloc(sizeof(double));
-	    *dp=dnew;
-	    g_idle_add(ext_set_mic_gain, (gpointer) dp);
+	    radio->transmitter->mic_gain=dnew;
+	    update_radio(radio);
 	    break;
 	/////////////////////////////////////////////////////////// "MODEDOWN"
 	/////////////////////////////////////////////////////////// "MODEUP"
@@ -450,7 +454,7 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 		break;
 	      case MIDI_KNOB:
 		// cycle through all the modes
-		new = ((MODES-1) * val) / 100 - vfo[active_receiver->id].mode;
+		new = ((MODES-1) * val) / 100 - rx->mode_a;
 		break;
 	      default:
 		// do not change
@@ -459,68 +463,80 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 		break;
 	    }
 	    if (new != 0) {
-	      new+=vfo[active_receiver->id].mode;
+	      new+=rx->mode_a;
 	      if (new >= MODES) new=0;
 	      if (new <0) new=MODES-1;
-	      g_idle_add(ext_vfo_mode_changed, GINT_TO_POINTER(new));
+	      receiver_mode_changed(rx,new);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "MOX"
 	case MIDI_MOX: // only key supported
-	    if (type == MIDI_KEY && can_transmit) {
-	        new = !mox;
-		g_idle_add(ext_mox_update, GINT_TO_POINTER(new));
+	    if (type == MIDI_KEY && radio->can_transmit) {
+	        new = !radio->mox;
+		set_mox(radio,new);
 	    }
 	    break;    
+/*
         /////////////////////////////////////////////////////////// "MUTE"
         case MIDI_MUTE:
             if (type == MIDI_KEY) {
               g_idle_add(ext_mute_update,NULL);
 	    }
             break;
+*/
 	/////////////////////////////////////////////////////////// "NOISEBLANKER"
 	case MIDI_NB: // only key supported
 	    // cycle through NoiseBlanker settings: OFF, NB, NB2
             if (type == MIDI_KEY) {
-	      if (active_receiver->nb) {
-		active_receiver->nb = 0;
-		active_receiver->nb2= 1;
-	      } else if (active_receiver->nb2) {
-		active_receiver->nb = 0;
-		active_receiver->nb2= 0;
+	      if (rx->nb) {
+		rx->nb = FALSE;
+		rx->nb2= TRUE;
+	      } else if (rx->nb2) {
+		rx->nb = FALSE;
+		rx->nb2= FALSE;
 	      } else {
-		active_receiver->nb = 1;
-		active_receiver->nb2= 0;
+		rx->nb = TRUE;
+		rx->nb2= FALSE;
 	      }
-	      g_idle_add(ext_vfo_update, NULL);
+	      update_noise(rx);
+	      g_print("%s: MIDI_NB nb=%d nb2=%d\n",__FUNCTION__,rx->nb,rx->nb2);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "NOISEREDUCTION"
 	case MIDI_NR: // only key supported
 	    // cycle through NoiseReduction settings: OFF, NR1, NR2
 	    if (type == MIDI_KEY) {
-	      if (active_receiver->nr) {
-		active_receiver->nr = 0;
-		active_receiver->nr2= 1;
-	      } else if (active_receiver->nr2) {
-		active_receiver->nr = 0;
-		active_receiver->nr2= 0;
+	      if (rx->nr) {
+		rx->nr = FALSE;
+		rx->nr2= TRUE;
+	      } else if (rx->nr2) {
+		rx->nr = FALSE;
+		rx->nr2= FALSE;
 	      } else {
-		active_receiver->nr = 1;
-		active_receiver->nr2= 0;
+		rx->nr = TRUE;
+		rx->nr2= FALSE;
 	      }
-	      g_idle_add(ext_update_noise, NULL);
-	      g_idle_add(ext_vfo_update, NULL);
+	      update_noise(rx);
+	      g_print("%s: MIDI_NR nr=%d nr2=%d\n",__FUNCTION__,rx->nr,rx->nr2);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "PAN"
         case MIDI_PAN:  // wheel and knob
 	    switch (type) {
               case MIDI_WHEEL:
-                g_idle_add(ext_pan_update,GINT_TO_POINTER(val));
+		// val = +1 or -1
+		new=rx->pan+(rx->zoom*val);
+		if(new<0) {
+		  new=0;
+		} else if(new>(rx->pixels-rx->panadapter_width)) {
+	          new=rx->pixels-rx->panadapter_width;
+		}
+	        rx->pan=new;
                 break;
 	      case MIDI_KNOB:
-                g_idle_add(ext_pan_set,GINT_TO_POINTER(val));
+		// val = 0..100
+	        new=(int)(((double)(rx->pixels-rx->panadapter_width)/100.0)*(double)val);
+	        rx->pan=new;
                 break;
 	      default:
 		// no action for keys (we should not come here anyway)
@@ -531,20 +547,20 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 	case PAN_HIGH:  // wheel or knob
 	    switch (type) {
 	      case MIDI_WHEEL:
-		if (mox) {
+		if (radio->can_transmit && !isTransmitting(radio)) {
 		    // TX panadapter affected
-		    transmitter->panadapter_high += val;
+		    radio->transmitter->panadapter_high += val;
 		} else {
-		    active_receiver->panadapter_high += val;
+		    rx->panadapter_high += val;
 		}
 		break;
 	    case MIDI_KNOB:
 		// Adjust "high water" in the range -50 ... 0 dBm
 		new = -50 + val/2;
-		if (mox) {
-		    transmitter->panadapter_high = new;
+		if (radio->can_transmit && !isTransmitting(radio)) {
+		    radio->transmitter->panadapter_high += val;
 		} else {
-		    active_receiver->panadapter_high = new;
+		    rx->panadapter_high = new;
 		}
 		break;
 	      default:
@@ -552,28 +568,27 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 		// we should not come here anyway
 		break;
 	    }
-	    g_idle_add(ext_vfo_update, NULL);
 	    break;
 	/////////////////////////////////////////////////////////// "PANLOW"
 	case PAN_LOW:  // wheel and knob
 	    switch (type) {
 	      case MIDI_WHEEL:
-		if (isTransmitting()) {
+		if (radio->can_transmit && !isTransmitting(radio)) {
 		    // TX panadapter affected
-		    transmitter->panadapter_low += val;
+		    radio->transmitter->panadapter_low += val;
 		} else {
-		    active_receiver->panadapter_low += val;
+		    rx->panadapter_low += val;
 		}
 		break;
 	      case MIDI_KNOB:
-		if (isTransmitting()) {
+		if (radio->can_transmit && !isTransmitting(radio)) {
 		    // TX panadapter: use values -100 through -50
 		    new = -100 + val/2;
-		    transmitter->panadapter_low =new;
+		    radio->transmitter->panadapter_low =new;
 		} else {
 		    // RX panadapter: use values -140 through -90
 		    new = -140 + val/2;
-		    active_receiver->panadapter_low = new;
+		    rx->panadapter_low = new;
 		}
 		break;
 	      default:
@@ -581,39 +596,11 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 		// we should not come here anyway
 		break;
 	    }
-	    g_idle_add(ext_vfo_update, NULL);
 	    break;
+/*
 	/////////////////////////////////////////////////////////// "PREAMP"
 	case PRE:	// only key supported
 	    if (type == MIDI_KEY) {
-		//
-		// Normally on/off, but for CHARLY25, cycle through three
-		// possible states. Current HPSDR hardware does no have
-		// switch'able preamps.
-		//
-		int c25= (filter_board == CHARLY25);
-		new = active_receiver->preamp + active_receiver->dither;
-		new++;
-		if (c25) {
-		  if (new >2) new=0;
-		} else {
-		  if (new >1) new=0;
-		}
-		switch (new) {
-		    case 0:
-			active_receiver->preamp=0;
-			if (c25) active_receiver->dither=0;
-			break;
-		    case 1:
-			active_receiver->preamp=1;
-			if (c25) active_receiver->dither=0;
-			break;
-		    case 2:
-			active_receiver->preamp=1;
-			if (c25) active_receiver->dither=1;
-			break;
-		}
-		g_idle_add(ext_update_att_preamp, NULL);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "PURESIGNAL"
@@ -655,13 +642,15 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 	    *dp=dnew;
 	    g_idle_add(ext_set_drive, (gpointer) dp);
 	    break;
+*/
 	/////////////////////////////////////////////////////////// "RITCLEAR"
 	case MIDI_RIT_CLEAR:	  // only key supported
 	    if (type == MIDI_KEY) {
 	      // clear RIT value
-	      vfo[active_receiver->id].rit = new;
-	      g_idle_add(ext_vfo_update, NULL);
+	      rx->rit=0;
+	      update_vfo(rx);
 	    }
+/*
 	/////////////////////////////////////////////////////////// "RITSTEP"
         case RIT_STEP: // key or wheel supported
             // This cycles between RIT increments 1, 10, 100, 1, 10, 100, ...
@@ -669,7 +658,7 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
               case MIDI_KEY:
                 // key cycles through in upward direction
                 val=1;
-                // FALLTHROUGH 
+                // FALLTHROUGH
               case MIDI_WHEEL:
                 // wheel cycles upward or downward
                 if (val > 0) {
@@ -684,32 +673,39 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
                 // do nothing
                 break;
             }
-            g_idle_add(ext_vfo_update, NULL);
+	    update_vfo(rx);
             break;
+*/
 	/////////////////////////////////////////////////////////// "RITTOGGLE"
 	case RIT_TOGGLE:  // only key supported
 	    if (type == MIDI_KEY) {
 		// enable/disable RIT
-		new=vfo[active_receiver->id].rit_enabled;
-		vfo[active_receiver->id].rit_enabled = new ? 0 : 1;
-	        g_idle_add(ext_vfo_update, NULL);
+		new=rx->rit_enabled;
+		rx->rit_enabled = new ? FALSE : TRUE;
+		update_vfo(rx);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "RITVAL"
 	case RIT_VAL:	// wheel or knob
 	    switch (type) {
 	      case MIDI_WHEEL:
-		// This changes the RIT value incrementally,
-	  	// but we restrict the change to +/ 9.999 kHz
-		new = vfo[active_receiver->id].rit + val*rit_increment;
-		if (new >  9999) new= 9999;
-		if (new < -9999) new=-9999;
-		vfo[active_receiver->id].rit = new;
+		if(rx->mode_a==CWL || rx->mode_a==CWU) {
+                  new=rx->rit=10*val;
+                } else {
+                  new=rx->rit=50*val;
+                }
+		if (new >  10000) new= 10000;
+		if (new < -10000) new=-10000;
+		rx->rit = new;
 		break;
 	      case MIDI_KNOB:
 	 	// knob: adjust in the range +/ 50*rit_increment
-		new = (val-50) * rit_increment;
-		vfo[active_receiver->id].rit = new;
+		if(rx->mode_a==CWL || rx->mode_a==CWU) {
+                  new=10*(val-50);
+                } else {
+                  new=rx->rit=50*(val-50);
+                }
+		rx->rit = new;
 		break;
 	      default:
 		// do nothing
@@ -717,71 +713,83 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 		break;
 	    }
 	    // enable/disable RIT according to RIT value
-	    vfo[active_receiver->id].rit_enabled = (vfo[active_receiver->id].rit == 0) ? 0 : 1;
-	    g_idle_add(ext_vfo_update, NULL);
+	    rx->rit_enabled = (rx->rit == 0) ? FALSE : TRUE;
+	    update_vfo(rx);
 	    break;
 	/////////////////////////////////////////////////////////// "SAT"
         case MIDI_SAT:
-	    switch (sat_mode) {
-		case SAT_NONE:
-		  sat_mode=SAT_MODE;
+	    switch (rx->split) {
+		case SPLIT_OFF:
+		  rx->split=SPLIT_SAT;
 		  break;
-		case SAT_MODE:
-		  sat_mode=RSAT_MODE;
+		case SPLIT_SAT:
+		  rx->split=SPLIT_RSAT;
 		  break;
-		case RSAT_MODE:
+		case SPLIT_RSAT:
 		default:
-		  sat_mode=SAT_NONE;
+		  rx->split=SPLIT_OFF;
 		  break;
 	    }
-	    g_idle_add(ext_vfo_update, NULL);
+	    update_vfo(rx);
             break;
 	/////////////////////////////////////////////////////////// "SNB"
 	case SNB:	// only key supported
 	    if (type == MIDI_KEY) {
-	      g_idle_add(ext_snb_update, NULL);
+		rx->snb=!rx->snb;
+	        update_noise(rx);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "SPLIT"
 	case MIDI_SPLIT: // only key supported
 	    // toggle split mode
-	    if (type == MIDI_KEY) {
-              g_idle_add(ext_split_toggle, NULL);
-	    }
+	    if(rx->split==SPLIT_OFF) {
+	      rx->split=SPLIT_ON;
+	      transmitter_set_mode(radio->transmitter,rx->mode_b);
+            } else {
+	      rx->split=SPLIT_OFF;
+	      transmitter_set_mode(radio->transmitter,rx->mode_a);
+            }
+	    update_vfo(rx);
 	    break;
-	/////////////////////////////////////////////////////////// "SWAPRX"
 	case SWAP_RX:	// only key supported
-	    if (type == MIDI_KEY && receivers == 2) {
-		new=active_receiver->id;	// 0 or 1
-		new= (new == 1) ? 0 : 1;	// id of currently inactive receiver
-		active_receiver=receiver[new];
-		g_idle_add(menu_active_receiver_changed,NULL);
-		g_idle_add(ext_vfo_update,NULL);
-		g_idle_add(sliders_active_receiver_changed,NULL);
+	    if (type == MIDI_KEY && radio->receivers > 1) {
+		new=midi_rx+1;
+		if(new==MAX_RECEIVERS) new=0;
+		while(radio->receiver[new]==NULL) {
+	  	    new++;
+		    if(new==MAX_RECEIVERS) new=0;
+	        }
+		midi_rx=new;
+		update_vfo(rx);
+		rx=radio->receiver[midi_rx];
+		update_vfo(rx);
 	    }
 	    break;    
 	/////////////////////////////////////////////////////////// "SWAPVFO"
 	case SWAP_VFO:	// only key supported
 	    if (type == MIDI_KEY) {
-		g_idle_add(ext_vfo_a_swap_b,NULL);
+		vfo_aswapb(rx);
 	    }
 	    break;    
 	/////////////////////////////////////////////////////////// "TUNE"
 	case MIDI_TUNE: // only key supported
-	    if (type == MIDI_KEY && can_transmit) {
-	        new = !tune;
-		g_idle_add(ext_tune_update, GINT_TO_POINTER(new));
+	    if (type == MIDI_KEY && radio->can_transmit) {
+	        new = !radio->tune;
+		set_tune(radio,new);
 	    }
 	    break;    
 	/////////////////////////////////////////////////////////// "VFOA"
 	/////////////////////////////////////////////////////////// "VFOB"
 	case VFOA: // only wheel supported
+	    g_print("%s: VFOA %d\n",__FUNCTION__,val);
+	    if (type == MIDI_WHEEL && !rx->locked) {
+              receiver_move(rx,(long long)(rx->step*val),TRUE);
+	    }
+	    break;
 	case VFOB: // only wheel supported
-	    if (type == MIDI_WHEEL && !locked) {
-	        ip=malloc(2*sizeof(int));
-		*ip = (action == VFOA) ? 0 : 1;   // could use (action - VFOA) to support even more VFOs
-		*(ip+1)=val;
-		g_idle_add(ext_vfo_id_step, ip);
+	    g_print("%s: VFOB %d\n",__FUNCTION__,val);
+	    if (type == MIDI_WHEEL && !rx->locked) {
+              receiver_move_b(rx,(long long)(rx->step*val),FALSE,TRUE);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "VFOSTEPDOWN"
@@ -791,11 +799,11 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 	    switch (type) {
 	      case MIDI_KEY:
 		new =  (action == VFO_STEP_UP) ? 1 : -1;
-		g_idle_add(ext_update_vfo_step, GINT_TO_POINTER(new));
+		receiver_move(rx,rx->step*new,TRUE);
 		break;
 	      case MIDI_WHEEL:
 		new = (val > 0) ? 1 : -1;
-		g_idle_add(ext_update_vfo_step, GINT_TO_POINTER(new));
+		receiver_move(rx,rx->step*new,TRUE);
 		break;
 	      default:
 		// do nothing
@@ -807,8 +815,8 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
 	case VOX: // only key supported
 	    // toggle VOX
 	    if (type == MIDI_KEY) {
-	      vox_enabled = !vox_enabled;
-	      g_idle_add(ext_vfo_update, NULL);
+	      radio->vox_enabled = !radio->vox_enabled;
+	      update_radio(radio);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "VOXLEVEL"
@@ -817,47 +825,56 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
               case MIDI_WHEEL:
                 // This changes the value incrementally,
                 // but stay within limits (0.0 through 1.0)
-                vox_threshold += (double) val * 0.01;
-		if (vox_threshold > 1.0) vox_threshold=1.0;
-		if (vox_threshold < 0.0) vox_threshold=0.0;
+                radio->vox_threshold += (double) val * 0.01;
+		if (radio->vox_threshold > 1.0) radio->vox_threshold=1.0;
+		if (radio->vox_threshold < 0.0) radio->vox_threshold=0.0;
+		update_radio(radio);
                 break;
               case MIDI_KNOB:
-                vox_threshold = 0.01 * (double) val;
+                radio->vox_threshold = 0.01 * (double) val;
+		update_radio(radio);
                 break;
               default:
                 // do nothing
                 // we should not come here anyway
                 break;
             }
-	    // VOX level not shown on screen, hence no VFO update
 	    break;
 	/////////////////////////////////////////////////////////// "XITCLEAR"
         case MIDI_XIT_CLEAR:  // only key supported
             if (type == MIDI_KEY) {
                 // this clears the XIT value and disables XIT
-                if(can_transmit) {
-                  transmitter->xit = 0;
-                  transmitter->xit_enabled = 0;
-                  g_idle_add(ext_vfo_update, NULL);
+		if (radio->can_transmit && !isTransmitting(radio)) {
+                  radio->transmitter->xit = 0;
+                  radio->transmitter->xit_enabled = 0;
+		  update_vfo(rx);
                 }
             }
             break;
 	/////////////////////////////////////////////////////////// "XITVAL"
         case XIT_VAL:   // wheel and knob supported.
-	    if (can_transmit) {
+	    if (radio->can_transmit && !isTransmitting(radio)) {
               switch (type) {
                 case MIDI_WHEEL:
                   // This changes the XIT value incrementally,
                   // but we restrict the change to +/ 9.999 kHz
-                  new = transmitter->xit + val*rit_increment;
-                  if (new >  9999) new= 9999;
-                  if (new < -9999) new=-9999;
-                  transmitter->xit = new;
+	          if(rx->mode_a==CWL || rx->mode_a==CWU) {
+                         new=radio->transmitter->xit=10*val;
+                  } else {
+                         new=radio->transmitter->xit=50*val;
+                  }
+                  if (new >  10000) new= 10000;
+                  if (new < -10000) new=-10000;
+                  radio->transmitter->xit = new;
                   break;
                 case MIDI_KNOB:
                   // knob: adjust in the range +/ 50*rit_increment
-                  new = (val-50) * rit_increment;
-                  transmitter->xit = new;
+	          if(rx->mode_a==CWL || rx->mode_a==CWU) {
+                         new=radio->transmitter->xit=10*(val-50);
+                  } else {
+                         new=radio->transmitter->xit=50*(val-50);
+                  }
+                  radio->transmitter->xit = new;
                   break;
                 default:
                   // do nothing
@@ -865,8 +882,8 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
                   break;
               }
               // enable/disable XIT according to XIT value
-              transmitter->xit_enabled = (transmitter->xit == 0) ? 0 : 1;
-              g_idle_add(ext_vfo_update, NULL);
+              radio->transmitter->xit_enabled = (radio->transmitter->xit == 0) ? FALSE : TRUE;
+	      update_vfo(rx);
 	    }
             break;
 	/////////////////////////////////////////////////////////// "ZOOM"
@@ -874,11 +891,17 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
             switch (type) {
               case MIDI_WHEEL:
 g_print("MIDI_ZOOM: MIDI_WHEEL: val=%d\n",val);
-                g_idle_add(ext_zoom_update,GINT_TO_POINTER(val));
+                if(val>=1 && val<=8) {
+		  receiver_change_zoom(rx,val);
+		  update_vfo(rx);
+		}
                 break;
               case MIDI_KNOB:
 g_print("MIDI_ZOOM: MIDI_KNOB: val=%d\n",val);
-                g_idle_add(ext_zoom_set,GINT_TO_POINTER(val));
+                if(val>=1 && val<=8) {
+		  receiver_change_zoom(rx,val);
+		  update_vfo(rx);
+		}
                 break;
 	      default:
 		// no action for keys (should not come here anyway)
@@ -891,12 +914,18 @@ g_print("MIDI_ZOOM: MIDI_KNOB: val=%d\n",val);
         case ZOOM_DOWN:  // key
 	    switch (type) {
 	      case MIDI_KEY:
-		new =  (action == ZOOM_UP) ? 1 : -1;
-                g_idle_add(ext_zoom_update,GINT_TO_POINTER(new));
+		new = rx->zoom+(action==ZOOM_UP?1:-1);
+	        if(new>=1 && new<=8) {
+		  receiver_change_zoom(rx,new);
+		  update_vfo(rx);
+		}
 		break;
 	      case MIDI_WHEEL:
-		new = (val > 0) ? 1 : -1;
-                g_idle_add(ext_zoom_update,GINT_TO_POINTER(new));
+		new = rx->zoom+(action==ZOOM_UP?1:-1);
+	        if(new>=1 && new<=8) {
+		  receiver_change_zoom(rx,new);
+		  update_vfo(rx);
+		}
 		break;
 	      default:
 		// do nothing
@@ -904,7 +933,6 @@ g_print("MIDI_ZOOM: MIDI_KNOB: val=%d\n",val);
 		break;
 	    }
             break;
-  */
 	case ACTION_NONE:
 	    // No error message, this is the "official" action for un-used controller buttons.
 	    break;
@@ -912,4 +940,49 @@ g_print("MIDI_ZOOM: MIDI_KNOB: val=%d\n",val);
 	    // This means we have forgotten to implement an action, so we inform on stderr.
 	    fprintf(stderr,"Unimplemented MIDI action: A=%d\n", (int) action);
     }
+    g_free(a);
+    return 0;
 }
+
+void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
+
+    //
+    // Handle cases in alphabetical order of the key words in midi.props
+    //
+    switch (action) {
+       case CWRIGHT: // CW straight key
+          #ifdef CWDAEMON
+          // CWdaemon must be running to produce the sidetone
+          if (radio->cwdaemon_running == TRUE) {
+            if (val) {
+              keysidetone = 1;
+              g_mutex_lock(&cwdaemon_mutex);
+              keytx = true;
+              g_mutex_unlock(&cwdaemon_mutex);
+            }
+            else {
+              keysidetone = 0;
+              g_mutex_lock(&cwdaemon_mutex);
+              keytx = false;
+              g_mutex_unlock(&cwdaemon_mutex);
+            }
+            cw_notify_straight_key_event(keysidetone);
+          }
+          #endif
+          break;
+        // TODO: add dit dah and use unixcw built in iambic keyer
+        default:
+          // all other actions are performed using g_idle_add
+          {
+    g_print("%s: action=%d type=%d val=%d\n",__FUNCTION__,action,type,val);
+          ACTION *a=g_new(ACTION,1);
+          a->action=action;
+          a->type=type;
+          a->val=val;
+          g_idle_add(midi_action,a);
+          }
+          break;
+    }
+}
+
+

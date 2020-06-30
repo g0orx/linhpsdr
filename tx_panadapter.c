@@ -270,7 +270,7 @@ void update_tx_panadapter(RADIO *r) {
       cairo_set_font_size(cr, 12);       
       SetColour(cr, TEXT_C);
       sprintf(text,"%2.0f degC",tx->temperature);
-      cairo_move_to(cr, 206, 157);
+      cairo_move_to(cr, 220, height-8);
       cairo_show_text(cr, text);
     }
 #ifdef SOAPYSDR

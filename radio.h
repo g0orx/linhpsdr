@@ -231,4 +231,5 @@ extern void set_tune(RADIO *r,gboolean state);
 extern void radio_change_region(RADIO *r);
 extern void radio_change_audio(RADIO *r,int selected);
 extern void radio_change_audio_backend(RADIO *r,int selected);
+extern void update_radio(RADIO *radio);
 #endif

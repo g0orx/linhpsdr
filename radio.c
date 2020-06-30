@@ -603,9 +603,7 @@ g_print("delete_receiver: receivers now %d\n",radio->receivers);
     }
   }
 
-  if(radio->receivers<radio->discovered->supported_receivers) {
-    gtk_widget_set_sensitive(add_receiver_b,TRUE);
-  }
+  gtk_widget_set_sensitive(add_receiver_b,radio->receivers<radio->discovered->supported_receivers);
   if(radio->dialog) {
     gtk_widget_destroy(radio->dialog);
     radio->dialog=NULL;
@@ -675,11 +673,10 @@ g_print("%s: state=%d\n",__FUNCTION__,state);
         SetTXAMode(radio->transmitter->channel, radio->transmitter->rx->mode_a);
         break;
     }
-    set_button_text_color(r->tune_button,r->tune?"red":"black");
   }
   r->mox=state;
-  set_button_text_color(r->mox_button,r->mox?"red":"black");
   rxtx(r);
+  update_radio(r);
 }
 
 void ptt_changed(RADIO *r) {
@@ -688,7 +685,7 @@ g_print("ptt_changed\n");
   update_vfo(r->transmitter->rx);
 }
 
-static gboolean mox_cb(GtkWidget *widget,gpointer data) {
+static void mox_cb(GtkToggleButton *widget,gpointer data) {
   RADIO *r=(RADIO *)data;
 g_print("mox_cb: mox=%d\n",r->mox);
   if(r->mox) {
@@ -696,14 +693,12 @@ g_print("mox_cb: mox=%d\n",r->mox);
   } else {
     set_mox(r,TRUE);
   }
-  return TRUE;
 }
 
-static gboolean vox_cb(GtkWidget *widget,gpointer data) {
+static void vox_cb(GtkToggleButton *widget,gpointer data) {
   RADIO *r=(RADIO *)data;
   r->vox_enabled=!r->vox_enabled;
-  set_button_text_color(widget,r->vox_enabled?"red":"black");
-  return TRUE;
+  update_radio(r);
 }
 
 void set_tune(RADIO *r,gboolean state) {
@@ -712,58 +707,57 @@ void set_tune(RADIO *r,gboolean state) {
     set_button_text_color(r->mox_button,r->mox?"red":"black");
   }
   r->tune=state;
-  set_button_text_color(r->tune_button,r->tune?"red":"black");
   if(r->tune) {
     //SM4VEY
     struct timeval te;
     gettimeofday(&te,NULL);
-    long long now=te.tv_sec*1000LL+te.tv_usec/1000 + radio->OCfull_tune_time;
-    radio->tune_timeout = now;
+    long long now=te.tv_sec*1000LL+te.tv_usec/1000 + r->OCfull_tune_time;
+    r->tune_timeout = now;
     
-    switch(radio->transmitter->rx->mode_a) {
+    switch(r->transmitter->rx->mode_a) {
       case CWL:
-        SetTXAMode(radio->transmitter->channel, LSB);
-        SetTXAPostGenToneFreq(radio->transmitter->channel, -(double)radio->cw_keyer_sidetone_frequency);
-        radio->cw_keyer_internal=FALSE;
+        SetTXAMode(r->transmitter->channel, LSB);
+        SetTXAPostGenToneFreq(r->transmitter->channel, -(double)r->cw_keyer_sidetone_frequency);
+        r->cw_keyer_internal=FALSE;
         break;
       case LSB:
       case DIGL:
-        SetTXAPostGenToneFreq(radio->transmitter->channel, (double)(-radio->transmitter->filter_low-((radio->transmitter->filter_high-radio->transmitter->filter_low)/2)));
+        SetTXAPostGenToneFreq(r->transmitter->channel, (double)(-r->transmitter->filter_low-((r->transmitter->filter_high-r->transmitter->filter_low)/2)));
         break;
       case CWU:
-        SetTXAMode(radio->transmitter->channel, USB);
-        SetTXAPostGenToneFreq(radio->transmitter->channel, (double)radio->cw_keyer_sidetone_frequency);
-        radio->cw_keyer_internal=FALSE;
+        SetTXAMode(r->transmitter->channel, USB);
+        SetTXAPostGenToneFreq(r->transmitter->channel, (double)r->cw_keyer_sidetone_frequency);
+        r->cw_keyer_internal=FALSE;
         break;
       default:
-        SetTXAPostGenToneFreq(radio->transmitter->channel, (double)(radio->transmitter->filter_low+((radio->transmitter->filter_high-radio->transmitter->filter_low)/2)));
+        SetTXAPostGenToneFreq(r->transmitter->channel, (double)(r->transmitter->filter_low+((r->transmitter->filter_high-r->transmitter->filter_low)/2)));
         break;
     }
-    SetTXAPostGenToneMag(radio->transmitter->channel,0.99999);
-    SetTXAPostGenMode(radio->transmitter->channel,0);
-    SetTXAPostGenRun(radio->transmitter->channel,1);
-    rxtx(radio);
+    SetTXAPostGenToneMag(r->transmitter->channel,0.99999);
+    SetTXAPostGenMode(r->transmitter->channel,0);
+    SetTXAPostGenRun(r->transmitter->channel,1);
+    rxtx(r);
   } else {
-    SetTXAPostGenRun(radio->transmitter->channel,0);
-    switch(radio->transmitter->rx->mode_a) {
+    SetTXAPostGenRun(r->transmitter->channel,0);
+    switch(r->transmitter->rx->mode_a) {
       case CWL:
       case CWU:
-        SetTXAMode(radio->transmitter->channel, radio->transmitter->rx->mode_a);
-        radio->cw_keyer_internal=TRUE;
+        SetTXAMode(r->transmitter->channel, r->transmitter->rx->mode_a);
+        r->cw_keyer_internal=TRUE;
         break;
     }
-    rxtx(radio);
+    rxtx(r);
   }
+  update_radio(r);
 }
 
-static gboolean tune_cb(GtkWidget *widget,gpointer data) {
+static void tune_cb(GtkToggleButton *widget,gpointer data) {
   RADIO *r=(RADIO *)data;
   if(r->tune) {
     set_tune(r,FALSE);
   } else {
     set_tune(r,TRUE);
   }
-  return TRUE;
 }
 
 int add_receiver(void *data) {
@@ -785,9 +779,9 @@ g_print("add_receiver: receivers now %d\n",r->receivers);
   } else {
 g_print("add_receiver: no receivers available\n");
   }
-  if(r->receivers==r->discovered->supported_receivers) {
-    gtk_widget_set_sensitive(add_receiver_b,FALSE);
-  }
+
+  gtk_widget_set_sensitive(add_receiver_b,r->receivers<r->discovered->supported_receivers);
+
   if(radio->dialog) {
     gtk_widget_destroy(radio->dialog);
     radio->dialog=NULL;
@@ -856,6 +850,7 @@ void add_receivers(RADIO *r) {
     protocol2_high_priority();
     protocol2_receive_specific();
   }
+
 }
 
 void add_transmitter(RADIO *r) {
@@ -921,15 +916,17 @@ static void create_visual(RADIO *r) {
     col++;
     row=0;
 
-    r->mox_button=gtk_button_new_with_label("MOX");
-    gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->mox_button)),"circular");
-    g_signal_connect(r->mox_button,"clicked",G_CALLBACK(mox_cb),(gpointer)r);
+    r->mox_button=gtk_toggle_button_new_with_label("MOX");
+    gtk_widget_set_name(r->mox_button,"transmit-warning");
+    //gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->mox_button)),"circular");
+    g_signal_connect(r->mox_button,"toggled",G_CALLBACK(mox_cb),(gpointer)r);
     gtk_grid_attach(GTK_GRID(r->visual),r->mox_button,col,row,1,1);
     row++;
 
-    r->vox_button=gtk_button_new_with_label("VOX");
-    gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->vox_button)),"circular");
-    g_signal_connect(r->vox_button,"clicked",G_CALLBACK(vox_cb),(gpointer)r);
+    r->vox_button=gtk_toggle_button_new_with_label("VOX");
+    gtk_widget_set_name(r->vox_button,"transmit-warning");
+    //gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->vox_button)),"circular");
+    g_signal_connect(r->vox_button,"toggled",G_CALLBACK(vox_cb),(gpointer)r);
     gtk_grid_attach(GTK_GRID(r->visual),r->vox_button,col,row,1,1);
     row++;
 
@@ -947,16 +944,18 @@ static void create_visual(RADIO *r) {
     col++;
     row=0;
   
-    r->tune_button=gtk_button_new_with_label("Tune");
-    gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->tune_button)),"circular");
-    g_signal_connect(r->tune_button,"clicked",G_CALLBACK(tune_cb),(gpointer)r);
+    r->tune_button=gtk_toggle_button_new_with_label("Tune");
+    gtk_widget_set_name(r->tune_button,"transmit-warning");
+    //gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->tune_button)),"circular");
+    g_signal_connect(r->tune_button,"toggled",G_CALLBACK(tune_cb),(gpointer)r);
     gtk_grid_attach(GTK_GRID(r->visual),r->tune_button,col,row,1,1);
     row++;
 
   }
 
   GtkWidget *configure=gtk_button_new_with_label("Configure");
-  gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(configure)),"circular");
+  gtk_widget_set_name(configure,"vfo-button");
+  //gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(configure)),"circular");
   g_signal_connect(configure,"clicked",G_CALLBACK(configure_cb),(gpointer)r);
   gtk_grid_attach(GTK_GRID(r->visual),configure,col,row,1,1);
 
@@ -964,13 +963,16 @@ static void create_visual(RADIO *r) {
   row=0;
 
   add_receiver_b=gtk_button_new_with_label("Add Receiver");
-  gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(add_receiver_b)),"circular");
+  gtk_widget_set_name(add_receiver_b,"vfo-button");
+  //gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(add_receiver_b)),"circular");
   g_signal_connect(add_receiver_b,"clicked",G_CALLBACK(add_receiver_cb),(gpointer)r);
   gtk_grid_attach(GTK_GRID(r->visual),add_receiver_b,col,row,1,1);
+  gtk_widget_set_sensitive(add_receiver_b,r->receivers<r->discovered->supported_receivers);
   row++;
 
   add_wideband_b=gtk_button_new_with_label("Add Wideband");
-  gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(add_wideband_b)),"circular");
+  gtk_widget_set_name(add_wideband_b,"vfo-button");
+  //gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(add_wideband_b)),"circular");
   g_signal_connect(add_wideband_b,"clicked",G_CALLBACK(add_wideband_cb),(gpointer)r);
   gtk_grid_attach(GTK_GRID(r->visual),add_wideband_b,col,row,1,1);
 
@@ -1274,10 +1276,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   // running. So this is the last thing we do when starting the radio.
   //
 #ifdef MIDI
-  int rv = MIDIstartup();
-  if (rv == 0) {
-    radio->midi = TRUE;
-  }
+  radio->midi=(MIDIstartup()==0);
 #endif  
   
   g_idle_add(radio_start,(gpointer)r);
@@ -1285,3 +1284,21 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   return r;
 }
+
+void update_radio(RADIO *r) {
+  // update MOX button
+  g_signal_handlers_block_by_func(r->mox_button,G_CALLBACK(mox_cb),r);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(r->mox_button),r->mox);
+  g_signal_handlers_unblock_by_func(r->mox_button,G_CALLBACK(mox_cb),r);
+
+  // update TUNE button
+  g_signal_handlers_block_by_func(r->tune_button,G_CALLBACK(tune_cb),r);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(r->tune_button),r->tune);
+  g_signal_handlers_unblock_by_func(r->tune_button,G_CALLBACK(tune_cb),r);
+
+  // update VOX button
+  g_signal_handlers_block_by_func(r->vox_button,G_CALLBACK(vox_cb),r);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(r->vox_button),r->vox_enabled);
+  g_signal_handlers_unblock_by_func(r->vox_button,G_CALLBACK(vox_cb),r);
+}
+

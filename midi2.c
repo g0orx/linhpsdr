@@ -6,15 +6,24 @@
  * Using the data in MIDICommandsTable, this subroutine translates the low-level
  * MIDI events into MIDI actions in the SDR console.
  */
+
 #include <gtk/gtk.h>
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include "receiver.h"
+#include "discovered.h"
+#include "adc.h"
+#include "dac.h"
+#include "transmitter.h"
+#include "wideband.h"
+#include "radio.h"
+#include "main.h"
 #include "midi.h"
 
-struct _MidiCommandsTable MidiCommandsTable;
+extern int midi_rx;
 
 void NewMidiEvent(enum MIDIevent event, int channel, int note, int val) {
 
@@ -116,8 +125,8 @@ static struct {
         { COMPRESS,     	"COMPRESS"},
 	{ MIDI_CTUN,  		"CTUN"},
 	{ VFO,			"CURRVFO"},
-	{ CWKEY,			"CWL"},
-	{ CWR,			"CWR"},
+	{ CWLEFT,		"CWL"},
+	{ CWRIGHT,		"CWR"},
 	{ CWSPEED,		"CWSPEED"},
 	{ DIV_COARSEGAIN,	"DIVCOARSEGAIN"},
 	{ DIV_COARSEPHASE,	"DIVCOARSEPHASE"},
@@ -207,8 +216,11 @@ int MIDIstartup() {
 
     char filename[128];
     sprintf(filename,"%s/.local/share/linhpsdr/midi.props", g_get_home_dir());
+    g_print("%s: %s\n",__FUNCTION__,filename);
     fpin=fopen(filename, "r");
+
     if (!fpin) return -1;
+
     for (;;) {
       if (fgets(zeile, 255, fpin) == NULL) break;
 
@@ -221,27 +233,28 @@ int MIDIstartup() {
       cp=zeile;
       while ((c=*cp)) {
         switch (c) {
-	        case '\n':
-	        case '\r':
-	        case '\t':
-	        case ',':
-	        case '/':
-	        *cp=' ';
-	        break;
+	  case '\n':
+	  case '\r':
+	  case '\t':
+	  case ',':
+	  case '/':
+	    *cp=' ';
+	    break;
         }
-	    cp++;
+	cp++;
       }
-fprintf(stderr,"\nMIDI:INP:%s\n",zeile);
+      
+//fprintf(stderr,"\nMIDI:INP:%s\n",zeile);
 
       if ((cp = strstr(zeile, "DEVICE="))) {
         // Delete comments and trailing blanks
-	      cq=cp+7;
-	      while (*cq != 0 && *cq != '#') cq++;
-	      *cq--=0;
-	      while (cq > cp+7 && (*cq == ' ' || *cq == '\t')) cq--;
-	      *(cq+1)=0;
+	cq=cp+7;
+	while (*cq != 0 && *cq != '#') cq++;
+	*cq--=0;
+	while (cq > cp+7 && (*cq == ' ' || *cq == '\t')) cq--;
+	*(cq+1)=0;
 //fprintf(stderr,"MIDI:REG:>>>%s<<<\n",cp+7);
-	      register_midi_device(cp+7);
+	register_midi_device(cp+7);
         continue; // nothing more in this line
       }
       chan=-1;  // default: any channel
@@ -261,18 +274,18 @@ fprintf(stderr,"\nMIDI:INP:%s\n",zeile);
       if ((cp = strstr(zeile, "KEY="))) {
         sscanf(cp+4, "%d", &key);
         event=MIDI_NOTE;
-	      type=MIDI_KEY;
+	type=MIDI_KEY;
 //fprintf(stderr,"MIDI:KEY:%d\n", key);
       }
       if ((cp = strstr(zeile, "CTRL="))) {
         sscanf(cp+5, "%d", &key);
-	      event=MIDI_CTRL;
-	      type=MIDI_KNOB;
+	event=MIDI_CTRL;
+	type=MIDI_KNOB;
 //fprintf(stderr,"MIDI:CTL:%d\n", key);
       }
       if ((cp = strstr(zeile, "PITCH "))) {
         event=MIDI_PITCH;
-	      type=MIDI_KNOB;
+	type=MIDI_KNOB;
 //fprintf(stderr,"MIDI:PITCH\n");
       }
       //
@@ -280,7 +293,7 @@ fprintf(stderr,"\nMIDI:INP:%s\n",zeile);
       //
       if (event == EVENT_NONE) {
 //fprintf(stderr,"MIDI:ERR:NO_EVENT\n");
-	      continue;
+	continue;
       }
 
       //
@@ -291,7 +304,7 @@ fprintf(stderr,"\nMIDI:INP:%s\n",zeile);
 
       if ((cp = strstr(zeile, "CHAN="))) {
         sscanf(cp+5, "%d", &chan);
-	      chan--;
+	chan--;
         if (chan<0 || chan>15) chan=-1;
 //fprintf(stderr,"MIDI:CHA:%d\n",chan);
       }
@@ -302,7 +315,7 @@ fprintf(stderr,"\nMIDI:INP:%s\n",zeile);
       }
       if ((cp = strstr(zeile, "ONOFF"))) {
         onoff=1;
-fprintf(stderr,"MIDI:ONOFF\n");
+//fprintf(stderr,"MIDI:ONOFF\n");
       }
       if ((cp = strstr(zeile, "DELAY="))) {
         sscanf(cp+6, "%d", &delay);
@@ -317,7 +330,7 @@ fprintf(stderr,"MIDI:ONOFF\n");
         // cut zeile at the first blank character following
         cq=cp+7;
         while (*cq != 0 && *cq != '\n' && *cq != ' ' && *cq != '\t') cq++;
-	      *cq=0;
+	*cq=0;
         action=keyword2action(cp+7);
 //fprintf(stderr,"MIDI:ACTION:%s (%d)\n",cp+7, action);
       }
@@ -349,25 +362,27 @@ fprintf(stderr,"MIDI:ONOFF\n");
       // We have a linked list for each key value to speed up searches
       //
       if (event == MIDI_PITCH) {
-fprintf(stderr,"MIDI:TAB:Insert desc=%p in PITCH table\n",desc);
-	      dp = MidiCommandsTable.pitch;
-	      if (dp == NULL) {
-	        MidiCommandsTable.pitch = desc;
-	      } else {
-	        while (dp->next != NULL) dp=dp->next;
-	        dp->next=desc;
-	      }
+//fprintf(stderr,"MIDI:TAB:Insert desc=%p in PITCH table\n",desc);
+	dp = MidiCommandsTable.pitch;
+	if (dp == NULL) {
+	  MidiCommandsTable.pitch = desc;
+	} else {
+	  while (dp->next != NULL) dp=dp->next;
+	  dp->next=desc;
+	}
       }
       if (event == MIDI_KEY || event == MIDI_CTRL) {
-fprintf(stderr,"MIDI:TAB:Insert desc=%p in CMDS[%d] table\n",desc,key);
-	    dp = MidiCommandsTable.desc[key];
-	    if (dp == NULL) {
-	      MidiCommandsTable.desc[key]=desc;
-	    } else {
-	      while (dp->next != NULL) dp=dp->next;
-	      dp->next=desc;
-	    }
+//fprintf(stderr,"MIDI:TAB:Insert desc=%p in CMDS[%d] table\n",desc,key);
+	dp = MidiCommandsTable.desc[key];
+	if (dp == NULL) {
+	  MidiCommandsTable.desc[key]=desc;
+	} else {
+	  while (dp->next != NULL) dp=dp->next;
+	  dp->next=desc;
+	}
+      }
     }
-  }
-  return 0;
+
+    midi_rx=0;
+    return 0;
 }
