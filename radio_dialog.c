@@ -104,7 +104,8 @@ static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) 
 }
 */
 
-static void update_controls() {
+static void radio_dialog_update_controls() {
+	g_print("%s\n",__FUNCTION__);
   switch(radio->model) {
     case ANAN_10:
     case ANAN_10E:
@@ -170,6 +171,7 @@ static void update_controls() {
       gtk_widget_set_sensitive(adc0_lpf_combo_box, FALSE);
       gtk_widget_set_sensitive(adc0_hpf_combo_box, FALSE);
       break;
+    case HERMES_LITE:
     case HERMES_LITE_2:
       break;
 #ifdef SOAPYSDR
@@ -200,7 +202,7 @@ static void update_controls() {
 static void model_cb(GtkComboBox *widget,gpointer data) {
   RADIO *radio=(RADIO *)data;
   radio->model=gtk_combo_box_get_active(widget);
-  update_controls();
+  radio_dialog_update_controls();
 }
 
 static void sample_rate_cb(GtkComboBox *widget,gpointer data) {
@@ -365,7 +367,9 @@ static void update_audio_backends(RADIO *radio) {
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_backend_combo_box),NULL,audio_get_backend_name(i));
     }
   }
-  radio_change_audio_backend(radio,radio->which_audio_backend);
+  if(radio->which_audio_backend>=0) {
+    radio_change_audio_backend(radio,radio->which_audio_backend);
+  }
 }
 
 static void audio_cb(GtkWidget *widget, gpointer data) {
@@ -605,6 +609,7 @@ static void cwport_value_changed_cb(GtkWidget *widget, gpointer data) {
 #endif
 
 GtkWidget *create_radio_dialog(RADIO *radio) {
+  g_print("%s\n",__FUNCTION__);
   GtkWidget *grid=gtk_grid_new();
   gtk_grid_set_row_homogeneous(GTK_GRID(grid),FALSE);
   gtk_grid_set_column_homogeneous(GTK_GRID(grid),FALSE);
@@ -909,7 +914,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       break;
   }
 
-  update_controls();
+  radio_dialog_update_controls();
 
   switch(radio->discovered->device) {
 #ifdef SOAPYSDR

@@ -1114,6 +1114,8 @@ static void state_cb(pa_context *c, void *userdata) {
         int *ready = userdata;
 
         state = pa_context_get_state(c);
+
+g_print("%s: %d\n",__FUNCTION__,state);
         switch  (state) {
                 // There are just here for reference
                 case PA_CONTEXT_UNCONNECTED:

@@ -456,6 +456,7 @@ void radio_change_region(RADIO *r) {
 
 void radio_change_audio(RADIO *r,int selected) {
   int i;
+  g_print("%s: %dn",__FUNCTION__,selected);
   if(r->which_audio!=selected) {
     if(r->local_microphone) {
       radio->local_microphone=FALSE;
@@ -477,6 +478,7 @@ void radio_change_audio(RADIO *r,int selected) {
 
 void radio_change_audio_backend(RADIO *r,int selected) {
   int i;
+  g_print("%s: %d\n",__FUNCTION__,selected);
   if(r->which_audio_backend!=selected) {
     if(r->local_microphone) {
       radio->local_microphone=FALSE;
