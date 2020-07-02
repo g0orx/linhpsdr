@@ -204,12 +204,14 @@ struct {
    struct desc *pitch;        // description for PitchChanges
 } MidiCommandsTable;
 
+extern int midi_debug;
+
 //
 // Layer-1 entry point, called once for all the MIDI devices
 // that have been defined. This is called upon startup by
 // Layer-2 through the function MIDIstartup.
 //
-void register_midi_device(char *name);
+int register_midi_device(char *name);
 
 //
 // Layer-2 entry point (called by Layer1)
@@ -222,7 +224,7 @@ void register_midi_device(char *name);
 // for each device description that was successfully read.
 
 void NewMidiEvent(enum MIDIevent event, int channel, int note, int val);
-int MIDIstartup();
+int MIDIstartup(char *filename);
 
 //
 // Layer-3 entry point (called by Layer2). In Layer-3, all the pihpsdr

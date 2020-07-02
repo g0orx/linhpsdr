@@ -27,8 +27,11 @@
 
 static pthread_t midi_thread_id;
 static void* midi_thread(void *);
+static int running;
 
 static char portname[64];
+
+static snd_rawmidi_t *input=NULL;
 
 static enum {
         STATE_SKIP,		// skip bytes
@@ -45,7 +48,6 @@ static enum {
 
 static void *midi_thread(void *arg) {
     int ret;
-    snd_rawmidi_t *input;
     int npfds;
     struct pollfd *pfds;
     unsigned char buf[32];
@@ -54,16 +56,20 @@ static void *midi_thread(void *arg) {
     int i;
     int chan,arg1,arg2;
 
+    /*
     if ((ret = snd_rawmidi_open(&input, NULL, portname, SND_RAWMIDI_NONBLOCK)) < 0) {
         fprintf(stderr,"cannot open port \"%s\": %s\n", portname, snd_strerror(ret));
         return NULL;
     }
+    */
+    running=1;
+
     snd_rawmidi_read(input, NULL, 0); /* trigger reading */
 
     npfds = snd_rawmidi_poll_descriptors_count(input);
     pfds = alloca(npfds * sizeof(struct pollfd));
     snd_rawmidi_poll_descriptors(input, pfds, npfds);
-    for (;;) {
+    while(running) {
 	ret = poll(pfds, npfds, 250);
 	if (ret < 0) {
             fprintf(stderr,"poll failed: %s\n", strerror(errno));
@@ -71,9 +77,10 @@ static void *midi_thread(void *arg) {
 	    usleep(250000);
 	}
 	if (ret <= 0) continue;  // nothing arrived, do next poll()
+	if(!running) break;
 	if ((ret = snd_rawmidi_poll_descriptors_revents(input, pfds, npfds, &revents)) < 0) {
             fprintf(stderr,"cannot get poll events: %s\n", snd_strerror(errno));
-            continue;
+            break;
         }
         if (revents & (POLLERR | POLLHUP)) continue;
         if (!(revents & POLLIN)) continue;
@@ -82,7 +89,7 @@ static void *midi_thread(void *arg) {
         if (ret == 0) continue;
         if (ret < 0) {
             fprintf(stderr,"cannot read from port \"%s\": %s\n", portname, snd_strerror(ret));
-            continue;
+            break;
         }
         // process bytes in buffer. Since they no not necessarily form complete messages
         // we need a state machine here. 
@@ -149,9 +156,10 @@ static void *midi_thread(void *arg) {
 	    }
         }
     }
+    return NULL;
 }
 
-void register_midi_device(char *myname) {
+int register_midi_device(char *myname) {
 
     int mylen=strlen(myname);
     snd_ctl_t *ctl;
@@ -161,17 +169,29 @@ void register_midi_device(char *myname) {
     int found=0;
     char name[64];
 
+    fprintf(stderr,"%s input=%p\n",__FUNCTION__,input);
+    if(input!=NULL) {
+      fprintf(stderr,"%s: snd_rawmidi_close\n",__FUNCTION__);
+      running=0;
+      if((ret = snd_rawmidi_close(input)) < 0) {
+        fprintf(stderr,"%s: cannot close port: %s\n",__FUNCTION__, snd_strerror(ret));
+      }
+      input=NULL;
+      usleep(250000L);
+    }
+
+
     card=-1;
     if ((ret = snd_card_next(&card)) < 0) {
         fprintf(stderr,"cannot determine card number: %s\n", snd_strerror(ret));
-        return;
+        return -1;
     }
     while (card >= 0) {
 	fprintf(stderr,"Found Sound Card=%d\n",card);
 	sprintf(name,"hw:%d", card);
         if ((ret = snd_ctl_open(&ctl, name, 0)) < 0) {
                 fprintf(stderr,"cannot open control for card %d: %s\n", card, snd_strerror(ret));
-                return;
+                return -1;
         }
 	device = -1;
 	// loop through devices of the card
@@ -233,12 +253,21 @@ void register_midi_device(char *myname) {
     }
     if (!found) {
 	fprintf(stderr,"MIDI device %s NOT FOUND!\n", myname);
-        return;
+        return -1;
     }
     // Found our MIDI input device. Spawn off a thread reading data
+    // Try to open the device
+    if ((ret = snd_rawmidi_open(&input, NULL, portname, SND_RAWMIDI_NONBLOCK)) < 0) {
+        fprintf(stderr,"cannot open port \"%s\": %s\n", portname, snd_strerror(ret));
+        return -1;
+    }
+
     ret = pthread_create(&midi_thread_id, NULL, midi_thread, NULL);
     if (ret < 0) {
 	fprintf(stderr,"Failed to create MIDI read thread\n");
+	return -1;
     }
+
+    return 0;
 }
 #endif

@@ -95,9 +95,13 @@ void NewMidiEvent(enum MIDIevent event, int channel, int note, int val) {
     }
     if (!desc) {
       // Nothing found. This is nothing to worry about, but log the key to stderr
-      if (event == MIDI_PITCH) fprintf(stderr, "Unassigned PitchBend Value=%d\n", val);
-      if (event == MIDI_NOTE ) fprintf(stderr, "Unassigned Key Note=%d Val=%d\n", note, val);
-      if (event == MIDI_CTRL ) fprintf(stderr, "Unassigned Controller Ctl=%d Val=%d\n", note, val);
+        if (event == MIDI_PITCH) g_print("%s: Unassigned PitchBend Value=%d\n",__FUNCTION__, val);
+        if (event == MIDI_NOTE ) g_print("%s: Unassigned Key Note=%d Val=%d\n",__FUNCTION__, note, val);
+        if (event == MIDI_CTRL ) g_print("%s: Unassigned Controller Ctl=%d Val=%d\n",__FUNCTION__, note, val);
+    } else if(midi_debug) {
+        if (event == MIDI_PITCH) g_print("%s: PitchBend Value=%d\n",__FUNCTION__, val);
+        if (event == MIDI_NOTE ) g_print("%s: Key Note=%d Val=%d\n",__FUNCTION__, note, val);
+        if (event == MIDI_CTRL ) g_print("%s: Controller Ctl=%d Val=%d\n",__FUNCTION__, note, val);
     }
 }
 
@@ -192,11 +196,11 @@ static enum MIDIaction keyword2action(char *s) {
 }
 
 /*
- * Here we read in a MIDI description file "midi.def" and fill the MidiCommandsTable
+ * Here we read in a MIDI description file and fill the MidiCommandsTable
  * data structure
  */
 
-int MIDIstartup() {
+int MIDIstartup(char *filename) {
     FILE *fpin;
     char zeile[255];
     char *cp,*cq;
@@ -214,12 +218,18 @@ int MIDIstartup() {
     for (i=0; i<128; i++) MidiCommandsTable.desc[i]=NULL;
     MidiCommandsTable.pitch=NULL;
 
+    /*
     char filename[128];
     sprintf(filename,"%s/.local/share/linhpsdr/midi.props", g_get_home_dir());
+    */
     g_print("%s: %s\n",__FUNCTION__,filename);
     fpin=fopen(filename, "r");
 
-    if (!fpin) return -1;
+    g_print("%s: fpin=%p\n",__FUNCTION__,fpin);
+    if (!fpin) {
+      g_print("%s: failed to open MIDI device\n",__FUNCTION__);
+      return -1;
+    }
 
     for (;;) {
       if (fgets(zeile, 255, fpin) == NULL) break;
@@ -254,7 +264,10 @@ int MIDIstartup() {
 	while (cq > cp+7 && (*cq == ' ' || *cq == '\t')) cq--;
 	*(cq+1)=0;
 //fprintf(stderr,"MIDI:REG:>>>%s<<<\n",cp+7);
-	register_midi_device(cp+7);
+	int rc=register_midi_device(cp+7);
+	if(rc<0) {
+          return -1;
+	}
         continue; // nothing more in this line
       }
       chan=-1;  // default: any channel

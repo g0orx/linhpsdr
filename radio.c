@@ -66,7 +66,7 @@
 // rather than including MIDI.h with all its internal stuff
 // (e.g. enum components) we just declare the single bit thereof
 // we need here to make a strict compiler happy.
-int MIDIstartup();
+int MIDIstartup(char *filename);
 #endif
 
 static GtkWidget *add_receiver_b;
@@ -256,7 +256,11 @@ g_print("radio_save_state: %s\n",filename);
   if(radio->discovered->supported_transmitters!=0) {
     transmitter_save_state(radio->transmitter);
   }
- 
+
+#ifdef MIDI
+  setProperty("radio.midi_filename",radio->midi_filename);
+#endif
+
   gtk_window_get_position(GTK_WINDOW(main_window),&x,&y);
   sprintf(value,"%d",x);
   setProperty("radio.x",value);
@@ -420,11 +424,17 @@ void radio_restore_state(RADIO *radio) {
   if(value!=NULL) rigctl_port_base=atoi(value);
 */
 
+#ifdef MIDI
+  value=getProperty("radio.midi_filename");
+  if(value) strcpy(radio->midi_filename,value);
+#endif
+
   filterRestoreState();
   bandRestoreState();
 }
 
 gboolean radio_button_press_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+  g_print("%s\n",__FUNCTION__);
   switch(event->button) {
     case 1: // left button
       break;
@@ -1192,6 +1202,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->swr_alarm_value = 2.0;
   r->temperature_alarm_value = 42;  
   r->midi = FALSE;
+  sprintf(r->midi_filename,"%s/.local/share/linhpsdr/midi.props", g_get_home_dir());
   
   r->dialog=NULL;
 
@@ -1278,7 +1289,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   // running. So this is the last thing we do when starting the radio.
   //
 #ifdef MIDI
-  radio->midi=(MIDIstartup()==0);
+  radio->midi=(MIDIstartup(r->midi_filename)==0);
 #endif  
   
   g_idle_add(radio_start,(gpointer)r);

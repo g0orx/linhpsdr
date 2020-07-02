@@ -64,9 +64,9 @@ MIDI_INCLUDE=MIDI
 
 ifeq ($(MIDI_INCLUDE),MIDI)
 MIDI_OPTIONS=-D MIDI
-MIDI_SOURCES= alsa_midi.c midi2.c midi3.c
-MIDI_HEADERS= midi.h
-MIDI_OBJS= alsa_midi.o midi2.o midi3.o
+MIDI_SOURCES= alsa_midi.c midi2.c midi3.c midi_dialog.c
+MIDI_HEADERS= midi.h midi_dialog.h
+MIDI_OBJS= alsa_midi.o midi2.o midi3.o midi_dialog.o
 MIDI_LIBS= -lasound
 endif
 

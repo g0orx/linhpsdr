@@ -39,6 +39,7 @@
 #endif
 
 int midi_rx;
+int midi_debug=FALSE;
 
 typedef struct _action {
   enum MIDIaction action;
@@ -58,7 +59,7 @@ static int midi_action(void *data) {
     int    *ip;
     RECEIVER *rx=radio->receiver[midi_rx];
 
-    g_print("%s: action=%d type=%d val=%d\n",__FUNCTION__,action,type,val);
+    if(midi_debug) g_print("%s: action=%d type=%d val=%d\n",__FUNCTION__,action,type,val);
     //
     // Handle cases in alphabetical order of the key words in midi.props
     //
@@ -499,7 +500,6 @@ static int midi_action(void *data) {
 		rx->nb2= FALSE;
 	      }
 	      update_noise(rx);
-	      g_print("%s: MIDI_NB nb=%d nb2=%d\n",__FUNCTION__,rx->nb,rx->nb2);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "NOISEREDUCTION"
@@ -517,7 +517,6 @@ static int midi_action(void *data) {
 		rx->nr2= FALSE;
 	      }
 	      update_noise(rx);
-	      g_print("%s: MIDI_NR nr=%d nr2=%d\n",__FUNCTION__,rx->nr,rx->nr2);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "PAN"
@@ -781,13 +780,11 @@ static int midi_action(void *data) {
 	/////////////////////////////////////////////////////////// "VFOA"
 	/////////////////////////////////////////////////////////// "VFOB"
 	case VFOA: // only wheel supported
-	    g_print("%s: VFOA %d\n",__FUNCTION__,val);
 	    if (type == MIDI_WHEEL && !rx->locked) {
               receiver_move(rx,(long long)(rx->step*val),TRUE);
 	    }
 	    break;
 	case VFOB: // only wheel supported
-	    g_print("%s: VFOB %d\n",__FUNCTION__,val);
 	    if (type == MIDI_WHEEL && !rx->locked) {
               receiver_move_b(rx,(long long)(rx->step*val),FALSE,TRUE);
 	    }
@@ -890,14 +887,12 @@ static int midi_action(void *data) {
         case MIDI_ZOOM:  // wheel and knob
             switch (type) {
               case MIDI_WHEEL:
-g_print("MIDI_ZOOM: MIDI_WHEEL: val=%d\n",val);
                 if(val>=1 && val<=8) {
 		  receiver_change_zoom(rx,val);
 		  update_vfo(rx);
 		}
                 break;
               case MIDI_KNOB:
-g_print("MIDI_ZOOM: MIDI_KNOB: val=%d\n",val);
                 if(val>=1 && val<=8) {
 		  receiver_change_zoom(rx,val);
 		  update_vfo(rx);
@@ -974,7 +969,7 @@ void DoTheMidi(enum MIDIaction action, enum MIDItype type, int val) {
         default:
           // all other actions are performed using g_idle_add
           {
-    g_print("%s: action=%d type=%d val=%d\n",__FUNCTION__,action,type,val);
+    if(midi_debug) g_print("%s: action=%d type=%d val=%d\n",__FUNCTION__,action,type,val);
           ACTION *a=g_new(ACTION,1);
           a->action=action;
           a->type=type;

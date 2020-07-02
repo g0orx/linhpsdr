@@ -210,6 +210,7 @@ typedef struct _radio {
   gint which_audio_backend;
 
   gboolean midi;
+  char midi_filename[128];
 
 } RADIO;
 
