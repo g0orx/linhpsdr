@@ -25,6 +25,8 @@
 
 extern int midi_rx;
 
+int midi_enabled=0;
+
 void NewMidiEvent(enum MIDIevent event, int channel, int note, int val) {
 
     struct desc *desc;
@@ -193,6 +195,13 @@ static enum MIDIaction keyword2action(char *s) {
     }
     fprintf(stderr,"MIDI: action keyword %s NOT FOUND.\n", s);
     return ACTION_NONE;
+}
+
+
+int MIDIstop(RADIO *r) {
+  close_midi_device();
+  r->midi_enabled=FALSE;
+  return 0;
 }
 
 /*

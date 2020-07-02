@@ -41,10 +41,15 @@
 
 static GtkWidget *filename;
 
-static gboolean load_cb(GtkWidget *widget,gpointer data) {
+static gboolean midi_enable_cb(GtkWidget *widget,gpointer data) {
   RADIO *r=(RADIO *)data;
-  strcpy(r->midi_filename,gtk_entry_get_text(GTK_ENTRY(filename)));
-  int rc=MIDIstartup(r->midi_filename);
+  r->midi_enabled=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget));
+  if(r->midi_enabled) {
+    strcpy(r->midi_filename,gtk_entry_get_text(GTK_ENTRY(filename)));
+    int rc=MIDIstartup(r->midi_filename);
+  } else {
+    MIDIstop(r);
+  }
   return TRUE;
 }
 
@@ -68,8 +73,12 @@ GtkWidget *create_midi_dialog(RADIO *r) {
   row=0;
   col=0;
 
-  GtkWidget *filelabel=gtk_label_new("MIDI File:");
-  gtk_grid_attach(GTK_GRID(grid),filelabel,col,row,1,1);
+  GtkWidget *midi_enable_b=gtk_check_button_new_with_label("MIDI Enable");
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (midi_enable_b), r->midi_enabled);
+  gtk_grid_attach(GTK_GRID(grid),midi_enable_b,col,row,1,1);
+  g_signal_connect(midi_enable_b,"toggled",G_CALLBACK(midi_enable_cb),r);
+
+  row++;
 
   col++;
 
@@ -80,12 +89,6 @@ GtkWidget *create_midi_dialog(RADIO *r) {
 
   col=0;
   row++;
-
-  GtkWidget* button=gtk_button_new_with_label("Load");
-  g_signal_connect(button,"clicked",G_CALLBACK(load_cb),(gpointer)r);
-  gtk_grid_attach(GTK_GRID(grid),button,col,row,1,1);
-
-  col++;
 
   GtkWidget *debug_b=gtk_check_button_new_with_label("MIDI Debug");
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (debug_b), midi_debug);

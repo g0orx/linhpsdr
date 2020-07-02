@@ -159,15 +159,8 @@ static void *midi_thread(void *arg) {
     return NULL;
 }
 
-int register_midi_device(char *myname) {
-
-    int mylen=strlen(myname);
-    snd_ctl_t *ctl;
-    snd_rawmidi_info_t *info;
-    int card, device, subs, sub, ret;
-    const char *devnam, *subnam;
-    int found=0;
-    char name[64];
+int close_midi_device() {
+    int ret;
 
     fprintf(stderr,"%s input=%p\n",__FUNCTION__,input);
     if(input!=NULL) {
@@ -179,6 +172,31 @@ int register_midi_device(char *myname) {
       input=NULL;
       usleep(250000L);
     }
+    return 0;
+}
+
+int register_midi_device(char *myname) {
+
+    int mylen=strlen(myname);
+    snd_ctl_t *ctl;
+    snd_rawmidi_info_t *info;
+    int card, device, subs, sub, ret;
+    const char *devnam, *subnam;
+    int found=0;
+    char name[64];
+
+    /*
+    fprintf(stderr,"%s input=%p\n",__FUNCTION__,input);
+    if(input!=NULL) {
+      fprintf(stderr,"%s: snd_rawmidi_close\n",__FUNCTION__);
+      running=0;
+      if((ret = snd_rawmidi_close(input)) < 0) {
+        fprintf(stderr,"%s: cannot close port: %s\n",__FUNCTION__, snd_strerror(ret));
+      }
+      input=NULL;
+      usleep(250000L);
+    }
+    */
 
 
     card=-1;

@@ -212,6 +212,7 @@ extern int midi_debug;
 // Layer-2 through the function MIDIstartup.
 //
 int register_midi_device(char *name);
+int close_midi_device();
 
 //
 // Layer-2 entry point (called by Layer1)
@@ -225,6 +226,7 @@ int register_midi_device(char *name);
 
 void NewMidiEvent(enum MIDIevent event, int channel, int note, int val);
 int MIDIstartup(char *filename);
+int MIDIstop();
 
 //
 // Layer-3 entry point (called by Layer2). In Layer-3, all the pihpsdr

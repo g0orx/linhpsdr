@@ -259,6 +259,8 @@ g_print("radio_save_state: %s\n",filename);
 
 #ifdef MIDI
   setProperty("radio.midi_filename",radio->midi_filename);
+  sprintf(value,"%d",radio->midi_enabled);
+  setProperty("radio.midi_enabled",value);
 #endif
 
   gtk_window_get_position(GTK_WINDOW(main_window),&x,&y);
@@ -427,6 +429,8 @@ void radio_restore_state(RADIO *radio) {
 #ifdef MIDI
   value=getProperty("radio.midi_filename");
   if(value) strcpy(radio->midi_filename,value);
+  value=getProperty("radio.midi_enabled");
+  if(value) radio->midi_enabled=atoi(value);
 #endif
 
   filterRestoreState();
@@ -1201,7 +1205,7 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   r->swr_alarm_value = 2.0;
   r->temperature_alarm_value = 42;  
-  r->midi = FALSE;
+  r->midi_enabled = FALSE;
   sprintf(r->midi_filename,"%s/.local/share/linhpsdr/midi.props", g_get_home_dir());
   
   r->dialog=NULL;
@@ -1289,7 +1293,9 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   // running. So this is the last thing we do when starting the radio.
   //
 #ifdef MIDI
-  radio->midi=(MIDIstartup(r->midi_filename)==0);
+  if(r->midi_enabled) {
+    r->midi_enabled=(MIDIstartup(r->midi_filename)==0);
+  }
 #endif  
   
   g_idle_add(radio_start,(gpointer)r);
