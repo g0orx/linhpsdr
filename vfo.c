@@ -70,6 +70,10 @@ const long long ll_step[13]= {
 gint64 steps[STEPS]={1,10,25,50,100,250,500,1000,5000,9000,10000,100000,250000,500000,1000000};
 char *step_labels[STEPS]={"1Hz","10Hz","25Hz","50Hz","100Hz","250Hz","500Hz","1kHz","5kHz","9kHz","10kHz","100kHz","250KHz","500KHz","1MHz"};
    
+static gboolean pressed=FALSE;
+static gdouble last_x;
+static gboolean has_moved=FALSE;
+
 static int get_step(gint64 step) {
   int i;
   for(i=0;i<STEPS;i++) {
@@ -1036,8 +1040,47 @@ static gboolean agc_b_pressed_cb(GtkWidget *widget,GdkEventButton *event,gpointe
   return TRUE;
 }
 
+static gboolean afgain_press_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  pressed=TRUE;
+  last_x=event->x;
+  has_moved=FALSE;
+  return TRUE;
+}
+
 static gboolean afgain_scale_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
- return TRUE;
+  RECEIVER *rx=(RECEIVER *)data;
+  if(pressed) {
+    gdouble moved=event->x-last_x;
+    has_moved=TRUE;
+    rx->volume=rx->volume+(moved/100.0);
+    if(rx->volume>1.0) rx->volume=1.0;
+    if(rx->volume<0.0) rx->volume=0.0;
+    receiver_set_volume(rx);
+    last_x=event->x;
+    update_vfo(rx);
+  }
+  return TRUE;
+}
+
+static gboolean afgain_release_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  if(has_moved) {
+    gdouble moved=event->x-last_x;
+    rx->volume=rx->volume+(moved/100.0);
+    if(rx->volume>1.0) rx->volume=1.0;
+    if(rx->volume<0.0) rx->volume=0.0;
+    receiver_set_volume(rx);
+  } else {
+    rx->volume=event->x/100.0;
+    if(rx->volume>1.0) rx->volume=1.0;
+    if(rx->volume<0.0) rx->volume=0.0;
+    receiver_set_volume(rx);
+  }
+  pressed=FALSE;
+  has_moved=FALSE;
+  update_vfo(rx);
+  return TRUE;
 }
 
 static gboolean afgain_scale_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
@@ -1057,9 +1100,49 @@ static gboolean afgain_scale_scroll_event_cb(GtkWidget *widget,GdkEventScroll *e
   return TRUE;
 }
 
-static gboolean agcgain_scale_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
- return TRUE;
+static gboolean agcgain_press_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  pressed=TRUE;
+  last_x=event->x;
+  has_moved=FALSE;
+  return TRUE;
 }
+
+static gboolean agcgain_scale_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  if(pressed) {
+    has_moved=TRUE;
+    gdouble moved=event->x-last_x;
+    rx->agc_gain=rx->agc_gain+moved;
+    if(rx->agc_gain>120.0) rx->agc_gain=120.0;
+    if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
+    receiver_set_agc_gain(rx);
+    last_x=event->x;
+    update_vfo(rx);
+  }
+  return TRUE;
+}
+
+static gboolean agcgain_release_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  if(has_moved) {
+    gdouble moved=event->x-last_x;
+    rx->agc_gain=rx->agc_gain+moved;
+    if(rx->agc_gain>120.0) rx->agc_gain=120.0;
+    if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
+    receiver_set_agc_gain(rx);
+  } else {
+    rx->agc_gain=event->x-20.0;
+    if(rx->agc_gain>120.0) rx->agc_gain=120.0;
+    if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
+    receiver_set_agc_gain(rx);
+  }
+  pressed=FALSE;
+  has_moved=FALSE;
+  update_vfo(rx);
+  return TRUE;
+}
+
 
 static gboolean agcgain_scale_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
@@ -1390,7 +1473,9 @@ GtkWidget *create_vfo(RECEIVER *rx) {
   gtk_layout_put(GTK_LAYOUT(v->vfo),event_box_afgain,x,y);
   g_signal_connect(event_box_afgain,"motion-notify-event",G_CALLBACK(afgain_scale_motion_notify_event_cb),rx);
   g_signal_connect(event_box_afgain,"scroll_event",G_CALLBACK(afgain_scale_scroll_event_cb),(gpointer)rx);
-  gtk_widget_set_events(event_box_afgain, GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
+  g_signal_connect(event_box_afgain,"button_press_event",G_CALLBACK(afgain_press_cb),rx);
+  g_signal_connect(event_box_afgain,"button_release_event",G_CALLBACK(afgain_release_cb),rx);
+  gtk_widget_set_events(event_box_afgain, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
 
   x=480;
   y=31;
@@ -1415,7 +1500,9 @@ GtkWidget *create_vfo(RECEIVER *rx) {
   gtk_layout_put(GTK_LAYOUT(v->vfo),event_box_agcgain,x,y);
   g_signal_connect(event_box_agcgain,"motion-notify-event",G_CALLBACK(agcgain_scale_motion_notify_event_cb),rx);
   g_signal_connect(event_box_agcgain,"scroll_event",G_CALLBACK(agcgain_scale_scroll_event_cb),(gpointer)rx);
-  gtk_widget_set_events(event_box_agcgain, GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
+  g_signal_connect(event_box_agcgain,"button_press_event",G_CALLBACK(agcgain_press_cb),rx);
+  g_signal_connect(event_box_agcgain,"button_release_event",G_CALLBACK(agcgain_release_cb),rx);
+  gtk_widget_set_events(event_box_agcgain, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
 
 
   y=47;
