@@ -308,5 +308,5 @@ extern void receiver_move_to(RECEIVER *rx,long long hz);
 extern void receiver_set_volume(RECEIVER *rx);
 extern void receiver_set_agc_gain(RECEIVER *rx);
 extern void receiver_set_ctun(RECEIVER *rx);
-extern void set_band(RECEIVER *rx,int band);
+extern void set_band(RECEIVER *rx,int band,int entry);
 #endif

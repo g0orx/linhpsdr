@@ -43,6 +43,7 @@
 typedef struct _choice {
   RECEIVER *rx;
   int selection;
+  int sub_selection;
   GtkWidget *button;
 } CHOICE;
 
@@ -1163,7 +1164,7 @@ static gboolean agcgain_scale_scroll_event_cb(GtkWidget *widget,GdkEventScroll *
 
 void band_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
-  set_band(choice->rx,choice->selection);
+  set_band(choice->rx,choice->selection,choice->sub_selection);
   update_vfo(choice->rx);
   g_free(choice);
 }
@@ -1171,29 +1172,45 @@ void band_cb(GtkWidget *menu_item,gpointer data) {
 static gboolean frequency_a_press_cb(GtkWidget *widget,GdkEvent *event,gpointer user_data) {
   RECEIVER *rx=(RECEIVER *)user_data;
   GtkWidget *menu=gtk_menu_new();
+  GtkWidget *band_menu;
   GtkWidget *menu_item;
   CHOICE *choice;
   BAND *band;
-  int i;
+  BANDSTACK *bandstack;
+  BANDSTACK_ENTRY *entry;
+  char temp[64];
+  int i,j;
 
   if(!rx->locked) {
     menu=gtk_menu_new();
     for(i=0;i<BANDS+XVTRS;i++) {
 #ifdef SOAPYSDR
       if(radio->discovered->protocol!=PROTOCOL_SOAPYSDR) {
-        if(i>=band70 && i<=band3400) {
+        if(i>=band70 && i<=bandAIR) {
           continue;
         }
       }
 #endif
       band=(BAND*)band_get_band(i);
+      bandstack=band->bandstack;
+
       if(strlen(band->title)>0) {
-      menu_item=gtk_menu_item_new_with_label(band->title);
-      choice=g_new0(CHOICE,1);
-      choice->rx=rx;
-      choice->selection=i;
-      g_signal_connect(menu_item,"activate",G_CALLBACK(band_cb),choice);
-      gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+        GtkWidget *band_menu=gtk_menu_new();
+        menu_item=gtk_menu_item_new_with_label(band->title);
+        gtk_menu_item_set_submenu(GTK_MENU_ITEM(menu_item),band_menu);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+	for(j=0;j<bandstack->entries;j++) {
+          entry=&bandstack->entry[j];
+	  sprintf(temp,"%5lld.%03lld.%03lld",entry->frequency/(long long)1000000,(entry->frequency%(long long)1000000)/(long long)1000,entry->frequency%(long long)1000);
+          menu_item=gtk_menu_item_new_with_label(temp);
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=i;
+          choice->sub_selection=j;
+          g_signal_connect(menu_item,"activate",G_CALLBACK(band_cb),choice);
+          gtk_menu_shell_append(GTK_MENU_SHELL(band_menu),menu_item);
+	}
       }
     }
     gtk_widget_show_all(menu);

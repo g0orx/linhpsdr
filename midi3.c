@@ -207,13 +207,13 @@ static int midi_action(void *data) {
 	    //
 	    switch(new) {
 	      case -1:
-	        set_band(rx,previous_band(rx->band_a));
+	        set_band(rx,previous_band(rx->band_a),-1);
 		update_vfo(rx);
 		break;
 	      case 0:
 	        break;
 	      case 1:
-	        set_band(rx,next_band(rx->band_a));
+	        set_band(rx,next_band(rx->band_a),-1);
 		update_vfo(rx);
 		break;
 	    }

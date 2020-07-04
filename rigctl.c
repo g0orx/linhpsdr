@@ -886,7 +886,7 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
           // move RX1 down one band
           if(command[4]==';') {
             int b=previous_band(rx->band_a);
-            set_band(rx,b);
+            set_band(rx,b,-1);
           }
           break;
         case 'E': //ZZBE
@@ -2637,7 +2637,7 @@ int parse_cmd(void *data) {
           {
           //band down 1 band
           int b=previous_band(rx->band_a);
-          set_band(rx,b);
+          set_band(rx,b,-1);
           }
           break;
         case 'P': //BP
@@ -2648,7 +2648,7 @@ int parse_cmd(void *data) {
           {
           //band up 1 band
           int b=next_band(rx->band_a);
-          set_band(rx,b);
+          set_band(rx,b,-1);
           }
           break;
         case 'Y': //BY

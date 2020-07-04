@@ -616,16 +616,19 @@ int previous_band(int current_band) {
   }
   return b;
 }
-void set_band(RECEIVER *rx,int band) {
+void set_band(RECEIVER *rx,int band,int bs_entry) {
   // save current bandstack 
   BAND *b=&bands[rx->band_a];
   BANDSTACK *stack=b->bandstack;
   BANDSTACK_ENTRY *entry=&stack->entry[stack->current_entry];
-  entry->frequency=rx->frequency_a;
-  entry->mode=rx->mode_a;
-  entry->filter=rx->filter_a;
-  b->frequencyLO=rx->lo_a;
-  b->errorLO=rx->error_a;
+
+  if(band!=rx->band_a || (band==rx->band_a && bs_entry!=stack->current_entry)) {
+    entry->frequency=rx->frequency_a;
+    entry->mode=rx->mode_a;
+    entry->filter=rx->filter_a;
+    b->frequencyLO=rx->lo_a;
+    b->errorLO=rx->error_a;
+  }
 
   // get the new bandstack
   if(band!=rx->band_a) {
@@ -638,8 +641,11 @@ void set_band(RECEIVER *rx,int band) {
     b=&bands[band];
     stack=b->bandstack;
   } else {
-    stack->current_entry++;
-    if(stack->current_entry>=stack->entries) stack->current_entry=0;
+    //stack->current_entry++;
+    //if(stack->current_entry>=stack->entries) stack->current_entry=0;
+  }
+  if(bs_entry!=-1) {
+    stack->current_entry=bs_entry;
   }
   entry=&stack->entry[stack->current_entry];
   rx->frequency_a=entry->frequency;
