@@ -270,41 +270,41 @@ BANDSTACK bandstack_xvtr_7={3,0,bandstack_entries_xvtr_7};
 
 
 BAND bands[BANDS+XVTRS] = 
-    {{"2200",&bandstack2200,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,135700LL,137800LL,0LL,0LL,0},
-     {"630",&bandstack630,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,472000LL,479000LL,0LL,0LL,0},
-     {"160",&bandstack160,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,1800000LL,2000000LL,0LL,0LL,0},
-     {"80",&bandstack80,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,3500000LL,4000000LL,0LL,0LL,0},
-     {"60",&bandstack60,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,5330500LL,5403500LL,0LL,0LL,0},
-     {"40",&bandstack40,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,7000000LL,7300000LL,0LL,0LL,0},
-     {"30",&bandstack30,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,10100000LL,10150000LL,0LL,0LL,0},
-     {"20",&bandstack20,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,14000000LL,14350000LL,0LL,0LL,0},
-     {"17",&bandstack17,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,18068000LL,18168000LL,0LL,0LL,0},
-     {"15",&bandstack15,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,21000000LL,21450000LL,0LL,0LL,0},
-     {"12",&bandstack12,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,24890000LL,24990000LL,0LL,0LL,0},
-     {"10",&bandstack10,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,28000000LL,29700000LL,0LL,0LL,0},
-     {"6",&bandstack6,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,50000000LL,54000000LL,0LL,0LL,0},
+    {{"2200",&bandstack2200,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,135700LL,137800LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"630",&bandstack630,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,472000LL,479000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"160",&bandstack160,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,1800000LL,2000000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"80",&bandstack80,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,3500000LL,4000000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"60",&bandstack60,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,5330500LL,5403500LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"40",&bandstack40,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,7000000LL,7300000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"30",&bandstack30,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,10100000LL,10150000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"20",&bandstack20,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,14000000LL,14350000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"17",&bandstack17,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,18068000LL,18168000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"15",&bandstack15,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,21000000LL,21450000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"12",&bandstack12,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,24890000LL,24990000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"10",&bandstack10,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,28000000LL,29700000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"6",&bandstack6,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,50000000LL,54000000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
 #ifdef SOAPYSDR
-     {"70",&bandstack70,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0},
-     {"144",&bandstack144,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,144000000LL,148000000LL,0LL,0LL,0},
-     {"220",&bandstack144,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,222000000LL,224980000LL,0LL,0LL,0},
-     {"430",&bandstack430,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,420000000LL,450000000LL,0LL,0LL,0},
-     {"902",&bandstack430,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,902000000LL,928000000LL,0LL,0LL,0},
-     {"1240",&bandstack1240,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,1240000000LL,1300000000LL,0LL,0LL,0},
-     {"2300",&bandstack2300,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,2300000000LL,2450000000LL,0LL,0LL,0},
-     {"3400",&bandstack3400,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,3400000000LL,3410000000LL,0LL,0LL,0},
-     {"AIR",&bandstackAIR,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,10800000LL,137000000LL,0LL,0LL,0},
+     {"70",&bandstack70,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"144",&bandstack144,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,144000000LL,148000000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"220",&bandstack144,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,222000000LL,224980000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"430",&bandstack430,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,420000000LL,450000000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"902",&bandstack430,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,902000000LL,928000000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"1240",&bandstack1240,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,1240000000LL,1300000000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"2300",&bandstack2300,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,2300000000LL,2450000000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"3400",&bandstack3400,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,3400000000LL,3410000000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"AIR",&bandstackAIR,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,10800000LL,137000000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
 #endif
-     {"GEN",&bandstackGEN,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0},
-     {"WWV",&bandstackWWV,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0},
+     {"GEN",&bandstackGEN,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"WWV",&bandstackWWV,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0,-140,-60,20,-145,-65,1},
 // XVTRS
-     {"",&bandstack_xvtr_0,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0},
-     {"",&bandstack_xvtr_1,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0},
-     {"",&bandstack_xvtr_2,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0},
-     {"",&bandstack_xvtr_3,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0},
-     {"",&bandstack_xvtr_4,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0},
-     {"",&bandstack_xvtr_5,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0},
-     {"",&bandstack_xvtr_6,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0},
-     {"",&bandstack_xvtr_7,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0}
+     {"",&bandstack_xvtr_0,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"",&bandstack_xvtr_1,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"",&bandstack_xvtr_2,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"",&bandstack_xvtr_3,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"",&bandstack_xvtr_4,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"",&bandstack_xvtr_5,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"",&bandstack_xvtr_6,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0,-140,-60,20,-145,-65,1},
+     {"",&bandstack_xvtr_7,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,0LL,0LL,0,-140,-60,20,-145,-65,1}
     };
 
 CHANNEL band_channels_60m_UK[UK_CHANNEL_ENTRIES] =
@@ -616,418 +616,47 @@ int previous_band(int current_band) {
   }
   return b;
 }
-
 void set_band(RECEIVER *rx,int band) {
-  BAND *b;
-  int mode_a;
-  long long frequency_a;
-  long long lo_a=0LL;
-  long long error_a=0LL;
+  // save current bandstack 
+  BAND *b=&bands[rx->band_a];
+  BANDSTACK *stack=b->bandstack;
+  BANDSTACK_ENTRY *entry=&stack->entry[stack->current_entry];
+  entry->frequency=rx->frequency_a;
+  entry->mode=rx->mode_a;
+  entry->filter=rx->filter_a;
+  b->frequencyLO=rx->lo_a;
+  b->errorLO=rx->error_a;
 
-  switch(band) {
-    case band2200:
-      switch(rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          frequency_a=136000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          frequency_a=136000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          frequency_a=136000LL;
-          break;
-      }
-      break;
-    case band630:
-      switch(rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-        case CWL:
-        case CWU:
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=CWL;
-          frequency_a=472100LL;
-          break;
-      }
-      break;
-    case band160:
-      switch(rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          frequency_a=1900000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          frequency_a=1830000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          frequency_a=1900000LL;
-          break;
-      }
-      break;
-    case band80:
-      switch(rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          frequency_a=3700000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          frequency_a=3520000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          frequency_a=3700000LL;
-          break;
-      }
-      break;
-    case band60:
-      switch(rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          switch(radio->region) {
-            case REGION_OTHER:
-              frequency_a=5330000LL;
-              break;
-            case REGION_UK:
-              frequency_a=5280000LL;
-              break;
-          }
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          switch(radio->region) {
-            case REGION_OTHER:
-              frequency_a=5330000LL;
-              break;
-            case REGION_UK:
-              frequency_a=5280000LL;
-              break;
-          }
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          switch(radio->region) {
-            case REGION_OTHER:
-              frequency_a=5330000LL;
-              break;
-            case REGION_UK:
-              frequency_a=5280000LL;
-              break;
-          }
-          break;
-      }
-      break;
-    case band40:
-      switch(rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=LSB;
-          frequency_a=7100000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWL;
-          frequency_a=7020000LL;
-          break;
-        case DIGU:
-        case SPEC:
-        case DIGL:
-          mode_a=LSB;
-          frequency_a=7070000LL;
-          break;
-        case FMN:
-        case AM:
-        case SAM:
-        case DRM:
-          mode_a=LSB;
-          frequency_a=7100000LL;
-          break;
-      }
-      break;
-    case band30:
-      switch(rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=10145000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=10120000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=10145000LL;
-          break;
-      }
-      break;
-    case band20:
-      switch(rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=14150000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=14020000LL;
-          break;
-        case DIGU:
-        case SPEC:
-        case DIGL:
-          mode_a=USB;
-          frequency_a=14070000LL;
-          break;
-        case FMN:
-        case AM:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=14020000LL;
-          break;
-      }
-      break;
-    case band17:
-      switch(rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=18140000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=18080000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=18140000LL;
-          break;
-      }
-      break;
-    case band15:
-      switch(rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=21200000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=21080000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=21200000LL;
-          break;
-      }
-      break;
-    case band12:
-      switch(rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=24960000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=24900000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=24960000LL;
-          break;
-      }
-      break;
-   case band10:
-      switch(rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=28300000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=28020000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=28300000LL;
-          break;
-      }
-      break;
-    case band6:
-      switch(rx->mode_a) {
-        case LSB:
-        case USB:
-        case DSB:
-          mode_a=USB;
-          frequency_a=51000000LL;
-          break;
-        case CWL:
-        case CWU:
-          mode_a=CWU;
-          frequency_a=50090000LL;
-          break;
-        case FMN:
-        case AM:
-        case DIGU:
-        case SPEC:
-        case DIGL:
-        case SAM:
-        case DRM:
-          mode_a=USB;
-          frequency_a=51000000LL;
-          break;
-      }
-      break;
-#ifdef SOAPYSDR
-    case band70:
-      mode_a=USB;
-      frequency_a=70300000LL;
-      break;
-    case band220:
-      mode_a=USB;
-      frequency_a=430300000LL;
-      break;
-    case band430:
-      mode_a=USB;
-      frequency_a=430300000LL;
-      break;
-    case band902:
-      mode_a=USB;
-      frequency_a=430300000LL;
-      break;
-    case band1240:
-      mode_a=USB;
-      frequency_a=1240300000LL;
-      break;
-    case band2300:
-      mode_a=USB;
-      frequency_a=2300300000LL;
-      break;
-    case band3400:
-      mode_a=USB;
-      frequency_a=3400300000LL;
-      break;
-    case bandAIR:
-      mode_a=AM;
-      frequency_a=126825000LL;
-      break;
-#endif
-    case bandGen:
-      mode_a=AM;
-      frequency_a=5975000LL;
-      break;
-    case bandWWV:
-      mode_a=SAM;
-      frequency_a=10000000LL;
-      break;
-    default:
-      b=band_get_band(band);
-      mode_a=USB;
-      frequency_a=b->frequencyMin;
-      lo_a=b->frequencyLO;
-      error_a=b->errorLO;
-      break;
+  // get the new bandstack
+  if(band!=rx->band_a) {
+    b->panadapter_low=rx->panadapter_low;
+    b->panadapter_high=rx->panadapter_high;
+    b->panadapter_step=rx->panadapter_step;
+    b->waterfall_low=rx->waterfall_low;
+    b->waterfall_high=rx->waterfall_high;
+    b->waterfall_automatic=rx->waterfall_automatic;
+    b=&bands[band];
+    stack=b->bandstack;
+  } else {
+    stack->current_entry++;
+    if(stack->current_entry>=stack->entries) stack->current_entry=0;
   }
-  rx->band_a=band;
-  rx->mode_a=mode_a;
-  rx->frequency_a=frequency_a;
-  rx->lo_a=lo_a;
-  rx->error_a=error_a;
+  entry=&stack->entry[stack->current_entry];
+  rx->frequency_a=entry->frequency;
+  rx->mode_a=entry->mode;
+  rx->filter_a=entry->filter;
+  rx->lo_a=b->frequencyLO;
+  rx->error_a=b->errorLO;
   rx->ctun=FALSE;
   rx->ctun_offset=0;
+
+  rx->panadapter_low=b->panadapter_low;
+  rx->panadapter_high=b->panadapter_high;
+  rx->panadapter_step=b->panadapter_step;
+  rx->waterfall_low=b->waterfall_low;
+  rx->waterfall_high=b->waterfall_high;
+  rx->waterfall_automatic=b->waterfall_automatic;
+
   receiver_band_changed(rx,band);
   if(radio->transmitter) {
     if(radio->transmitter->rx==rx) {

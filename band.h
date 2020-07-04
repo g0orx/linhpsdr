@@ -77,6 +77,12 @@ typedef struct _BAND {
     long long frequencyLO;
     long long errorLO;
     int disablePA;
+    gint panadapter_low;
+    gint panadapter_high;
+    gint panadapter_step;
+    gint waterfall_low;
+    gint waterfall_high;
+    gboolean waterfall_automatic;
 } BAND;
 
 typedef struct _CHANNEL {

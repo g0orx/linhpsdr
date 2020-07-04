@@ -643,6 +643,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"ORION");
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"ORION 2");
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"HERMES LITE");
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"HERMES LITE 2");
 #ifdef SOAPYSDR
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"SoapySDR");
 #endif

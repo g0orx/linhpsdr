@@ -465,7 +465,6 @@ g_print("moving main_window to x=%d y=%d\n",x,y);
     gdk_window_set_cursor(gtk_widget_get_window(main_window),gdk_cursor_new(GDK_ARROW));
 
     g_signal_connect(image_event_box,"button-press-event",G_CALLBACK(radio_button_press_event_cb),NULL);
-    gtk_widget_set_events(image_event_box, gtk_widget_get_events(image_event_box)|GDK_BUTTON_PRESS_MASK);
   }
   return TRUE;
 }
@@ -524,11 +523,12 @@ static void activate_hpsdr(GtkApplication *app, gpointer data) {
   //gtk_grid_set_row_homogeneous(GTK_GRID(grid),TRUE);
   //gtk_grid_set_column_homogeneous(GTK_GRID(grid),FALSE);
 
-  GtkWidget *image_event_box=gtk_event_box_new();
+  image_event_box=gtk_event_box_new();
 
   image=gtk_image_new_from_file(png_path);
   gtk_container_add(GTK_CONTAINER(image_event_box),image);
   gtk_grid_attach(GTK_GRID(grid), image_event_box, 0, 0, 1, 1);
+  gtk_widget_set_events(image_event_box, gtk_widget_get_events(image_event_box)|GDK_BUTTON_PRESS_MASK);
 
   gtk_container_add (GTK_CONTAINER (main_window), grid);
 

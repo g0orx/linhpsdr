@@ -1164,6 +1164,7 @@ static gboolean agcgain_scale_scroll_event_cb(GtkWidget *widget,GdkEventScroll *
 void band_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
   set_band(choice->rx,choice->selection);
+  update_vfo(choice->rx);
   g_free(choice);
 }
 
