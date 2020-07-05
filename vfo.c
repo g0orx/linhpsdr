@@ -428,6 +428,7 @@ static void subrx_b_cb(GtkToggleButton *widget,gpointer user_data) {
     create_subrx(rx);
     rx->subrx_enable=TRUE;
   }
+  update_vfo(rx);
 }
 
 static void lock_b_cb(GtkToggleButton *widget,gpointer user_data) {
@@ -1905,7 +1906,7 @@ void update_vfo(RECEIVER *rx) {
 
   // SUBRX button
   g_signal_handlers_block_by_func(v->subrx_b,G_CALLBACK(subrx_b_cb),rx);
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->subrx_b),FALSE);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->subrx_b),rx->subrx!=NULL);
   g_signal_handlers_unblock_by_func(v->subrx_b,G_CALLBACK(subrx_b_cb),rx);
 
 }

@@ -781,6 +781,7 @@ long long receiver_move_a(RECEIVER *rx,long long hz,gboolean round) {
 
 void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only,gboolean round) {
   if(!rx->locked) {
+    long long f=rx->frequency_b;
     switch(rx->split) {
       case SPLIT_OFF:
         if(round) {
@@ -802,6 +803,13 @@ void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only,gboolean round) {
         } else {
           rx->frequency_b=rx->frequency_b+hz;
         }
+	if(rx->subrx!=NULL) {
+  	  rx->ctun_min=rx->frequency_a-(rx->sample_rate/2);
+          rx->ctun_max=rx->frequency_a+(rx->sample_rate/2);
+          if(rx->frequency_b<rx->ctun_min || rx->frequency_b>rx->ctun_max) {
+            rx->frequency_b=f;
+          }
+	}
         if(!b_only) {
           receiver_move_a(rx,hz,round);
           frequency_changed(rx);
@@ -814,6 +822,13 @@ void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only,gboolean round) {
         } else {
           rx->frequency_b=rx->frequency_b-hz;
         }
+	if(rx->subrx!=NULL) {
+  	  rx->ctun_min=rx->frequency_a-(rx->sample_rate/2);
+          rx->ctun_max=rx->frequency_a+(rx->sample_rate/2);
+          if(rx->frequency_b<rx->ctun_min || rx->frequency_b>rx->ctun_max) {
+            rx->frequency_b=f;
+          }
+	}
         if(!b_only) {
           receiver_move_a(rx,-hz,round);
           frequency_changed(rx);
@@ -1556,16 +1571,26 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
   rx->lo_a=0;
   rx->error_a=0;
   rx->offset=0;
+
+  rx->frequency_b=rx->frequency_a;
+  rx->band_b=rx->band_a;
+  rx->mode_b=rx->mode_a;
+  rx->filter_b=rx->filter_a;
+  rx->lo_b=rx->lo_a;
+  rx->error_b=rx->error_a;
+
+
   rx->lo_tx=0;
   rx->tx_track_rx=FALSE;
 
   rx->ctun=FALSE;
   rx->ctun_offset=0;
-  rx->ctun_min=-rx->sample_rate/2;
-  rx->ctun_max=rx->sample_rate/2;
+  rx->ctun_min=rx->frequency_a-(rx->sample_rate/2);
+  rx->ctun_max=rx->frequency_a+(rx->sample_rate/2);
 
   rx->bpsk=NULL;
   rx->bpsk_enable=FALSE;
+
   rx->frequency_b=14300000;
   rx->band_b=band20;
   rx->mode_b=USB;
