@@ -64,44 +64,44 @@ enum cwdaemon_verbosity {
 
 extern gpointer cwdaemon_thread(gpointer data);
 
-GMutex cwdaemon_mutex;
+extern GMutex cwdaemon_mutex;
 
-bool keytx;
-bool keysidetone;
+extern bool keytx;
+extern bool keysidetone;
 
 
-void cwdaemon_stop(void);
-void cwdaemon_close_socket(void);
-void cwdaemon_close_libcw_output(void);
+extern void cwdaemon_stop(void);
+extern void cwdaemon_close_socket(void);
+extern void cwdaemon_close_libcw_output(void);
 
-void cwdaemon_errmsg(const char *info, ...);
-void cwdaemon_debug(int verbosity, const char *func, int line, const char *format, ...);
+extern void cwdaemon_errmsg(const char *info, ...);
+extern void cwdaemon_debug(int verbosity, const char *func, int line, const char *format, ...);
 
-int dev_get_tty(const char *fname);
-int dev_get_null(const char *fname);
-int dev_get_parport(const char *fname);
+extern int dev_get_tty(const char *fname);
+extern int dev_get_null(const char *fname);
+extern int dev_get_parport(const char *fname);
 
 #if defined (HAVE_LINUX_PPDEV_H) || defined (HAVE_DEV_PPBUS_PPI_H)
-int lp_init (cwdevice * dev, int fd);
-int lp_free (cwdevice * dev);
-int lp_reset (cwdevice * dev);
-int lp_cw (cwdevice * dev, int onoff);
-int lp_ptt (cwdevice * dev, int onoff);
-int lp_ssbway (cwdevice * dev, int onoff);
-int lp_switchband (cwdevice * dev, unsigned char bandswitch);
-int lp_footswitch (cwdevice * dev);
+extern int lp_init (cwdevice * dev, int fd);
+extern int lp_free (cwdevice * dev);
+extern int lp_reset (cwdevice * dev);
+extern int lp_cw (cwdevice * dev, int onoff);
+extern int lp_ptt (cwdevice * dev, int onoff);
+extern int lp_ssbway (cwdevice * dev, int onoff);
+extern int lp_switchband (cwdevice * dev, unsigned char bandswitch);
+extern int lp_footswitch (cwdevice * dev);
 #endif
 
-int ttys_init (cwdevice * dev, int fd);
-int ttys_free (cwdevice * dev);
-int ttys_reset (cwdevice * dev);
-int ttys_cw (cwdevice * dev, int onoff);
-int ttys_ptt (cwdevice * dev, int onoff);
+extern int ttys_init (cwdevice * dev, int fd);
+extern int ttys_free (cwdevice * dev);
+extern int ttys_reset (cwdevice * dev);
+extern int ttys_cw (cwdevice * dev, int onoff);
+extern int ttys_ptt (cwdevice * dev, int onoff);
 
-int null_init (cwdevice * dev, int fd);
-int null_free (cwdevice * dev);
-int null_reset (cwdevice * dev);
-int null_cw (cwdevice * dev, int onoff);
-int null_ptt (cwdevice * dev, int onoff);
+extern int null_init (cwdevice * dev, int fd);
+extern int null_free (cwdevice * dev);
+extern int null_reset (cwdevice * dev);
+extern int null_cw (cwdevice * dev, int onoff);
+extern int null_ptt (cwdevice * dev, int onoff);
 
 #endif /* _CWDAEMON_H */

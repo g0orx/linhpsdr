@@ -25,6 +25,8 @@
 
 extern int midi_rx;
 
+struct cmdtable MidiCommandsTable;
+
 int midi_enabled=0;
 
 void NewMidiEvent(enum MIDIevent event, int channel, int note, int val) {
@@ -35,15 +37,15 @@ void NewMidiEvent(enum MIDIevent event, int channel, int note, int val) {
     static struct timespec tp, last_wheel_tp={0,0};
     long delta;
 
-//fprintf(stderr,"MIDI:EVENT=%d CHAN=%d NOTE=%d VAL=%d\n",event,channel,note,val);
+g_print("%s: EVENT=%d CHAN=%d NOTE=%d VAL=%d\n",__FUNCTION__,event,channel,note,val);
     if (event == MIDI_PITCH) {
 	desc=MidiCommandsTable.pitch;
     } else {
 	desc=MidiCommandsTable.desc[note];
     }
-//fprintf(stderr,"MIDI:init DESC=%p\n",desc);
+g_print("%s: init DESC=%p\n",__FUNCTION__,desc);
     while (desc) {
-//fprintf(stderr,"DESC=%p next=%p CHAN=%d EVENT=%d\n", desc,desc->next,desc->channel,desc->event);
+g_print("%s: DESC=%p next=%p CHAN=%d EVENT=%d\n",__FUNCTION__,desc,desc->next,desc->channel,desc->event);
 	if ((desc->channel == channel || desc->channel == -1) && (desc->event == event)) {
 	    // Found matching entry
 	    switch (desc->event) {
@@ -199,8 +201,8 @@ static enum MIDIaction keyword2action(char *s) {
 
 
 int MIDIstop(RADIO *r) {
-  close_midi_device();
   r->midi_enabled=FALSE;
+  close_midi_device();
   return 0;
 }
 
@@ -227,10 +229,6 @@ int MIDIstartup(char *filename) {
     for (i=0; i<128; i++) MidiCommandsTable.desc[i]=NULL;
     MidiCommandsTable.pitch=NULL;
 
-    /*
-    char filename[128];
-    sprintf(filename,"%s/.local/share/linhpsdr/midi.props", g_get_home_dir());
-    */
     g_print("%s: %s\n",__FUNCTION__,filename);
     fpin=fopen(filename, "r");
 
@@ -263,7 +261,7 @@ int MIDIstartup(char *filename) {
 	cp++;
       }
       
-//fprintf(stderr,"\nMIDI:INP:%s\n",zeile);
+g_print("\n%s:INP:%s\n",__FUNCTION__,zeile);
 
       if ((cp = strstr(zeile, "DEVICE="))) {
         // Delete comments and trailing blanks
@@ -297,18 +295,18 @@ int MIDIstartup(char *filename) {
         sscanf(cp+4, "%d", &key);
         event=MIDI_NOTE;
 	type=MIDI_KEY;
-//fprintf(stderr,"MIDI:KEY:%d\n", key);
+g_print("%s: MIDI:KEY:%d\n",__FUNCTION__, key);
       }
       if ((cp = strstr(zeile, "CTRL="))) {
         sscanf(cp+5, "%d", &key);
 	event=MIDI_CTRL;
 	type=MIDI_KNOB;
-//fprintf(stderr,"MIDI:CTL:%d\n", key);
+g_print("%s: MIDI:CTL:%d\n",__FUNCTION__, key);
       }
       if ((cp = strstr(zeile, "PITCH "))) {
         event=MIDI_PITCH;
 	type=MIDI_KNOB;
-//fprintf(stderr,"MIDI:PITCH\n");
+g_print("%s: MIDI:PITCH\n",__FUNCTION__);
       }
       //
       // If event is still undefined, skip line
@@ -328,20 +326,20 @@ int MIDIstartup(char *filename) {
         sscanf(cp+5, "%d", &chan);
 	chan--;
         if (chan<0 || chan>15) chan=-1;
-//fprintf(stderr,"MIDI:CHA:%d\n",chan);
+g_print("%s:CHAN:%d\n",__FUNCTION__,chan);
       }
       if ((cp = strstr(zeile, "WHEEL")) && (type == MIDI_KNOB)) {
 	// change type from MIDI_KNOB to MIDI_WHEEL
         type=MIDI_WHEEL;
-//fprintf(stderr,"MIDI:WHEEL\n");
+g_print("%s:WHEEL\n",__FUNCTION__);
       }
       if ((cp = strstr(zeile, "ONOFF"))) {
         onoff=1;
-//fprintf(stderr,"MIDI:ONOFF\n");
+g_print("%s:ONOFF\n",__FUNCTION__);
       }
       if ((cp = strstr(zeile, "DELAY="))) {
         sscanf(cp+6, "%d", &delay);
-//fprintf(stderr,"MIDI:DELAY:%d\n",delay);
+g_print("%s:DELAY:%d\n",__FUNCTION__,delay);
       }
       if ((cp = strstr(zeile, "THR="))) {
         sscanf(cp+4, "%d %d %d %d %d %d %d %d %d %d %d %d",
@@ -354,7 +352,7 @@ int MIDIstartup(char *filename) {
         while (*cq != 0 && *cq != '\n' && *cq != ' ' && *cq != '\t') cq++;
 	*cq=0;
         action=keyword2action(cp+7);
-//fprintf(stderr,"MIDI:ACTION:%s (%d)\n",cp+7, action);
+g_print("%s: MIDI:ACTION:%s (%d)\n",__FUNCTION__,cp+7, action);
       }
       //
       // All data for a descriptor has been read. Construct it!
@@ -394,7 +392,7 @@ int MIDIstartup(char *filename) {
 	}
       }
       if (event == MIDI_KEY || event == MIDI_CTRL) {
-//fprintf(stderr,"MIDI:TAB:Insert desc=%p in CMDS[%d] table\n",desc,key);
+g_print("%s:TAB:Insert desc=%p in CMDS[%d] table\n",__FUNCTION__,desc,key);
 	dp = MidiCommandsTable.desc[key];
 	if (dp == NULL) {
 	  MidiCommandsTable.desc[key]=desc;

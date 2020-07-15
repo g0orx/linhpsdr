@@ -42,6 +42,8 @@
  * must generate MIDI events on different channels
  */
 
+#ifndef _MIDI_H
+#define _MIDI_H
 //
 // MIDIaction encodes the "action" to be taken in Layer3
 // (sorted alphabetically by the keyword)
@@ -199,10 +201,10 @@ struct desc {
    struct desc       *next;       // Next defined action for a controller/key with that note value (NULL for end of list)
 };
 
-struct {
+struct cmdtable {
    struct desc *desc[128];    // description for Note On/Off and ControllerChange
    struct desc *pitch;        // description for PitchChanges
-} MidiCommandsTable;
+};
 
 extern int midi_debug;
 
@@ -236,3 +238,4 @@ int MIDIstop();
 //
 
 void DoTheMidi(enum MIDIaction code, enum MIDItype type, int val);
+#endif
