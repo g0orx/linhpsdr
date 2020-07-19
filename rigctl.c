@@ -69,6 +69,10 @@
 
 #define NEW_PARSER
 
+// SOL_TCP is not defined on macOS
+#if !defined(SOL_TCP) && defined(IPPROTO_TCP)
+#define SOL_TCP IPPROTO_TCP
+#endif
 
 int rigctl_port_base=19090;
 int rigctl_enable=0;
