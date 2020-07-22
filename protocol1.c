@@ -1523,7 +1523,8 @@ void ozy_send_buffer() {
         output_buffer[C1] = 0x00;
         if ((tx_mode == CWL) || (tx_mode == CWU)
             && !radio->tune
-            && radio->cw_keyer_internal)
+            && radio->cw_keyer_internal
+            && !radio->cwdaemon)
         {
             output_buffer[C1] = 0x01;
         }
