@@ -716,10 +716,11 @@ static void process_ozy_input_buffer(char  *buffer) {
 
     radio->local_ptt=radio->ptt;
     if(tx_mode==CWL || tx_mode==CWU) {
-      radio->local_ptt=radio->ptt|radio->dot|radio->dash;
+      radio->local_ptt = radio->ptt | radio->dot | radio->dash;
     }
+
     if(previous_ptt!=radio->local_ptt) {
-      //g_idle_add(ext_ptt_update,(gpointer)(long)(radio->local_ptt));
+        g_idle_add(ext_ptt_update,(gpointer)(long)(radio->local_ptt));
     }
 
     switch((control_in[0]>>3)&0x1F) {
@@ -1520,9 +1521,11 @@ void ozy_send_buffer() {
 
         /* sidetone enable */
         output_buffer[C1] = 0x00;
-        if ((tx_mode == CWU || tx_mode == CWU) &&
-            !radio->tune && !radio->vox && radio->cw_keyer_internal && !radio->cwdaemon) {
-                output_buffer[C1] = 0x01;
+        if ((tx_mode == CWL) || (tx_mode == CWU)
+            && !radio->tune
+            && radio->cw_keyer_internal)
+        {
+            output_buffer[C1] = 0x01;
         }
 
         /* sidetone volume */
