@@ -445,8 +445,8 @@ static gpointer receive_thread(gpointer arg) {
 static void process_control_bytes() {
   gboolean previous_ptt;
   // Unused - commented in case used in future
-  //gboolean previous_dot;
-  //gboolean previous_dash;
+  gboolean previous_dot;
+  gboolean previous_dash;
 
   gint tx_mode=USB;
 
@@ -460,22 +460,20 @@ static void process_control_bytes() {
   }
 
   previous_ptt=radio->local_ptt;
-  //previous_dot=radio->dot;
-  //previous_dash=radio->dash;
-  radio->ptt=(control_in[0]&0x01)==0x01;
-  //radio->dash=(control_in[0]&0x02)==0x02;
-  //radio->dot=(control_in[0]&0x04)==0x04;
+  previous_dot=radio->dot;
+  previous_dash=radio->dash;
+  radio->ptt   = (control_in[0] & 0x01)==0x01;
+  radio->dash  = (control_in[0] & 0x02)==0x02;
+  radio->dot   = (control_in[0] & 0x04)==0x04;
 
-  radio->local_ptt=radio->ptt;
-  if(tx_mode==CWL || tx_mode==CWU) {
-    radio->local_ptt=radio->ptt|radio->dot|radio->dash;
+  radio->local_ptt = radio->ptt;
+  if(tx_mode == CWL || tx_mode == CWU) {
+    radio->local_ptt = radio->ptt | radio->dot | radio->dash;
   }
   if(previous_ptt!=radio->local_ptt) {
-g_print("process_control_bytes: ppt=%d dot=%d dash=%d\n",radio->ptt,radio->dot,radio->dash);
-    g_idle_add(ext_ptt_changed,(gpointer)radio);
+      g_print("process_control_bytes: ppt=%d dot=%d dash=%d\n",radio->ptt,radio->dot,radio->dash);
+      g_idle_add(ext_ptt_changed,(gpointer)radio);
   }
-
-
   
   switch((control_in[0]>>3)&0x1F) {
     case 0:
@@ -1520,16 +1518,14 @@ void ozy_send_buffer() {
           }
         }
 
-        output_buffer[C1]=0x00;
-        if(tx_mode!=CWU && tx_mode!=CWL) {
-          // output_buffer[C1]|=0x00;
-        } else {
-          if(radio->tune || radio->vox || !radio->cw_keyer_internal || !radio->cwdaemon) {
-            output_buffer[C1]|=0x00;
-          } else {
-            output_buffer[C1]|=0x01;
-          }
+        /* sidetone enable */
+        output_buffer[C1] = 0x00;
+        if ((tx_mode == CWU || tx_mode == CWU) &&
+            !radio->tune && !radio->vox && radio->cw_keyer_internal && !radio->cwdaemon) {
+                output_buffer[C1] = 0x01;
         }
+
+        /* sidetone volume */
         output_buffer[C2]=radio->cw_keyer_sidetone_volume;
         
         //CWX enable/disable
