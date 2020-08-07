@@ -55,8 +55,9 @@
 
 static double bandwidth=1000000.0;
 
+#define MAX_CHANNELS 2
 static SoapySDRDevice *soapy_device;
-static SoapySDRStream *rx_stream;
+static SoapySDRStream *rx_stream[MAX_CHANNELS];
 static SoapySDRStream *tx_stream;
 static int soapy_rx_sample_rate;
 static int soapy_tx_sample_rate;
@@ -113,21 +114,21 @@ g_print("%s: setting samplerate=%f\n",__FUNCTION__,(double)soapy_rx_sample_rate)
   size_t channel=rx->adc;
 g_print("%s: SoapySDRDevice_setupStream: channel=%ld\n",__FUNCTION__,channel);
 #if defined(SOAPY_SDR_API_VERSION) && (SOAPY_SDR_API_VERSION < 0x00080000)
-  rc=SoapySDRDevice_setupStream(soapy_device,&rx_stream,SOAPY_SDR_RX,SOAPY_SDR_CF32,&channel,1,NULL);
+  rc=SoapySDRDevice_setupStream(soapy_device,&rx_stream[channel],SOAPY_SDR_RX,SOAPY_SDR_CF32,&channel,1,NULL);
   if(rc!=0) {
     g_print("%s: SoapySDRDevice_setupStream (RX) failed: %s\n",__FUNCTION__,SoapySDR_errToStr(rc));
     _exit(-1);
   }
 #else
-  rx_stream=SoapySDRDevice_setupStream(soapy_device,SOAPY_SDR_RX,SOAPY_SDR_CF32,&channel,1,NULL);
-  if(rx_stream==NULL) {
+  rx_stream[channel]=SoapySDRDevice_setupStream(soapy_device,SOAPY_SDR_RX,SOAPY_SDR_CF32,&channel,1,NULL);
+  if(rx_stream[channel]==NULL) {
     g_print("%s: SoapySDRDevice_setupStream (RX) failed: %s\n",__FUNCTION__,SoapySDR_errToStr(rc));
     _exit(-1);
   }
 #endif
 
 
-  max_samples=SoapySDRDevice_getStreamMTU(soapy_device,rx_stream);
+  max_samples=SoapySDRDevice_getStreamMTU(soapy_device,rx_stream[channel]);
   if(max_samples>(2*rx->fft_size)) {
     max_samples=2*rx->fft_size;
   }
@@ -139,7 +140,8 @@ void soapy_protocol_start_receiver(RECEIVER *rx) {
   int rc;
 
 g_print("%s: activate_stream\n",__FUNCTION__);
-  rc=SoapySDRDevice_activateStream(soapy_device, rx_stream, 0, 0LL, 0);
+  size_t channel=rx->adc;
+  rc=SoapySDRDevice_activateStream(soapy_device, rx_stream[channel], 0, 0LL, 0);
   if(rc!=0) {
     g_print("%s: SoapySDRDevice_activateStream failed: %s\n",__FUNCTION__,SoapySDR_errToStr(rc));
     _exit(-1);
@@ -236,6 +238,10 @@ g_print("soapy_protocol_init: SoapySDRDevice_make\n");
     char id[16];
     sprintf(id,"%d",radio->discovered->info.soapy.rtlsdr_count);
     SoapySDRKwargs_set(&args, "rtl", id);
+  } else if(strcmp(radio->discovered->name,"sdrplay")==0) {
+    char label[16];
+    sprintf(label,"SDRplay Dev%d",radio->discovered->info.soapy.sdrplay_count);
+    SoapySDRKwargs_set(&args, "label", label);
   }
   soapy_device=SoapySDRDevice_make(&args);
   if(soapy_device==NULL) {
@@ -265,8 +271,9 @@ static void *receive_thread(void *arg) {
   void *buffs[]={buffer};
   running=TRUE;
 g_print("%s: receive_thread\n",__FUNCTION__);
+  size_t channel=rx->adc;
   while(running) {
-    elements=SoapySDRDevice_readStream(soapy_device,rx_stream,buffs,max_samples,&flags,&timeNs,timeoutUs);
+    elements=SoapySDRDevice_readStream(soapy_device,rx_stream[channel],buffs,max_samples,&flags,&timeNs,timeoutUs);
     if(elements<0) {
       g_print("%s: elements=%d max_samples=%d\n",__FUNCTION__,elements,max_samples);
     }
@@ -335,9 +342,9 @@ g_print("resampler: elements in=%d out=%d\n",elements,out_elements);
   }
 
 g_print("%s: receive_thread: SoapySDRDevice_deactivateStream\n",__FUNCTION__);
-  SoapySDRDevice_deactivateStream(soapy_device,rx_stream,0,0LL);
+  SoapySDRDevice_deactivateStream(soapy_device,rx_stream[channel],0,0LL);
 g_print("%s: receive_thread: SoapySDRDevice_closeStream\n",__FUNCTION__);
-  SoapySDRDevice_closeStream(soapy_device,rx_stream);
+  SoapySDRDevice_closeStream(soapy_device,rx_stream[channel]);
 g_print("%s: receive_thread: SoapySDRDevice_unmake\n",__FUNCTION__);
   SoapySDRDevice_unmake(soapy_device);
   _exit(0);

@@ -592,7 +592,7 @@ void delete_receiver(RECEIVER *rx) {
       if(radio->discovered->protocol==PROTOCOL_1) {
         protocol1_stop();
       }
-      if(radio->transmitter->rx==rx) {
+      if(radio->transmitter!=NULL && radio->transmitter->rx==rx) {
         radio->transmitter->rx=NULL;
       }
       radio->receiver[i]=NULL;
@@ -605,7 +605,7 @@ g_print("delete_receiver: receivers now %d\n",radio->receivers);
     }
   }
 
-  if(radio->transmitter->rx==NULL) {
+  if(radio->transmitter!=NULL && radio->transmitter->rx==NULL) {
     if(radio->receivers>0) {
       for(i=0;i<radio->discovered->supported_receivers;i++) {
         if(radio->receiver[i]!=NULL) {
@@ -789,8 +789,27 @@ g_print("add_receiver: using receiver %d\n",i);
     r->receiver[i]=create_receiver(i,r->sample_rate);
     r->receivers++;
 g_print("add_receiver: receivers now %d\n",r->receivers);
-    if(r->discovered->protocol==PROTOCOL_2) {
-      protocol2_start_receiver(r->receiver[i]);
+    switch(r->discovered->protocol) {
+      case PROTOCOL_2:
+        protocol2_start_receiver(r->receiver[i]);
+        break;
+#ifdef SOAPYSDR
+      case PROTOCOL_SOAPYSDR:
+        soapy_protocol_create_receiver(r->receiver[i]);
+        RECEIVER *rx=r->receiver[i];
+        int adc=rx->adc;
+        soapy_protocol_set_rx_antenna(radio->receiver[i],radio->adc[adc].antenna);
+        double f=(double)(rx->frequency_a-rx->lo_a+rx->error_a);
+        soapy_protocol_set_rx_frequency(radio->receiver[i]);
+        soapy_protocol_set_automatic_gain(radio->receiver[i],radio->adc[adc].agc);
+        for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
+          soapy_protocol_set_gain(&radio->adc[adc]);
+        } 
+        soapy_protocol_start_receiver(rx);
+        break;
+#endif
+      default:
+        break;
     }
   } else {
 g_print("add_receiver: no receivers available\n");
