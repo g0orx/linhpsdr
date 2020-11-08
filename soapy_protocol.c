@@ -27,11 +27,6 @@
 #include "SoapySDR/Formats.h"
 #include "SoapySDR/Version.h"
 
-//#define TIMING
-#ifdef TIMING
-#include <sys/time.h>
-#endif
-
 #include "band.h"
 #include "channel.h"
 #include "discovered.h"
@@ -69,10 +64,6 @@ static GThread *receive_thread_id;
 static gpointer receive_thread(gpointer data);
 
 static int actual_rate;
-
-#ifdef TIMING
-static int rate_samples;
-#endif
 
 static gboolean running;
 
@@ -200,6 +191,13 @@ g_print("soapy_protocol_create_transmitter: SoapySDRDevice_setupStream: channel=
 g_print("soapy_protocol_create_transmitter: max_tx_samples=%d\n",max_tx_samples);
   output_buffer=(float *)malloc(max_tx_samples*sizeof(float)*2);
 
+  if(radio->local_microphone) {
+      if(audio_open_input(radio)!=0) {
+        fprintf(stderr,"audio_open_input failed\n");
+        radio->local_microphone=FALSE;
+      }
+    }
+
 }
 
 void soapy_protocol_start_transmitter(TRANSMITTER *tx) {
@@ -260,12 +258,6 @@ static void *receive_thread(void *arg) {
   long long timeNs=0;
   long timeoutUs=100000L;
   int i;
-#ifdef TIMING
-  struct timeval tv;
-  long start_time, end_time;
-  rate_samples=0;
-  gettimeofday(&tv, NULL); start_time=tv.tv_usec + 1000000 * tv.tv_sec;
-#endif
   RECEIVER *rx=(RECEIVER *)arg;
   float *buffer=g_new(float,max_samples*2);
   void *buffs[]={buffer};
@@ -276,6 +268,8 @@ g_print("%s: receive_thread\n",__FUNCTION__);
     elements=SoapySDRDevice_readStream(soapy_device,rx_stream[channel],buffs,max_samples,&flags,&timeNs,timeoutUs);
     if(elements<0) {
       g_print("%s: elements=%d max_samples=%d\n",__FUNCTION__,elements,max_samples);
+      running=FALSE;
+      break;
     }
     for(i=0;i<elements;i++) {
       rx->buffer[i*2]=(double)buffer[i*2];
@@ -328,15 +322,6 @@ g_print("resampler: elements in=%d out=%d\n",elements,out_elements);
         } else {
           add_iq_samples(rx,isample,qsample);
         }
-#ifdef TIMING
-        rate_samples++;
-        if(rate_samples>=rx->sample_rate) {
-          gettimeofday(&tv, NULL); end_time=tv.tv_usec + 1000000 * tv.tv_sec;
-          g_print("%d samples in %ld usec\n",rx->sample_rate,end_time-start_time);
-          rate_samples=0;
-          start_time=end_time;
-        }
-#endif
       }
     }
   }
@@ -345,9 +330,9 @@ g_print("%s: receive_thread: SoapySDRDevice_deactivateStream\n",__FUNCTION__);
   SoapySDRDevice_deactivateStream(soapy_device,rx_stream[channel],0,0LL);
 g_print("%s: receive_thread: SoapySDRDevice_closeStream\n",__FUNCTION__);
   SoapySDRDevice_closeStream(soapy_device,rx_stream[channel]);
-g_print("%s: receive_thread: SoapySDRDevice_unmake\n",__FUNCTION__);
-  SoapySDRDevice_unmake(soapy_device);
-  _exit(0);
+//g_print("%s: receive_thread: SoapySDRDevice_unmake\n",__FUNCTION__);
+//  SoapySDRDevice_unmake(soapy_device);
+  //_exit(0);
 }
 
 void soapy_protocol_process_local_mic(RADIO *r) {
@@ -496,4 +481,8 @@ void soapy_protocol_set_automatic_gain(RECEIVER *rx,gboolean mode) {
 
 char *soapy_protocol_read_sensor(char *name) {
   return SoapySDRDevice_readSensor(soapy_device, name);
+}
+
+gboolean soapy_protocol_is_running() {
+  return running;
 }

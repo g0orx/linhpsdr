@@ -30,4 +30,5 @@ extern void protocol1_process_local_mic(RADIO *r);
 extern void protocol1_audio_samples(RECEIVER *rx,short left_audio_sample,short right_audio_sample);
 extern void protocol1_iq_samples(int isample,int qsample);
 extern void protocol1_eer_iq_samples(int isample,int qsample,int lasample,int rasample);
+extern gboolean protocol1_is_running();
 #endif

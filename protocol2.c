@@ -320,11 +320,15 @@ void protocol2_general() {
     if(radio!=NULL) {
       if(radio->transmitter!=NULL) {
         if(radio->transmitter->rx!=NULL) {
+#ifdef USE_VFO_B_MODE_AND_FILTER
           if(radio->transmitter->rx->split) {
-              band=band_get_band(radio->transmitter->rx->band_a);
-          } else {
               band=band_get_band(radio->transmitter->rx->band_b);
+          } else {
+#endif
+              band=band_get_band(radio->transmitter->rx->band_a);
+#ifdef USE_VFO_B_MODE_AND_FILTER
           }
+#endif
         }
       }
     }
@@ -397,11 +401,15 @@ void protocol2_high_priority() {
 
     mode=USB;
       if(radio->transmitter->rx!=NULL) {
+#ifdef USE_VFO_B_MODE_AND_FILTER
         if(radio->transmitter->rx->split) {
+#endif
           mode=radio->transmitter->rx->mode_a;
+#ifdef USE_VFO_B_MODE_AND_FILTER
         } else {
           mode=radio->transmitter->rx->mode_b;
         }
+#endif
       }
       high_priority_buffer_to_radio[4]=running;
       if(mode==CWU || mode==CWL) {
@@ -512,12 +520,15 @@ void protocol2_high_priority() {
       BAND *band;
       if(radio->transmitter!=NULL) {
         if(radio->transmitter->rx!=NULL) {
+#ifdef USE_VFO_B_MODE_AND_FILTER
           if(radio->transmitter->rx->split) {
             band=band_get_band(radio->transmitter->rx->band_b);
           } else {
+#endif
             band=band_get_band(radio->transmitter->rx->band_a);
-g_print("protocol2_high_priority: band=%d %s\n",radio->transmitter->rx->band_a, band->title);
+#ifdef USE_VFO_B_MODE_AND_FILTER
           }
+#endif
         }
       }
 
@@ -890,11 +901,15 @@ static void protocol2_transmit_specific() {
     if(radio!=NULL) {
       if(radio->transmitter!=NULL) {
         if(radio->transmitter->rx!=NULL) {
+#ifdef USE_VFO_B_MODE_AND_FILTER
             if(radio->transmitter->rx->split) {
+#endif
               mode=radio->transmitter->rx->mode_a;
+#ifdef USE_VFO_B_MODE_AND_FILTER
             } else {
               mode=radio->transmitter->rx->mode_b;
             }
+#endif
         }
       }
     }
@@ -1039,7 +1054,7 @@ void protocol2_stop() {
     running=0;
     protocol2_high_priority();
     usleep(100000); // 100 ms
-    _exit(0);
+    //_exit(0);
 }
 
 void protocol2_run() {
@@ -1404,11 +1419,15 @@ static void process_high_priority(unsigned char *buffer) {
     gint tx_mode=USB;
     RECEIVER *tx_receiver=radio->transmitter->rx;
     if(tx_receiver!=NULL) {
+#ifdef USE_VFO_B_MODE_AND_FILTER
       if(radio->transmitter->rx->split) {
         tx_mode=tx_receiver->mode_b;
       } else {
+#endif
         tx_mode=tx_receiver->mode_a;
+#ifdef USE_VFO_B_MODE_AND_FILTER
       }
+#endif
     }
 
     radio->local_ptt=radio->ptt;
@@ -1506,4 +1525,8 @@ fprintf(stderr,"protocol2_timer_thread\n");
     protocol2_receive_specific();
   }
   return NULL;
+}
+
+gboolean protocol2_is_running() {
+  return running;
 }

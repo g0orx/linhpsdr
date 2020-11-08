@@ -81,4 +81,5 @@ extern int getTune();
 extern void protocol2_process_local_mic(RADIO *r);
 extern void protocol2_audio_samples(RECEIVER *rx,short left_audio_sample,short right_audio_sample);
 extern void protocol2_iq_samples(int isample,int qsample);
+extern gboolean protocol2_is_running();
 #endif

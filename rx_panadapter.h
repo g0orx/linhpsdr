@@ -18,4 +18,4 @@
 */
 
 extern GtkWidget *create_rx_panadapter(RECEIVER *rx);
-extern void update_rx_panadapter(RECEIVER *rx);
+extern void update_rx_panadapter(RECEIVER *rx,gboolean running);
