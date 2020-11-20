@@ -1570,7 +1570,9 @@ g_print("create_receiver: channel=%d frequency_min=%ld frequency_max=%ld\n", cha
         break;
 #ifdef SOAPYSDR
       case PROTOCOL_SOAPYSDR:
-        if(radio->discovered->supported_receivers>1) {
+        if(radio->discovered->supported_receivers>1 &&
+// fv - need to figure how to deal with the Lime Suite
+           strcmp(radio->discovered->name,"lms7")==0) {
           rx->adc=2;
         } else {
           rx->adc=1;

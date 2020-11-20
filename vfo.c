@@ -178,7 +178,7 @@ void vfo_aswapb(RECEIVER *rx) {
 
   frequency_changed(rx);
   receiver_mode_changed(rx,rx->mode_a);
-  if(radio->transmitter->rx==rx) {
+  if(radio->transmitter!=NULL && radio->transmitter->rx==rx) {
     if(rx->split!=SPLIT_OFF) {
       transmitter_set_mode(radio->transmitter,rx->mode_b);
     } else {
@@ -442,7 +442,7 @@ void mode_cb(GtkWidget *menu_item,gpointer data) {
   if(choice->rx->split!=SPLIT_OFF) {
     choice->rx->mode_b=choice->selection;
   }
-  if(radio->transmitter->rx==choice->rx) {
+  if(radio->transmitter!=NULL && radio->transmitter->rx==choice->rx) {
     if(choice->rx->split!=SPLIT_OFF) {
       transmitter_set_mode(radio->transmitter,choice->rx->mode_b);
     } else {

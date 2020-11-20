@@ -1308,7 +1308,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     row++;
 
     rx->tx_control_b=gtk_check_button_new_with_label("Use This Receivers Frequency");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->tx_control_b), radio->transmitter->rx==rx);
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->tx_control_b), radio->transmitter!=NULL && radio->transmitter->rx==rx);
     gtk_grid_attach(GTK_GRID(tx_grid),rx->tx_control_b,0,0,1,1);
     rx->tx_control_signal_id=g_signal_connect(rx->tx_control_b,"toggled",G_CALLBACK(tx_cb),rx);
   }
