@@ -212,6 +212,7 @@ static void sample_rate_cb(GtkComboBox *widget,gpointer data) {
   int i;
 
   switch(gtk_combo_box_get_active(widget)) {
+#ifndef SOAPYSDR
     case 0: // 48000
       rate=48000;
       break;
@@ -224,8 +225,17 @@ static void sample_rate_cb(GtkComboBox *widget,gpointer data) {
     case 3: // 384000
       rate=384000;
       break;
-#ifdef SOAPYSDR
-    case 4: // 768000
+#else
+    case 0: // 96000
+      rate=96000;
+      break;
+    case 1: // 192000
+      rate=192000;
+      break;
+    case 2: // 384000
+      rate=384000;
+      break;
+    case 3: // 768000
       rate=768000;
       break;
 #endif
@@ -733,7 +743,6 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   if(radio->discovered->device==DEVICE_SOAPYSDR &&
      strcmp(radio->discovered->name,"sdrplay")==0) {
     GtkWidget *sample_rate_combo_box=gtk_combo_box_text_new();
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"48000");
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"96000");
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"192000");
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"384000");
