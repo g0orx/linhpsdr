@@ -682,8 +682,11 @@ fprintf(stderr,"receiver_change_sample_rate: channel=%d rate=%d buffer_size=%d o
 
 #ifdef SOAPYSDR
   if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
+    soapy_protocol_change_sample_rate(rx,sample_rate);
+/*
     rx->resample_step=radio->sample_rate/rx->sample_rate;
 g_print("receiver_change_sample_rate: resample_step=%d\n",rx->resample_step);
+*/
   }
 #endif
 

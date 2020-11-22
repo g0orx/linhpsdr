@@ -103,7 +103,7 @@ static void get_info(char *driver) {
   SoapySDRRange *rx_rates=SoapySDRDevice_getSampleRateRange(sdr, SOAPY_SDR_RX, 0, &rx_rates_length);
   fprintf(stderr,"Rx sample rates: ");
   for (size_t i = 0; i < rx_rates_length; i++) {
-    fprintf(stderr,"%f -> %f (%f),", rx_rates[i].minimum, rx_rates[i].maximum, rx_rates[i].minimum/48000.0);
+    fprintf(stderr,"%f -> %f (%f),", rx_rates[i].minimum, rx_rates[i].maximum, rx_rates[i].minimum/768000.0);
     if(sample_rate==0) {
       if(rx_rates[i].minimum==rx_rates[i].maximum) {
         if(((int)rx_rates[i].minimum%48000)==0) {

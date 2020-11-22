@@ -249,6 +249,10 @@ typedef struct _receiver {
 
   int resample_step;
 
+  void *resampler;
+  gdouble *resampled_buffer;
+  gint resampled_buffer_size;
+
   GtkWidget *local_audio_b;
   GtkWidget *audio_choice_b;
   GtkWidget *tx_control_b;
