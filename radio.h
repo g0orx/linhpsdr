@@ -214,6 +214,7 @@ typedef struct _radio {
 
 } RADIO;
 
+extern int radio_restart(void *data);
 extern int radio_start(void *data);
 extern gboolean isTransmitting(RADIO *r);
 extern RADIO *create_radio(DISCOVERED *d);

@@ -599,6 +599,7 @@ static void var_spin_high_cb (GtkWidget *widget, gpointer data) {
 
 static void update_filters(RECEIVER *rx) {
   int i;
+  int row;
   SELECT *select;
 
   FILTER* band_filters=filters[rx->mode_a];
@@ -647,8 +648,8 @@ g_print("update_filters: new filter grid %p\n",rx->filter_grid);
       break;
 
     default:
+      /*
       for(i=0;i<FILTERS-2;i++) {
-/*
         FILTER* band_filter=&band_filters[i];
         GtkWidget *b=gtk_button_new_with_label(band_filters[i].title);
         if(i==rx->filter_a) {
@@ -662,11 +663,12 @@ g_print("update_filters: new filter grid %p\n",rx->filter_grid);
         select->choice=i;
         g_signal_connect(b,"pressed",G_CALLBACK(filter_select_cb),(gpointer)select);
         gtk_grid_attach(GTK_GRID(rx->filter_grid),b,i%FILTER_COLUMNS,i/FILTER_COLUMNS,1,1);
-*/
       }
+      */
 
   // last 2 are var1 and var2
-      int row=1+((i+4)/5);
+      i=FILTERS-2;
+      row=1+((i+4)/5);
       FILTER* band_filter=&band_filters[i];
       GtkWidget *b=gtk_button_new_with_label(band_filters[i].title);
       if(i==rx->filter_a) {
@@ -1075,6 +1077,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     case PROTOCOL_2:
 #ifdef SOAPYSDR
     case PROTOCOL_SOAPYSDR:
+      if(strcmp(radio->discovered->name,"sdrplay")!=0)
 #endif
       {
       int x=0;

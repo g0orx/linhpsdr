@@ -74,6 +74,26 @@ static GtkWidget *add_wideband_b;
 
 static void rxtx(RADIO *r);
 
+int radio_restart(void *data) {
+  RADIO *r=(RADIO *)data;
+fprintf(stderr,"radio_restart\n");
+  switch(r->discovered->protocol) {
+    case PROTOCOL_1:
+      protocol1_run(r);
+      break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      soapy_protocol_change_sample_rate(r->receiver[0],r->sample_rate);
+      soapy_protocol_start_receiver(r->receiver[0]);
+      break;
+#endif
+  }
+  if(r->transmitter!=NULL) {
+    update_tx_panadapter(r);
+  }
+  return 0;
+}
+
 int radio_start(void *data) {
   RADIO *r=(RADIO *)data;
 fprintf(stderr,"radio_start\n");
@@ -81,6 +101,12 @@ fprintf(stderr,"radio_start\n");
     case PROTOCOL_1:
       protocol1_run(r);
       break;
+    case PROTOCOL_2:
+      break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      break;
+#endif
   }
   if(r->transmitter!=NULL) {
     update_tx_panadapter(r);
@@ -1068,9 +1094,9 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 #ifdef SOAPYSDR
     case SOAPYSDR:
       r->sample_rate=r->discovered->info.soapy.sample_rate;
-      if(r->sample_rate==0) {
+      //if(r->sample_rate==0) {
         r->sample_rate=768000;
-      }
+      //}
       r->buffer_size=2048;
       r->alex_rx_antenna=3; // LNAW
       r->alex_tx_antenna=0; // ANT 1

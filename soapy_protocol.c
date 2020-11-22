@@ -48,7 +48,7 @@
 #include "ext.h"
 #include "error_handler.h"
 
-static double bandwidth=1000000.0;
+static double bandwidth=2000000.0;
 
 #define MAX_CHANNELS 2
 static SoapySDRDevice *soapy_device;
@@ -83,6 +83,40 @@ void soapy_protocol_set_mic_sample_rate(int rate) {
 }
 
 void soapy_protocol_change_sample_rate(RECEIVER *rx,int rate) {
+  int rc;
+
+  if(strcmp(radio->discovered->name,"sdrplay")==0) {
+    soapy_rx_sample_rate=rx->sample_rate;
+    g_print("%s: setting samplerate=%f\n",__FUNCTION__,(double)soapy_rx_sample_rate);
+    rc=SoapySDRDevice_setSampleRate(soapy_device,SOAPY_SDR_RX,rx->adc,(double)soapy_rx_sample_rate);
+    if(rc!=0) {
+      g_print("%s: SoapySDRDevice_setSampleRate(%f) failed: %s\n",__FUNCTION__,(double)soapy_rx_sample_rate,SoapySDR_errToStr(rc));
+    }
+  } else if(rx->sample_rate==radio->sample_rate) {
+    if(rx->resampled_buffer!=NULL) {
+      g_free(rx->resampled_buffer);
+      rx->resampled_buffer=NULL;
+      rx->resampled_buffer_size=0;
+    }
+    if(rx->resampler!=NULL) {
+      destroy_resample(rx->resampler);
+      rx->resampler=NULL;
+    }
+  } else {
+    if(rx->resampled_buffer!=NULL) {
+      g_free(rx->resampled_buffer);
+      rx->resampled_buffer=NULL;
+    }
+    if(rx->resampler!=NULL) {
+      destroy_resample(rx->resampler);
+      rx->resampler=NULL;
+    }
+    rx->resampled_buffer_size=2*max_samples/(radio->sample_rate/rx->sample_rate);
+    rx->resampled_buffer=g_new(double,rx->resampled_buffer_size);
+    rx->resampler=create_resample (1,max_samples,rx->buffer,rx->resampled_buffer,radio->sample_rate,rx->sample_rate,0.0,0,1.0);
+
+g_print("%s: created resampler: buffer_size=%d resampled_buffer_size=%d radio->sample_rate=%d rx->sample_rate=%d\n",__FUNCTION__,max_samples*2,rx->resampled_buffer_size,radio->sample_rate,rx->sample_rate);
+  }
 }
 
 void soapy_protocol_create_receiver(RECEIVER *rx) {
@@ -124,6 +158,17 @@ g_print("%s: SoapySDRDevice_setupStream: channel=%ld\n",__FUNCTION__,channel);
     max_samples=2*rx->fft_size;
   }
   rx->buffer=g_new(double,max_samples*2);
+
+  if(rx->sample_rate==radio->sample_rate) {
+    rx->resampled_buffer=NULL;
+    rx->resampler=NULL;
+    rx->resampled_buffer_size=0;
+  } else {
+    rx->resampled_buffer_size=2*max_samples/(radio->sample_rate/rx->sample_rate);
+    rx->resampled_buffer=g_new(double,rx->resampled_buffer_size);
+    rx->resampler=create_resample (1,max_samples,rx->buffer,rx->resampled_buffer,radio->sample_rate,rx->sample_rate,0.0,0,1.0);
+g_print("%s: created resampler: buffer_size=%d resampled_buffer_size=%d radio->sample_rate=%d rx->sample_rate=%d\n",__FUNCTION__,max_samples*2,rx->resampled_buffer_size,radio->sample_rate,rx->sample_rate);
+  }
 
 }
 
@@ -247,10 +292,9 @@ g_print("soapy_protocol_init: SoapySDRDevice_make\n");
     _exit(-1);
   }
   SoapySDRKwargs_clear(&args);
-
 }
 
-static void *receive_thread(void *arg) {
+static gpointer receive_thread(gpointer data) {
   double isample;
   double qsample;
   int elements;
@@ -258,7 +302,7 @@ static void *receive_thread(void *arg) {
   long long timeNs=0;
   long timeoutUs=100000L;
   int i;
-  RECEIVER *rx=(RECEIVER *)arg;
+  RECEIVER *rx=(RECEIVER *)data;
   float *buffer=g_new(float,max_samples*2);
   void *buffs[]={buffer};
   running=TRUE;
@@ -275,10 +319,8 @@ g_print("%s: receive_thread\n",__FUNCTION__);
       rx->buffer[i*2]=(double)buffer[i*2];
       rx->buffer[(i*2)+1]=(double)buffer[(i*2)+1];
     }
-/*
     if(rx->resampler!=NULL) {
       int out_elements=xresample(rx->resampler);
-g_print("resampler: elements in=%d out=%d\n",elements,out_elements);
       for(i=0;i<out_elements;i++) {
         if(radio->iqswap) {
           qsample=rx->resampled_buffer[i*2];
@@ -289,10 +331,8 @@ g_print("resampler: elements in=%d out=%d\n",elements,out_elements);
         }
         add_iq_samples(rx,isample,qsample);
       }
-*/
-    if(rx->sample_rate!=radio->sample_rate) {
-      for(int i=0;i<elements;i+=rx->resample_step) {
 /*
+      for(int i=0;i<elements;i+=rx->resample_step) {
         isample=0.0;
         qsample=0.0;
         for(int j=0;j<rx->resample_step;j++) {
@@ -304,7 +344,6 @@ g_print("resampler: elements in=%d out=%d\n",elements,out_elements);
         } else {
           add_iq_samples(rx,isample/(double)rx->resample_step,qsample/(double)rx->resample_step);
         }
-*/
         isample=rx->buffer[i*2];
         qsample=rx->buffer[(i*2)+1];
         if(radio->iqswap) {
@@ -313,6 +352,7 @@ g_print("resampler: elements in=%d out=%d\n",elements,out_elements);
           add_iq_samples(rx,isample,qsample);
         }
       }
+*/
     } else {
       for(i=0;i<elements;i++) {
         isample=rx->buffer[i*2];
@@ -328,11 +368,10 @@ g_print("resampler: elements in=%d out=%d\n",elements,out_elements);
 
 g_print("%s: receive_thread: SoapySDRDevice_deactivateStream\n",__FUNCTION__);
   SoapySDRDevice_deactivateStream(soapy_device,rx_stream[channel],0,0LL);
+/*
 g_print("%s: receive_thread: SoapySDRDevice_closeStream\n",__FUNCTION__);
   SoapySDRDevice_closeStream(soapy_device,rx_stream[channel]);
-//g_print("%s: receive_thread: SoapySDRDevice_unmake\n",__FUNCTION__);
-//  SoapySDRDevice_unmake(soapy_device);
-  //_exit(0);
+*/
 }
 
 void soapy_protocol_process_local_mic(RADIO *r) {

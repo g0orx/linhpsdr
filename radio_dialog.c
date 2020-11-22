@@ -105,7 +105,7 @@ static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) 
 */
 
 static void radio_dialog_update_controls() {
-	g_print("%s\n",__FUNCTION__);
+	g_print("%s: model=%d\n",__FUNCTION__,radio->model);
   switch(radio->model) {
     case ANAN_10:
     case ANAN_10E:
@@ -175,10 +175,11 @@ static void radio_dialog_update_controls() {
     case HERMES_LITE_2:
       break;
 #ifdef SOAPYSDR
-    case SOAPYSDR:
+    case SOAPY_DEVICE:
       break;
 #endif
     default:
+      g_print("%s: defualt set_sensitive\n",__FUNCTION__);
       gtk_widget_set_sensitive(adc0_antenna_combo_box, FALSE);
       gtk_widget_set_sensitive(adc0_filters_combo_box, FALSE);
       gtk_widget_set_sensitive(adc0_hpf_combo_box, FALSE);
@@ -223,17 +224,40 @@ static void sample_rate_cb(GtkComboBox *widget,gpointer data) {
     case 3: // 384000
       rate=384000;
       break;
+#ifdef SOAPYSDR
+    case 4: // 768000
+      rate=768000;
+      break;
+#endif
   }
 
-  protocol1_stop();
+  switch(radio->discovered->protocol) {
+    case PROTOCOL_1:
+      protocol1_stop();
+      break;
+    case PROTOCOL_2:
+      break;
+    case PROTOCOL_SOAPYSDR:
+      soapy_protocol_stop();
+      break;
+  }
   radio->sample_rate=rate;
   for(i=0;i<radio->discovered->supported_receivers;i++) {
     if(radio->receiver[i]!=NULL) {
       receiver_change_sample_rate(radio->receiver[i],rate);
     }
   }
-  protocol1_set_mic_sample_rate(rate);
-  g_idle_add(radio_start,(void *)radio);
+  switch(radio->discovered->protocol) {
+    case PROTOCOL_1:
+      protocol1_set_mic_sample_rate(rate);
+      break;
+    case PROTOCOL_2:
+      break;
+    case PROTOCOL_SOAPYSDR:
+      break;
+  }
+
+  g_idle_add(radio_restart,(void *)radio);
 }
 
 static void filter_board_cb(GtkComboBox *widget,gpointer data) {
@@ -704,6 +728,38 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     g_signal_connect(sample_rate_combo_box,"changed",G_CALLBACK(sample_rate_cb),radio);
     gtk_grid_attach(GTK_GRID(model_grid),sample_rate_combo_box,x,0,1,1);
   }
+
+#ifdef SOAPYSDR
+  if(radio->discovered->device==DEVICE_SOAPYSDR &&
+     strcmp(radio->discovered->name,"sdrplay")==0) {
+    GtkWidget *sample_rate_combo_box=gtk_combo_box_text_new();
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"48000");
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"96000");
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"192000");
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"384000");
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"768000");
+    switch(radio->sample_rate) {
+      case 48000:
+        gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),0);
+        break;
+      case 96000:
+        gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),1);
+        break;
+      case 192000:
+        gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),2);
+        break;
+      case 384000:
+        gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),3);
+        break;
+      case 768000:
+        gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),4);
+        break;
+    }
+    g_signal_connect(sample_rate_combo_box,"changed",G_CALLBACK(sample_rate_cb),radio);
+    gtk_grid_attach(GTK_GRID(model_grid),sample_rate_combo_box,x,0,1,1);
+  }
+#endif
+
 
   adc0_frame=gtk_frame_new("ADC-0");
   GtkWidget *adc0_grid=gtk_grid_new();
