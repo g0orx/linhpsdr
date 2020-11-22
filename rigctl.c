@@ -2916,8 +2916,11 @@ int parse_cmd(void *data) {
           int mode=ts2000_mode(rx->mode_a);
           sprintf(reply,"IF%011ld%04ld%+06ld%d%d%d%02d%d%d%d%d%d%d%02d%d;",
                   rx->ctun?rx->ctun_frequency:rx->frequency_a,
-                  rx->step,rx->rit,rx->rit_enabled,radio->transmitter==NULL?0:radio->transmitter->xit_enabled,
-                  0,0,isTransmitting(radio),mode,0,0,rx->split,radio->transmitter->ctcss_enabled?2:0,radio->transmitter->ctcss,0);
+                  rx->step,rx->rit,rx->rit_enabled,
+                  radio->transmitter==NULL?0:radio->transmitter->xit_enabled,
+                  0,0,isTransmitting(radio),mode,0,0,rx->split,
+                  radio->transmitter!=NULL&&radio->transmitter->ctcss_enabled?2:0,
+                  radio->transmitter==NULL?0:radio->transmitter->ctcss,0);
           send_resp(cmd,reply);
           }
           break;
