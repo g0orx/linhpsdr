@@ -554,13 +554,13 @@ static gboolean deviation_select_cb(GtkWidget *widget,gpointer data) {
   //transmitter->deviation=select->choice;
   if(rx->deviation==2500) {
     set_filter(rx,-4000,4000);
-    transmitter_set_filter(radio->transmitter,-4000,4000);
+    if(radio->transmitter) transmitter_set_filter(radio->transmitter,-4000,4000);
   } else {
     set_filter(rx,-8000,8000);
-    transmitter_set_filter(radio->transmitter,-8000,8000);
+    if(radio->transmitter) transmitter_set_filter(radio->transmitter,-8000,8000);
   }
   set_deviation(rx);
-  transmitter_set_deviation(radio->transmitter);
+  if(radio->transmitter) transmitter_set_deviation(radio->transmitter);
   update_vfo(rx);
   return TRUE;
 }
@@ -1025,7 +1025,7 @@ void update_receiver_dialog(RECEIVER *rx) {
   g_signal_handler_unblock(G_OBJECT(rx->local_audio_b),rx->local_audio_signal_id);
   g_signal_handler_unblock(G_OBJECT(rx->audio_choice_b),rx->audio_choice_signal_id);
 
-  if(radio->transmitter!=NULL) {
+  if(radio->transmitter) {
     // update TX Frequency
     g_signal_handler_block(G_OBJECT(rx->tx_control_b),rx->tx_control_signal_id);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->tx_control_b), radio->transmitter->rx==rx);

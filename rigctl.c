@@ -1181,13 +1181,13 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
               radio->mox, // P4
               radio->adc[rx->adc].antenna, // P5
               radio->adc[rx->adc].antenna, // P6
-              radio->dac[radio->transmitter->dac].antenna, // P7
+              radio->transmitter?radio->dac[radio->transmitter->dac].antenna:0, // P7
               0, // P8
               rx->rit_enabled, // P9
               0, // P10
               rx->agc, // P11
               0, // P12
-              (int)radio->transmitter->xit_enabled, // P13
+              radio->transmitter?(int)radio->transmitter->xit_enabled:0, // P13
 	      step_size(rx), // P14
 	      rx->mode_a, // P15
 	      0, // P16
@@ -1195,16 +1195,16 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
 	      rx->filter_a, // P18
 	      0, // P19
 	      0, // P20
-	      (int)radio->transmitter->drive, //P21
+	      radio->transmitter?(int)radio->transmitter->drive:0, //P21
 	      cat_band(rx), //P22
               (int)(rx->volume*100.0), //P23
               0, //P24,
-              (int)radio->transmitter->tune_percent, //P25
+              radio->transmitter?(int)radio->transmitter->tune_percent:0, //P25
               0, // P26
               (int)s_meter_level(rx), //P27
               rx->rit, //P28
               0, //P29
-              radio->transmitter->xit, //P30
+              radio->transmitter?radio->transmitter->xit:0, //P30
               0.0, //P31
               rx->frequency_a, //P32
               rx->frequency_b // P33
@@ -1250,7 +1250,7 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
           break;
         case 'B': //ZZEB
           // set/read tx equalizer values
-          if(radio->transmitter->rx==rx) {
+          if(radio->transmitter && radio->transmitter->rx==rx) {
             TRANSMITTER *tx=radio->transmitter;
             if(command[4]==';') {
               sprintf(reply,"ZZEB%03d%03d%03d%03d%03d00000000000000000000;",3,tx->equalizer[0],tx->equalizer[1],tx->equalizer[2],tx->equalizer[3]);
@@ -1280,22 +1280,28 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
           break;
         case 'R': //ZZER
           // set/read rx equalizer
-          if(command[4]==';') {
-            sprintf(reply,"ZZER%d;",rx->enable_equalizer);
-            send_resp(cmd,reply) ;
-          } else if(command[5]==';') {
-            rx->enable_equalizer=atoi(&command[4]);
+	  if(radio->transmitter) {
+            if(command[4]==';') {
+              sprintf(reply,"ZZER%d;",rx->enable_equalizer);
+              send_resp(cmd,reply) ;
+            } else if(command[5]==';') {
+              rx->enable_equalizer=atoi(&command[4]);
+    	    }
           } else {
+            implemented=FALSE;
           }
           break;
         case 'T': //ZZET
           // set/read tx equalizer
-          if(command[4]==';') {
-            sprintf(reply,"ZZET%d;",radio->transmitter->enable_equalizer);
-            send_resp(cmd,reply) ;
-          } else if(command[5]==';') {
-            radio->transmitter->enable_equalizer=atoi(&command[4]);
+	  if(radio->transmitter) {
+            if(command[4]==';') {
+              sprintf(reply,"ZZET%d;",radio->transmitter->enable_equalizer);
+              send_resp(cmd,reply) ;
+            } else if(command[5]==';') {
+              radio->transmitter->enable_equalizer=atoi(&command[4]);
+	    }
           } else {
+            implemented=FALSE;
           }
           break;
         default:
@@ -1597,7 +1603,7 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
           implemented=FALSE;
           break;
         case 'I': //ZZLI
-          if(radio->transmitter!=NULL) {
+          if(radio->transmitter) {
             if(command[4]==';') {
               // send reply back
               sprintf(reply,"ZZLI%d;",radio->transmitter->puresignal);
@@ -1607,7 +1613,9 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
               radio->transmitter->puresignal=ps;
             }
             update_vfo(rx);
-          }
+          } else {
+            implemented=FALSE;
+	  }
           break;
         default:
            implemented=FALSE;
@@ -1645,12 +1653,16 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
           break;
         case 'G': //ZZMG
           // set/read mic gain
-          if(command[4]==';') {
-            sprintf(reply,"ZZMG%03d;",(int)radio->transmitter->mic_gain);
-            send_resp(cmd,reply);
-          } else if(command[7]==';') {
-            radio->transmitter->mic_gain=(double)atoi(&command[4]);
-          }
+	  if(radio->transmitter) {
+            if(command[4]==';') {
+              sprintf(reply,"ZZMG%03d;",(int)radio->transmitter->mic_gain);
+              send_resp(cmd,reply);
+            } else if(command[7]==';') {
+              radio->transmitter->mic_gain=(double)atoi(&command[4]);
+            }
+	  } else {
+            implemented=FALSE;
+	  }
           break;
         case 'L': //ZZML
           // read DSP modes and indexes
@@ -2085,7 +2097,7 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
             send_resp(cmd,reply) ;
           } else if(command[5]==';') {
             rx->split=atoi(&command[4]);
-            transmitter_set_mode(radio->transmitter,rx->mode_b);
+            if(radio->transmitter) transmitter_set_mode(radio->transmitter,rx->mode_b);
             update_vfo(rx);
           }
           break;
@@ -2111,7 +2123,7 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
             send_resp(cmd,reply) ;
           } else if(command[5]==';') {
             rx->split=atoi(&command[4]);
-            transmitter_set_mode(radio->transmitter,rx->mode_b);
+            if(radio->transmitter) transmitter_set_mode(radio->transmitter,rx->mode_b);
             update_vfo(rx);
           }
           break;
@@ -2384,20 +2396,28 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
       switch(command[3]) {
         case 'C': //ZZXC
           // clear transmitter XIT
-          if(command[4]==';') {
-            radio->transmitter->xit=0;
-            update_vfo(rx);
-          }
+	  if(radio->transmitter) {
+            if(command[4]==';') {
+              radio->transmitter->xit=0;
+              update_vfo(rx);
+            }
+	  } else {
+            implemented=FALSE;
+	  }
           break;
         case 'F': //ZZXF
           // set/read XIT
-          if(command[4]==';') {
-            sprintf(reply,"ZZXT%+05ld;",radio->transmitter->xit);
-            send_resp(cmd,reply) ;
-          } else if(command[9]==';') {
-            radio->transmitter->xit=(long long)atoi(&command[4]);
-            update_vfo(rx);
-          }
+	  if(radio->transmitter) {
+            if(command[4]==';') {
+              sprintf(reply,"ZZXT%+05ld;",radio->transmitter->xit);
+              send_resp(cmd,reply) ;
+            } else if(command[9]==';') {
+              radio->transmitter->xit=(long long)atoi(&command[4]);
+              update_vfo(rx);
+            }
+	  } else {
+            implemented=FALSE;
+	  }
           break;
         case 'H': //ZZXH
           implemented=FALSE;
@@ -2467,13 +2487,17 @@ gboolean parse_extended_cmd(COMMAND *cmd) {
           break;
         case 'S': //ZZXS
           /// set/read XIT enable
-          if(command[4]==';') {
-            sprintf(reply,"ZZXS%d;",radio->transmitter->xit_enabled);
-            send_resp(cmd,reply);
-          } else if(command[5]==';') {
-            radio->transmitter->xit_enabled=atoi(&command[4]);
-            update_vfo(rx);
-          }
+	  if(radio->transmitter) {
+            if(command[4]==';') {
+              sprintf(reply,"ZZXS%d;",radio->transmitter->xit_enabled);
+              send_resp(cmd,reply);
+            } else if(command[5]==';') {
+              radio->transmitter->xit_enabled=atoi(&command[4]);
+              update_vfo(rx);
+            }
+  	  } else {
+            implemented=FALSE;
+	  }
           break;
         case 'T': //ZZXT
           implemented=FALSE;
@@ -2684,23 +2708,29 @@ int parse_cmd(void *data) {
           break;
         case 'N': //CN
           // sets/reads CTCSS function
-          if(command[3]==';') {
-            sprintf(reply,"CN%02d;",radio->transmitter->ctcss+1);
-            send_resp(cmd,reply) ;
-          } else if(command[4]==';') {
-            int i=atoi(&command[2])-1;
-            transmitter_set_ctcss(radio->transmitter,radio->transmitter->ctcss_enabled,i);
-          }
+	  if(radio->transmitter) {
+            if(command[3]==';') {
+              sprintf(reply,"CN%02d;",radio->transmitter->ctcss+1);
+              send_resp(cmd,reply) ;
+            } else if(command[4]==';') {
+              int i=atoi(&command[2])-1;
+              transmitter_set_ctcss(radio->transmitter,radio->transmitter->ctcss_enabled,i);
+            }
+	  }
           break;
         case 'T': //CT
           // sets/reads CTCSS status
-          if(command[3]==';') {
-            sprintf(reply,"CT%d;",radio->transmitter->ctcss_enabled);
-            send_resp(cmd,reply) ;
-          } else if(command[3]==';') {
-            int state=atoi(&command[2]);
-            transmitter_set_ctcss(radio->transmitter,state,radio->transmitter->ctcss);
-          }
+          if(radio->transmitter) {
+            if(command[3]==';') {
+              sprintf(reply,"CT%d;",radio->transmitter->ctcss_enabled);
+              send_resp(cmd,reply) ;
+            } else if(command[3]==';') {
+              int state=atoi(&command[2]);
+              transmitter_set_ctcss(radio->transmitter,state,radio->transmitter->ctcss);
+            }
+          } else {
+            implemented=FALSE;
+	  }
           break;
         default:
           implemented=FALSE;
@@ -2796,10 +2826,10 @@ int parse_cmd(void *data) {
           } else if(command[3]==';') {
             if(atoi(&command[2])==0) {
               rx->split=SPLIT_OFF;
-              transmitter_set_mode(radio->transmitter,rx->mode_a);
+              if(radio->transmitter) transmitter_set_mode(radio->transmitter,rx->mode_a);
             } else {
               rx->split=SPLIT_ON;
-              transmitter_set_mode(radio->transmitter,rx->mode_b);
+              if(radio->transmitter) transmitter_set_mode(radio->transmitter,rx->mode_b);
             }
             update_vfo(rx);
           }
@@ -2917,10 +2947,10 @@ int parse_cmd(void *data) {
           sprintf(reply,"IF%011ld%04ld%+06ld%d%d%d%02d%d%d%d%d%d%d%02d%d;",
                   rx->ctun?rx->ctun_frequency:rx->frequency_a,
                   rx->step,rx->rit,rx->rit_enabled,
-                  radio->transmitter==NULL?0:radio->transmitter->xit_enabled,
+                  radio->transmitter?radio->transmitter->xit_enabled:0,
                   0,0,isTransmitting(radio),mode,0,0,rx->split,
-                  radio->transmitter!=NULL&&radio->transmitter->ctcss_enabled?2:0,
-                  radio->transmitter==NULL?0:radio->transmitter->ctcss,0);
+                  radio->transmitter&&radio->transmitter->ctcss_enabled?2:0,
+                  radio->transmitter?radio->transmitter->ctcss:0,0);
           send_resp(cmd,reply);
           }
           break;
@@ -3062,14 +3092,18 @@ int parse_cmd(void *data) {
           break;
         case 'G': //MG
           // set/read Menu Gain (-12..60 converts to 0..100)
-          if(command[2]==';') {
-            sprintf(reply,"MG%03d;",(int)(((radio->transmitter->mic_gain+12.0)/72.0)*100.0));
-            send_resp(cmd,reply);
-          } else if(command[5]==';') {
-            double gain=(double)atoi(&command[2]);
-            gain=((gain/100.0)*72.0)-12.0;
-            radio->transmitter->mic_gain=gain;
-          }
+	  if(radio->transmitter) {
+            if(command[2]==';') {
+              sprintf(reply,"MG%03d;",(int)(((radio->transmitter->mic_gain+12.0)/72.0)*100.0));
+              send_resp(cmd,reply);
+            } else if(command[5]==';') {
+              double gain=(double)atoi(&command[2]);
+              gain=((gain/100.0)*72.0)-12.0;
+              radio->transmitter->mic_gain=gain;
+            }
+	  } else {
+            implemented=FALSE;
+	  }
           break;
         case 'L': //ML
           // set/read Monitor Function Level
@@ -3197,12 +3231,16 @@ int parse_cmd(void *data) {
           break;
         case 'C': //PC
           // set/read PA Power
-          if(command[2]==';') {
-            sprintf(reply,"PC%03d;",(int)radio->transmitter->drive);
-            send_resp(cmd,reply);
-          } else if(command[5]==';') {
-            radio->transmitter->drive=(double)atoi(&command[2]);
-          }
+	  if(radio->transmitter) {
+            if(command[2]==';') {
+              sprintf(reply,"PC%03d;",(int)radio->transmitter->drive);
+              send_resp(cmd,reply);
+            } else if(command[5]==';') {
+              radio->transmitter->drive=(double)atoi(&command[2]);
+            }
+	  } else {
+            implemented=FALSE;
+	  }
           break;
         case 'I': //PI
           // store in program memory channel
@@ -3214,17 +3252,21 @@ int parse_cmd(void *data) {
           break;
         case 'L': //PL
           // set/read speach processor input/output level
-          if(command[2]==';') {
-            sprintf(reply,"PL%03d000;",(int)((radio->transmitter->compressor_level/20.0)*100.0));
-            send_resp(cmd,reply);
-          } else if(command[8]==';') {
-            command[5]='\0';
-            double level=(double)atoi(&command[2]);
-            level=(level/100.0)*20.0;
-            radio->transmitter->compressor_level=level;
-            //transmitter_set_compressor_level(transmitter,level);
-            update_vfo(rx);
-          }
+	  if(radio->transmitter) {
+            if(command[2]==';') {
+              sprintf(reply,"PL%03d000;",(int)((radio->transmitter->compressor_level/20.0)*100.0));
+              send_resp(cmd,reply);
+            } else if(command[8]==';') {
+              command[5]='\0';
+              double level=(double)atoi(&command[2]);
+              level=(level/100.0)*20.0;
+              radio->transmitter->compressor_level=level;
+              //transmitter_set_compressor_level(transmitter,level);
+              update_vfo(rx);
+            }
+	  } else {
+            implemented=FALSE;
+	  }
           break;
         case 'M': //PM
           // recall program memory
@@ -3831,13 +3873,17 @@ int parse_cmd(void *data) {
       switch(command[1]) {
         case 'T': //XT
           // set/read XIT enable
-          if(command[2]==';') {
-            sprintf(reply,"XT%d;",radio->transmitter->xit_enabled);
-            send_resp(cmd,reply);
-          } else if(command[3]==';') {
-            radio->transmitter->xit_enabled=atoi(&command[2]);
-            update_vfo(rx);
-          }
+	  if(radio->transmitter) {
+            if(command[2]==';') {
+              sprintf(reply,"XT%d;",radio->transmitter->xit_enabled);
+              send_resp(cmd,reply);
+            } else if(command[3]==';') {
+              radio->transmitter->xit_enabled=atoi(&command[2]);
+              update_vfo(rx);
+            }
+          } else {
+            implemented=FALSE;
+	  }
           break;
         default:
           implemented=FALSE;

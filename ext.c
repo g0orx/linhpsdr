@@ -88,7 +88,7 @@ int ext_set_mode(void *data) {
 
 
 int ext_tx_set_ps(void *data) {
-  transmitter_set_ps(radio->transmitter,(uintptr_t)data);
+  if(radio->transmitter) transmitter_set_ps(radio->transmitter,(uintptr_t)data);
   return 0;
 }
 

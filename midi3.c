@@ -425,22 +425,24 @@ static int midi_action(void *data) {
 	/////////////////////////////////////////////////////////// "MICGAIN"
 	case MIC_VOLUME: // knob or wheel supported
 	    // TODO: possibly adjust linein value if that is effective
-	    switch (type) {
-	      case MIDI_KNOB:
-		dnew=-10.0 + 0.6*val;
-		break;
-	      case MIDI_WHEEL:
-		dnew = radio->transmitter->mic_gain + val;
-		if (dnew < -10.0) dnew=-10.0; if (dnew > 50.0) dnew=50.0;
-		break;
-	      default:
-		// do not change mic gain
-		// we should not come here anyway
-		dnew = radio->transmitter->mic_gain;
-		break;
+	    if(radio->transmitter) {
+	      switch (type) {
+  	        case MIDI_KNOB:
+  	  	  dnew=-10.0 + 0.6*val;
+  		  break;
+  	        case MIDI_WHEEL:
+  		  dnew = radio->transmitter->mic_gain + val;
+  		  if (dnew < -10.0) dnew=-10.0; if (dnew > 50.0) dnew=50.0;
+  		  break;
+  	        default:
+  		  // do not change mic gain
+  		  // we should not come here anyway
+  		  dnew = radio->transmitter->mic_gain;
+  		  break;
+	      }
+	      radio->transmitter->mic_gain=dnew;
+	      update_radio(radio);
 	    }
-	    radio->transmitter->mic_gain=dnew;
-	    update_radio(radio);
 	    break;
 	/////////////////////////////////////////////////////////// "MODEDOWN"
 	/////////////////////////////////////////////////////////// "MODEUP"
@@ -743,10 +745,10 @@ static int midi_action(void *data) {
 	    // toggle split mode
 	    if(rx->split==SPLIT_OFF) {
 	      rx->split=SPLIT_ON;
-	      transmitter_set_mode(radio->transmitter,rx->mode_b);
+	      if(radio->transmitter) transmitter_set_mode(radio->transmitter,rx->mode_b);
             } else {
 	      rx->split=SPLIT_OFF;
-	      transmitter_set_mode(radio->transmitter,rx->mode_a);
+	      if(radio->transmitter) transmitter_set_mode(radio->transmitter,rx->mode_a);
             }
 	    update_vfo(rx);
 	    break;
