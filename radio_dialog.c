@@ -247,9 +247,11 @@ static void sample_rate_cb(GtkComboBox *widget,gpointer data) {
       break;
     case PROTOCOL_2:
       break;
+#ifdef SOAPYSDR
     case PROTOCOL_SOAPYSDR:
       soapy_protocol_stop();
       break;
+#endif
   }
   radio->sample_rate=rate;
   for(i=0;i<radio->discovered->supported_receivers;i++) {
@@ -263,8 +265,10 @@ static void sample_rate_cb(GtkComboBox *widget,gpointer data) {
       break;
     case PROTOCOL_2:
       break;
+#ifdef SOAPYSDR
     case PROTOCOL_SOAPYSDR:
       break;
+#endif
   }
 
   g_idle_add(radio_restart,(void *)radio);

@@ -1033,14 +1033,18 @@ static void create_visual(RADIO *r) {
     row++;
   }
 
+#ifdef SOAPYSDR
   if(r->discovered->protocol!=PROTOCOL_SOAPYSDR) {
+#endif
     add_wideband_b=gtk_button_new_with_label("Add Wideband");
     gtk_widget_set_name(add_wideband_b,"vfo-button");
     //gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(add_wideband_b)),"circular");
     g_signal_connect(add_wideband_b,"clicked",G_CALLBACK(add_wideband_cb),(gpointer)r);
     gtk_grid_attach(GTK_GRID(r->visual),add_wideband_b,col,row,1,1);
     col++;
+#ifdef SOAPYSDR
   }
+#endif
 
   row=0;
 
