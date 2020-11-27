@@ -84,7 +84,6 @@ fprintf(stderr,"radio_restart\n");
 #ifdef SOAPYSDR
     case PROTOCOL_SOAPYSDR:
       soapy_protocol_change_sample_rate(r->receiver[0],r->sample_rate);
-      soapy_protocol_start_receiver(r->receiver[0]);
       break;
 #endif
   }
@@ -1251,7 +1250,16 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   r->region=REGION_OTHER;
 
-  r->iqswap=FALSE;
+
+  #ifdef SOAPYSDR
+  if(r->discovered->device==DEVICE_SOAPYSDR) {
+    r->iqswap=TRUE;
+  } else {
+#endif
+    r->iqswap=FALSE;
+#ifdef SOAPYSDR
+  }
+#endif
 
   r->which_audio=USE_SOUNDIO;
   r->which_audio_backend=0;
