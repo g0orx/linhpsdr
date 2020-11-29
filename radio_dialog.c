@@ -752,20 +752,17 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"384000");
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"768000");
     switch(radio->sample_rate) {
-      case 48000:
+      case 96000:
         gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),0);
         break;
-      case 96000:
+      case 192000:
         gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),1);
         break;
-      case 192000:
+      case 384000:
         gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),2);
         break;
-      case 384000:
-        gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),3);
-        break;
       case 768000:
-        gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),4);
+        gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),3);
         break;
     }
     g_signal_connect(sample_rate_combo_box,"changed",G_CALLBACK(sample_rate_cb),radio);
