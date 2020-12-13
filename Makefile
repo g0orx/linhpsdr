@@ -73,6 +73,7 @@ endif
 CFLAGS=	-g -Wno-deprecated-declarations -O3
 OPTIONS=  $(MIDI_OPTIONS) $(AUDIO_OPTIONS)  $(SOAPYSDR_OPTIONS) \
          $(CWDAEMON_OPTIONS)  $(OPENGL_OPTIONS) \
+          -D USE_VFO_B_MODE_AND_FILTER="USE_VFO_B_MODE_AND_FILTER" \
          -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"'
 #OPTIONS=-g -Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
