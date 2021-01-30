@@ -26,7 +26,7 @@ AUDIO_LIBS=-lasound -lpulse-simple -lpulse -lpulse-mainloop-glib -lsoundio
 #	sudo apt-get install soapysdr-module-rtlsdr
 #	sudo apt-get install soapysdr-module-lms7
 #
-SOAPYSDR_INCLUDE=SOAPYSDR
+#SOAPYSDR_INCLUDE=SOAPYSDR
 
 ifeq ($(SOAPYSDR_INCLUDE),SOAPYSDR)
 SOAPYSDR_OPTIONS=-D SOAPYSDR
@@ -73,7 +73,6 @@ endif
 CFLAGS=	-g -Wno-deprecated-declarations -O3
 OPTIONS=  $(MIDI_OPTIONS) $(AUDIO_OPTIONS)  $(SOAPYSDR_OPTIONS) \
          $(CWDAEMON_OPTIONS)  $(OPENGL_OPTIONS) \
-          -D USE_VFO_B_MODE_AND_FILTER="USE_VFO_B_MODE_AND_FILTER" \
          -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"'
 #OPTIONS=-g -Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
@@ -137,7 +136,8 @@ error_handler.c\
 radio_info.c\
 rigctl.c \
 bpsk.c \
-subrx.c
+subrx.c \
+actions.c
 
 HEADERS=\
 main.h\
@@ -189,7 +189,8 @@ error_handler.h\
 radio_info.h\
 rigctl.h \
 bpsk.h \
-subrx.h
+subrx.h \
+actions.h
 
 OBJS=\
 main.o\
@@ -240,7 +241,8 @@ error_handler.o\
 radio_info.o\
 rigctl.o \
 bpsk.o \
-subrx.o
+subrx.o \
+actions.o
 
 
 $(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(MIDI_OBJS)

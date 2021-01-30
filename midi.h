@@ -57,8 +57,30 @@ enum MIDIaction {
   ANF,			// ANF:			toggel ANF on/off
   ATT,			// ATT:			Step attenuator or Programmable attenuator
   VFO_B2A,		// B2A:			VFO B -> A
-  BAND_DOWN,		// BANDDOWN:		cycle through bands downwards
-  BAND_UP,		// BANDUP:		cycle through bands upwards
+  MIDI_BAND_10,         // BAND10
+  MIDI_BAND_12,         // BAND12
+  MIDI_BAND_1240,       // BAND1240
+  MIDI_BAND_144,        // BAND144
+  MIDI_BAND_15,         // BAND15
+  MIDI_BAND_160,        // BAND160
+  MIDI_BAND_17,         // BAND17
+  MIDI_BAND_20,         // BAND20
+  MIDI_BAND_220,        // BAND220
+  MIDI_BAND_2300,       // BAND2300
+  MIDI_BAND_30,         // BAND30
+  MIDI_BAND_3400,       // BAND3400
+  MIDI_BAND_40,         // BAND40
+  MIDI_BAND_430,        // BAND430
+  MIDI_BAND_6,          // BAND6
+  MIDI_BAND_60,         // BAND60
+  MIDI_BAND_70,         // BAND70
+  MIDI_BAND_80,         // BAND80
+  MIDI_BAND_902,        // BAND902
+  MIDI_BAND_AIR,        // BANDAIR
+  BAND_DOWN,            // BANDDOWN
+  MIDI_BAND_GEN,        // BANDGEN
+  BAND_UP,              // BANDUP
+  MIDI_BAND_WWV,        // BANDWWV
   COMPRESS,		// COMPRESS:		TX compressor value
   MIDI_CTUN,		// CTUN:		toggle CTUN on/off
   VFO,			// CURRVFO:		change VFO frequency
@@ -83,6 +105,18 @@ enum MIDIaction {
   MIDI_MUTE,		// MUTE:		toggle mute on/off
   MIDI_NB,		// NOISEBLANKER:	cycle through NoiseBlanker states (none, NB, NB2)
   MIDI_NR,		// NOISEREDUCTION:	cycle through NoiseReduction states (none, NR, NR2)
+  NUMPAD_0,		// NUMPAD0
+  NUMPAD_1,		// NUMPAD1
+  NUMPAD_2,		// NUMPAD2
+  NUMPAD_3,		// NUMPAD3
+  NUMPAD_4,		// NUMPAD4
+  NUMPAD_5,		// NUMPAD5
+  NUMPAD_6,		// NUMPAD6
+  NUMPAD_7,		// NUMPAD7
+  NUMPAD_8,		// NUMPAD8
+  NUMPAD_9,		// NUMPAD9
+  NUMPAD_CL,		// NUMPADCL
+  NUMPAD_ENTER,		// NUMPADENTER
   MIDI_PAN,		// PAN:			change panning of panadater/waterfall when zoomed
   PAN_HIGH,		// PANHIGH:		"high" value of current panadapter
   PAN_LOW,		// PANLOW:		"low" value of current panadapter
@@ -138,10 +172,13 @@ enum MIDIaction {
 
 enum MIDItype {
  TYPE_NONE=0,
- MIDI_KEY,          // Button (press event)
- MIDI_KNOB,         // Knob   (value between 0 and 100)
- MIDI_WHEEL         // Wheel  (direction and speed)
+ MIDI_KEY=1,          // Button (press event)
+ MIDI_KNOB=2,         // Knob   (value between 0 and 100)
+ MIDI_WHEEL=4         // Wheel  (direction and speed)
 };
+
+extern gchar *midi_types[];
+extern gchar *midi_events[];
 
 //
 // MIDIevent encodes the actual MIDI event "seen" in Layer-1 and
@@ -159,6 +196,14 @@ enum MIDIevent {
 //
 // Data structure for Layer-2
 //
+
+typedef struct _action_table {
+  enum MIDIaction action;
+  const char *str;
+  enum MIDItype type;
+} ACTION_TABLE;
+
+extern ACTION_TABLE ActionTable[];
 
 //
 // There is linked list of all specified MIDI events for a given "Note" value,
@@ -206,6 +251,8 @@ struct cmdtable {
    struct desc *pitch;        // description for PitchChanges
 };
 
+extern struct cmdtable MidiCommandsTable;
+
 extern int midi_debug;
 
 //
@@ -214,7 +261,8 @@ extern int midi_debug;
 // Layer-2 through the function MIDIstartup.
 //
 int register_midi_device(char *name);
-int close_midi_device();
+void close_midi_device();
+void configure_midi_device(gboolean state);
 
 //
 // Layer-2 entry point (called by Layer1)

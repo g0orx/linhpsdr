@@ -31,6 +31,7 @@
 #include "signal.h"
 #include "vfo.h"
 #include "transmitter.h"
+#include "ext.h"
 
 #include "midi.h"
 #ifdef CWDAEMON
@@ -180,6 +181,167 @@ static int midi_action(void *data) {
               vfo_b2a(rx);
             }
 	    break;
+	/////////////////////////////////////////////////////////// "NUMBER PAD"
+	case NUMPAD_0:
+	    g_idle_add(ext_num_pad,GINT_TO_POINTER(0));
+	    break;
+	case NUMPAD_1:
+	    g_idle_add(ext_num_pad,GINT_TO_POINTER(1));
+	    break;
+	case NUMPAD_2:
+	    g_idle_add(ext_num_pad,GINT_TO_POINTER(2));
+	    break;
+	case NUMPAD_3:
+	    g_idle_add(ext_num_pad,GINT_TO_POINTER(3));
+	    break;
+	case NUMPAD_4:
+	    g_idle_add(ext_num_pad,GINT_TO_POINTER(4));
+	    break;
+	case NUMPAD_5:
+	    g_idle_add(ext_num_pad,GINT_TO_POINTER(5));
+	    break;
+	case NUMPAD_6:
+	    g_idle_add(ext_num_pad,GINT_TO_POINTER(6));
+	    break;
+	case NUMPAD_7:
+	    g_idle_add(ext_num_pad,GINT_TO_POINTER(7));
+	    break;
+	case NUMPAD_8:
+	    g_idle_add(ext_num_pad,GINT_TO_POINTER(8));
+	    break;
+	case NUMPAD_9:
+	    g_idle_add(ext_num_pad,GINT_TO_POINTER(9));
+	    break;
+	case NUMPAD_CL:
+	    g_idle_add(ext_num_pad,GINT_TO_POINTER(-1));
+	    break;
+	case NUMPAD_ENTER:
+	    g_idle_add(ext_num_pad,GINT_TO_POINTER(-2));
+	    break;
+
+	/////////////////////////////////////////////////////////// "MIDIBAND"
+        /////////////////////////////////////////////////////////// "BANDUP"
+        case MIDI_BAND_10:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band10));
+            }
+            break;
+        case MIDI_BAND_12:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band12));
+            }
+            break;
+#ifdef SOAPYSDR
+        case MIDI_BAND_1240:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band1240));
+            }
+            break;
+        case MIDI_BAND_144:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band144));
+            }
+            break;
+#endif
+        case MIDI_BAND_15:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band15));
+            }
+            break;
+        case MIDI_BAND_160:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band160));
+            }
+            break;
+        case MIDI_BAND_17:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band17));
+            }
+            break;
+        case MIDI_BAND_20:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band20));
+            }
+            break;
+#ifdef SOAPYSDR
+        case MIDI_BAND_220:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band220));
+            }
+            break;
+        case MIDI_BAND_2300:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band2300));
+            }
+            break;
+#endif
+        case MIDI_BAND_30:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band30));
+            }
+            break;
+#ifdef SOAPYSDR
+        case MIDI_BAND_3400:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band3400));
+            }
+            break;
+        case MIDI_BAND_70:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band70));
+            }
+            break;
+#endif
+        case MIDI_BAND_40:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band40));
+            }
+            break;
+#ifdef SOAPYSDR
+        case MIDI_BAND_430:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band430));
+            }
+            break;
+#endif
+        case MIDI_BAND_6:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band6));
+            }
+            break;
+        case MIDI_BAND_60:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band60));
+            }
+            break;
+        case MIDI_BAND_80:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band80));
+            }
+            break;
+#ifdef SOAPYSDR
+        case MIDI_BAND_902:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(band902));
+            }
+            break;
+        case MIDI_BAND_AIR:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(bandAIR));
+            }
+            break;
+#endif
+        case MIDI_BAND_GEN:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(bandGen));
+            }
+            break;
+        case MIDI_BAND_WWV:
+            if (type == MIDI_KEY) {
+              g_idle_add(ext_band_select, GINT_TO_POINTER(bandWWV));
+            }
+            break;
+
 	/////////////////////////////////////////////////////////// "BANDDOWN"
 	/////////////////////////////////////////////////////////// "BANDUP"
         case BAND_DOWN:
@@ -548,7 +710,7 @@ static int midi_action(void *data) {
 	case PAN_HIGH:  // wheel or knob
 	    switch (type) {
 	      case MIDI_WHEEL:
-		if (radio->can_transmit && !isTransmitting(radio)) {
+		if (radio->can_transmit && isTransmitting(radio)) {
 		    // TX panadapter affected
 		    radio->transmitter->panadapter_high += val;
 		} else {
@@ -558,7 +720,7 @@ static int midi_action(void *data) {
 	    case MIDI_KNOB:
 		// Adjust "high water" in the range -50 ... 0 dBm
 		new = -50 + val/2;
-		if (radio->can_transmit && !isTransmitting(radio)) {
+		if (radio->can_transmit && isTransmitting(radio)) {
 		    radio->transmitter->panadapter_high += val;
 		} else {
 		    rx->panadapter_high = new;
@@ -574,7 +736,7 @@ static int midi_action(void *data) {
 	case PAN_LOW:  // wheel and knob
 	    switch (type) {
 	      case MIDI_WHEEL:
-		if (radio->can_transmit && !isTransmitting(radio)) {
+		if (radio->can_transmit && isTransmitting(radio)) {
 		    // TX panadapter affected
 		    radio->transmitter->panadapter_low += val;
 		} else {
@@ -582,7 +744,7 @@ static int midi_action(void *data) {
 		}
 		break;
 	      case MIDI_KNOB:
-		if (radio->can_transmit && !isTransmitting(radio)) {
+		if (radio->can_transmit && isTransmitting(radio)) {
 		    // TX panadapter: use values -100 through -50
 		    new = -100 + val/2;
 		    radio->transmitter->panadapter_low =new;
@@ -783,6 +945,7 @@ static int midi_action(void *data) {
 	/////////////////////////////////////////////////////////// "VFOB"
 	case VFOA: // only wheel supported
 	    if (type == MIDI_WHEEL && !rx->locked) {
+              g_print("%s: VFOA: val=%d\n",__FUNCTION__,val);
               receiver_move(rx,(long long)(rx->step*val),TRUE);
 	    }
 	    break;
@@ -889,10 +1052,11 @@ static int midi_action(void *data) {
         case MIDI_ZOOM:  // wheel and knob
             switch (type) {
               case MIDI_WHEEL:
-                if(val>=1 && val<=8) {
-		  receiver_change_zoom(rx,val);
-		  update_vfo(rx);
+		new=rx->zoom+val;
+		if(new>=1 && new<=8) {
+		  receiver_change_zoom(rx,new);
 		}
+		update_vfo(rx);
                 break;
               case MIDI_KNOB:
                 if(val>=1 && val<=8) {

@@ -3403,7 +3403,7 @@ int parse_cmd(void *data) {
           // set transceiver to RX mode
           if(command[2]==';') {
             //set_mox(radio,FALSE);
-            MOX *m=g_new0(MOX,1);
+            MOX_STATE *m=g_new0(MOX_STATE,1);
             m->radio=radio;
             m->state=0;
             g_idle_add(ext_set_mox,(gpointer)m);
@@ -3793,7 +3793,7 @@ int parse_cmd(void *data) {
           // set transceiver to TX mode
           if(command[2]==';') {
             //set_mox(radio,TRUE);
-            MOX *m=g_new0(MOX,1);
+            MOX_STATE *m=g_new0(MOX_STATE,1);
             m->radio=radio;
             m->state=1;
             g_idle_add(ext_set_mox,(gpointer)m);

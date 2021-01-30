@@ -206,40 +206,12 @@ static void model_cb(GtkComboBox *widget,gpointer data) {
   radio_dialog_update_controls();
 }
 
-static void sample_rate_cb(GtkComboBox *widget,gpointer data) {
+static void sample_rate_cb(GtkComboBoxText *widget,gpointer data) {
   RADIO *radio=(RADIO *)data;
   int rate;
   int i;
 
-  switch(gtk_combo_box_get_active(widget)) {
-#ifndef SOAPYSDR
-    case 0: // 48000
-      rate=48000;
-      break;
-    case 1: // 96000
-      rate=96000;
-      break;
-    case 2: // 192000
-      rate=192000;
-      break;
-    case 3: // 384000
-      rate=384000;
-      break;
-#else
-    case 0: // 96000
-      rate=96000;
-      break;
-    case 1: // 192000
-      rate=192000;
-      break;
-    case 2: // 384000
-      rate=384000;
-      break;
-    case 3: // 768000
-      rate=768000;
-      break;
-#endif
-  }
+  rate=atoi(gtk_combo_box_text_get_active_text(widget));
 
   switch(radio->discovered->protocol) {
     case PROTOCOL_1:
@@ -249,7 +221,7 @@ static void sample_rate_cb(GtkComboBox *widget,gpointer data) {
       break;
 #ifdef SOAPYSDR
     case PROTOCOL_SOAPYSDR:
-      soapy_protocol_stop();
+      //soapy_protocol_stop();
       break;
 #endif
   }

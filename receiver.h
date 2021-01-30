@@ -72,6 +72,9 @@ typedef struct _receiver {
 
   gboolean qo100_beacon;
 
+  gboolean entering_frequency;
+  gint64 entered_frequency;
+
   gint64 frequency_a;
   gint64 lo_a;
   gint64 error_a;

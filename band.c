@@ -269,7 +269,7 @@ BANDSTACK bandstack_xvtr_7={3,0,bandstack_entries_xvtr_7};
 
 
 
-BAND bands[BANDS+XVTRS] =
+BAND bands[BANDS+XVTRS] = 
     {{"2200",&bandstack2200,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,135700LL,137800LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
      {"630",&bandstack630,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,472000LL,479000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
      {"160",&bandstack160,0,0,0,0,0,ALEX_ATTENUATION_0dB,53.0,1800000LL,2000000LL,0LL,0LL,0,-140,-60,20,-145,-65,1},
@@ -497,9 +497,7 @@ void bandSaveState() {
 void bandRestoreState() {
     char* value;
     int b;
-    int stack;
     char name[128];
-    BANDSTACK_ENTRY* entry;
 
     for(b=0;b<BANDS+XVTRS;b++) {
         sprintf(name,"band.%d.title",b);
@@ -569,41 +567,8 @@ void bandRestoreState() {
         sprintf(name,"band.%d.disablePA",b);
         value=getProperty(name);
         if(value) bands[b].disablePA=atoi(value);
-
-        for(stack=0;stack<bands[b].bandstack->entries;stack++) {
-          entry=bands[b].bandstack->entry;
-          entry+=stack;
-
-          sprintf(name,"band.%d.stack.%d.a",b,stack);
-          value=getProperty(name);
-          if(value) entry->frequency=atoll(value);
-
-          sprintf(name,"band.%d.stack.%d.mode",b,stack);
-          value=getProperty(name);
-          if(value) entry->mode=atoi(value);
-
-          sprintf(name,"band.%d.stack.%d.filter",b,stack);
-          value=getProperty(name);
-          if(value) entry->filter=atoi(value);
-
-          sprintf(name,"band.%d.stack.%d.var1Low",b,stack);
-          value=getProperty(name);
-          if(value) entry->var1Low=atoi(value);
-
-          sprintf(name,"band.%d.stack.%d.var1High",b,stack);
-          value=getProperty(name);
-          if(value) entry->var1High=atoi(value);
-
-          sprintf(name,"band.%d.stack.%d.var2Low",b,stack);
-          value=getProperty(name);
-          if(value) entry->var2Low=atoi(value);
-
-          sprintf(name,"band.%d.stack.%d.var2High",b,stack);
-          value=getProperty(name);
-          if(value) entry->var2High=atoi(value);
-
-        }
     }
+
     value=getProperty("band");
     if(value) band=atoi(value);
 }
@@ -622,7 +587,7 @@ int get_band_from_frequency(gint64 f) {
     }
   }
   if (found < 0) found=bandGen;
-  return found;
+  return found;  
 }
 
 int next_band(int current_band) {
@@ -651,8 +616,9 @@ int previous_band(int current_band) {
   }
   return b;
 }
+
 void set_band(RECEIVER *rx,int band,int bs_entry) {
-  // save current bandstack
+  // save current bandstack 
   BAND *b=&bands[rx->band_a];
   BANDSTACK *stack=b->bandstack;
   BANDSTACK_ENTRY *entry=&stack->entry[stack->current_entry];
@@ -676,8 +642,8 @@ void set_band(RECEIVER *rx,int band,int bs_entry) {
     b=&bands[band];
     stack=b->bandstack;
   } else {
-    //stack->current_entry++;
-    //if(stack->current_entry>=stack->entries) stack->current_entry=0;
+    stack->current_entry++;
+    if(stack->current_entry>=stack->entries) stack->current_entry=0;
   }
   if(bs_entry!=-1) {
     stack->current_entry=bs_entry;

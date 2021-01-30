@@ -231,14 +231,7 @@ void update_tx_panadapter(RADIO *r) {
       // Won't show SWR if power out is less than
       // 100 mW, potentially improve this in the future?
       if (tx->fwd > 1E-1) {
-         double this_swr;
-         double reflection_coefficient = sqrt(tx->rev/tx->fwd);
-         if (1 - reflection_coefficient == 0.0) {
-           this_swr = 9999.9;
-         }
-         else {
-           this_swr = (1 + reflection_coefficient) / (1 - reflection_coefficient);
-         }
+        double this_swr = (1+ sqrt(tx->rev/tx->fwd)) / (1 - sqrt(tx->rev/tx->fwd));
         if (this_swr < 0.0) this_swr=1.0;
         
         // Exponential moving average filter

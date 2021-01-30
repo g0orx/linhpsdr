@@ -63,6 +63,8 @@
 #include "subrx.h"
 
 #ifdef MIDI
+#include "midi.h"
+#include "midi_dialog.h"
 // rather than including MIDI.h with all its internal stuff
 // (e.g. enum components) we just declare the single bit thereof
 // we need here to make a strict compiler happy.
@@ -286,6 +288,8 @@ g_print("radio_save_state: %s\n",filename);
   setProperty("radio.midi_filename",radio->midi_filename);
   sprintf(value,"%d",radio->midi_enabled);
   setProperty("radio.midi_enabled",value);
+
+  midi_save_state();
 #endif
 
   gtk_window_get_position(GTK_WINDOW(main_window),&x,&y);
@@ -452,6 +456,7 @@ void radio_restore_state(RADIO *radio) {
 */
 
 #ifdef MIDI
+  midi_restore_state();
   value=getProperty("radio.midi_filename");
   if(value) strcpy(radio->midi_filename,value);
   value=getProperty("radio.midi_enabled");
@@ -1354,8 +1359,13 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   // running. So this is the last thing we do when starting the radio.
   //
 #ifdef MIDI
+//  if(r->midi_enabled) {
+//    r->midi_enabled=(MIDIstartup(r->midi_filename)==0);
+//  }
   if(r->midi_enabled) {
-    r->midi_enabled=(MIDIstartup(r->midi_filename)==0);
+    if(register_midi_device(midi_device_name)<0) {
+      r->midi_enabled=false;
+    }
   }
 #endif  
   

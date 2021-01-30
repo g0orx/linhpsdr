@@ -22,6 +22,18 @@ GTKLIBS=`pkg-config --libs gtk+-3.0`
 #AUDIO_LIBS=-lpulse-simple -lpulse -lpulse-mainloop-glib
 AUDIOLIBS=-lsoundio
 
+
+# uncomment the line below to include MIDI support
+MIDI_INCLUDE=MIDI
+
+ifeq ($(MIDI_INCLUDE),MIDI)
+MIDI_OPTIONS=-D MIDI
+MIDI_SOURCES= mac_midi.c midi2.c midi3.c midi_dialog.c
+MIDI_HEADERS= midi.h midi_dialog.h
+MIDI_OBJS= mac_midi.o midi2.o midi3.o midi_dialog.o
+MIDI_LIBS= -framework CoreMIDI -framework Foundation
+endif
+
 # uncomment the line below to include SoapySDR support
 #
 # Note: SoapySDR support has only been tested with the RTL-SDR and LimeSDR
@@ -50,12 +62,12 @@ soapy_protocol.o
 endif
 
 
-OPTIONS=-Wno-deprecated-declarations -D SOUNDIO -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(SOAPYSDR_OPTIONS) $(OPENGL_OPTIONS) -O3 -g
+OPTIONS=-Wno-deprecated-declarations -D SOUNDIO -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' $(MIDI_OPTIONS) $(SOAPYSDR_OPTIONS) $(OPENGL_OPTIONS) -O3 -g
 
-LIBS=-lm -lpthread -lwdsp
+LIBS=-lm -lpthread -lwdsp $(MIDI_LIBS)
 INCLUDES=$(GTKINCLUDES) $(PULSEINCLUDES) $(OPENGL_INCLUDES)
 
-COMPILE=$(CC) $(OPTIONS) $(INCLUDES)
+COMPILE=$(CC) $(OPTIONS) $(MIDI_OPTIONS) $(INCLUDES)
 
 PROGRAM=linhpsdr
 
@@ -213,13 +225,13 @@ bpsk.o \
 css.o \
 subrx.o
 
-all: prebuild  $(PROGRAM) $(HEADERS) $(SOURCES) $(SOAPYSDR_SOURCES)
+all: prebuild  $(PROGRAM) $(HEADERS) $(SOURCES) $(MIDI_SOURCES) $(SOAPYSDR_SOURCES)
 
 prebuild:
 	rm -f version.o
 
-$(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS)
-	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(GTKLIBS) $(LIBS) $(AUDIOLIBS) $(SOAPYSDR_LIBS) $(OPENGL_LIBS)
+$(PROGRAM):  $(OBJS) $(MIDI_OBJS)  $(SOAPYSDR_OBJS) 
+	$(LINK) -o $(PROGRAM) $(OBJS)  $(MIDI_OBJS) $(SOAPYSDR_OBJS) $(GTKLIBS) $(LIBS) $(AUDIOLIBS) $(SOAPYSDR_LIBS) $(OPENGL_LIBS)
 
 .c.o:
 	$(COMPILE) -c -o $@ $<

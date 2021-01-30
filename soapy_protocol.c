@@ -176,6 +176,10 @@ void soapy_protocol_start_receiver(RECEIVER *rx) {
   int rc;
 
 g_print("%s: activate_stream\n",__FUNCTION__);
+
+  double rate=SoapySDRDevice_getSampleRate(soapy_device,SOAPY_SDR_RX,rx->adc);
+  g_print("%s: rate=%f\n",__FUNCTION__,rate);
+
   size_t channel=rx->adc;
   rc=SoapySDRDevice_activateStream(soapy_device, rx_stream[channel], 0, 0LL, 0);
   if(rc!=0) {
@@ -269,6 +273,7 @@ g_print("soapy_protocol_stop_transmitter: deactivateStream\n");
 
 void soapy_protocol_init(RADIO *r,int rx) {
   SoapySDRKwargs args={};
+  char temp[32];
   int rc;
   int i;
 
@@ -278,13 +283,11 @@ g_print("soapy_protocol_init\n");
 g_print("soapy_protocol_init: SoapySDRDevice_make\n");
   SoapySDRKwargs_set(&args, "driver", radio->discovered->name);
   if(strcmp(radio->discovered->name,"rtlsdr")==0) {
-    char id[16];
-    sprintf(id,"%d",radio->discovered->info.soapy.rtlsdr_count);
-    SoapySDRKwargs_set(&args, "rtl", id);
+    sprintf(temp,"%d",radio->discovered->info.soapy.rtlsdr_count);
+    SoapySDRKwargs_set(&args, "rtl", temp);
   } else if(strcmp(radio->discovered->name,"sdrplay")==0) {
-    char label[16];
-    sprintf(label,"SDRplay Dev%d",radio->discovered->info.soapy.sdrplay_count);
-    SoapySDRKwargs_set(&args, "label", label);
+    sprintf(temp,"SDRplay Dev%d",radio->discovered->info.soapy.sdrplay_count);
+    SoapySDRKwargs_set(&args, "label", temp);
   }
   soapy_device=SoapySDRDevice_make(&args);
   if(soapy_device==NULL) {
@@ -305,8 +308,9 @@ static gpointer receive_thread(gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   float *buffer=g_new(float,max_samples*2);
   void *buffs[]={buffer};
+
   running=TRUE;
-g_print("%s: receive_thread\n",__FUNCTION__);
+g_print("%s: runnin\n",__FUNCTION__);
   size_t channel=rx->adc;
   while(running) {
     elements=SoapySDRDevice_readStream(soapy_device,rx_stream[channel],buffs,max_samples,&flags,&timeNs,timeoutUs);

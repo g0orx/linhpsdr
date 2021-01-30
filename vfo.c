@@ -1426,7 +1426,10 @@ GtkWidget *create_vfo(RECEIVER *rx) {
   x=0;
   y=16;
 
-  long long af=rx->ctun?rx->ctun_frequency:rx->frequency_a;
+  long long af=rx->frequency_a;
+  if(rx->ctun) af=rx->ctun_frequency;
+  if(rx->entering_frequency) af=rx->entered_frequency;
+    
   sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
   v->frequency_a_text=gtk_label_new(temp);
   rx->vfo_a_digits=strlen(temp);
@@ -1729,7 +1732,10 @@ void update_vfo(RECEIVER *rx) {
   if(v==NULL) return;
 
   // VFO A
-  long long af=rx->ctun?rx->ctun_frequency:rx->frequency_a;
+  long long af=rx->frequency_a;
+  if(rx->ctun) af=rx->ctun_frequency;
+  if(rx->entering_frequency) af=rx->entered_frequency;
+
   sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
   if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split==SPLIT_OFF && isTransmitting(radio)) {
     markup=g_markup_printf_escaped("<span foreground=\"#D94545\">%s</span>",temp);

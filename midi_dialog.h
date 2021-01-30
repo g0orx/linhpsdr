@@ -20,6 +20,10 @@
 #ifndef MIDI_DIALOG_H
 #define MIDI_DIALOG_H
 
-extern GtkWidget *create_midi_dialog(RADIO *r);
+extern gchar *midi_device_name;
 
+extern GtkWidget *create_midi_dialog(RADIO *r);
+extern void NewMidiConfigureEvent(enum MIDIevent event, int channel, int note, int val);
+extern void midi_save_state();
+extern void midi_restore_state();
 #endif
