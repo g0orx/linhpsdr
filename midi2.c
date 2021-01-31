@@ -37,15 +37,15 @@ void NewMidiEvent(enum MIDIevent event, int channel, int note, int val) {
     static struct timespec tp, last_wheel_tp={0,0};
     long delta;
 
-g_print("%s: EVENT=%d CHAN=%d NOTE=%d VAL=%d\n",__FUNCTION__,event,channel,note,val);
+//g_print("%s: EVENT=%d CHAN=%d NOTE=%d VAL=%d\n",__FUNCTION__,event,channel,note,val);
     if (event == MIDI_PITCH) {
 	desc=MidiCommandsTable.pitch;
     } else {
 	desc=MidiCommandsTable.desc[note];
     }
-g_print("%s: init DESC=%p\n",__FUNCTION__,desc);
+//g_print("%s: init DESC=%p\n",__FUNCTION__,desc);
     while (desc) {
-g_print("%s: DESC=%p next=%p CHAN=%d EVENT=%d\n",__FUNCTION__,desc,desc->next,desc->channel,desc->event);
+//g_print("%s: DESC=%p next=%p CHAN=%d EVENT=%d\n",__FUNCTION__,desc,desc->next,desc->channel,desc->event);
 	if ((desc->channel == channel || desc->channel == -1) && (desc->event == event)) {
 	    // Found matching entry
 	    switch (desc->event) {

@@ -143,8 +143,10 @@ static void type_changed_cb(GtkWidget *widget, gpointer data) {
 
   //g_print("%s: type=%s\n",__FUNCTION__,type);
   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(newAction));
-  if(type==NULL || strcmp(type,"None")==0) {
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newAction),NULL,ActionTable[0].str);
+  if(type==NULL || strcmp(type,"NONE")==0) {
     // leave empty
+    gtk_combo_box_set_active (GTK_COMBO_BOX(newAction),0);
   } else if(strcmp(type,"KEY")==0) {
     // add all the Key actions
     j=0;
@@ -237,7 +239,7 @@ static void tree_selection_changed_cb (GtkTreeSelection *selection, gpointer dat
           thisType=TYPE_NONE;
         }
         thisAction=ACTION_NONE;
-        int i=1;
+        int i=0;
         while(ActionTable[i].action!=ACTION_NONE) {
           if(strcmp(ActionTable[i].str,str_action)==0) {
             thisAction=ActionTable[i].action;
@@ -299,8 +301,13 @@ static void save_cb(GtkWidget *widget,gpointer user_data) {
                                       NULL);
   chooser = GTK_FILE_CHOOSER (dialog);
   gtk_file_chooser_set_do_overwrite_confirmation (chooser, TRUE);
-  filename=g_new(gchar,strlen(midi_device_name)+6);
-  sprintf(filename,"%s.midi",midi_device_name);
+  if(midi_device_name==NULL) {
+    filename=g_new(gchar,10);
+    sprintf(filename,"midi.midi");
+  } else {
+    filename=g_new(gchar,strlen(midi_device_name)+6);
+    sprintf(filename,"%s.midi",midi_device_name);
+  }
   gtk_file_chooser_set_current_name(chooser,filename);
   res = gtk_dialog_run (GTK_DIALOG (dialog));
   if(res==GTK_RESPONSE_ACCEPT) {
@@ -332,8 +339,13 @@ static void load_cb(GtkWidget *widget,gpointer user_data) {
                                       GTK_RESPONSE_ACCEPT,
                                       NULL);
   chooser = GTK_FILE_CHOOSER (dialog);
-  filename=g_new(gchar,strlen(midi_device_name)+6);
-  sprintf(filename,"%s.midi",midi_device_name);
+  if(midi_device_name==NULL) {
+    filename=g_new(gchar,10);
+    sprintf(filename,"midi.midi");
+  } else {
+    filename=g_new(gchar,strlen(midi_device_name)+6);
+    sprintf(filename,"%s.midi",midi_device_name);
+  }
   gtk_file_chooser_set_current_name(chooser,filename);
   res = gtk_dialog_run (GTK_DIALOG (dialog));
   if(res==GTK_RESPONSE_ACCEPT) {
@@ -824,7 +836,7 @@ static int update(void *data) {
       sprintf(text,"%d",thisNote);
       gtk_label_set_text(GTK_LABEL(newNote),text);
       gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(newType));
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newType),NULL,"None");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newType),NULL,"NONE");
       switch(thisEvent) {
         case EVENT_NONE:
           break;
@@ -837,6 +849,10 @@ static int update(void *data) {
           gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newType),NULL,"WHEEL");
           break;
       }
+      gtk_combo_box_set_active (GTK_COMBO_BOX(newType),0);
+      gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(newAction));
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newAction),NULL,"NONE");
+      gtk_combo_box_set_active (GTK_COMBO_BOX(newAction),0);
       sprintf(text,"%d",thisVal);
       gtk_label_set_text(GTK_LABEL(newVal),text);
       sprintf(text,"%d",thisMin);
@@ -878,21 +894,26 @@ static int update(void *data) {
       sprintf(text,"%d",thisNote);
       gtk_label_set_text(GTK_LABEL(newNote),text);
       gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(newType));
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newType),NULL,"None");
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newType),NULL,"NONE");
       switch(thisEvent) {
         case EVENT_NONE:
+	  gtk_combo_box_set_active (GTK_COMBO_BOX(newType),0);
           break;
         case MIDI_NOTE:
         case MIDI_PITCH:
           gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newType),NULL,"KEY");
-	  if(thisType==MIDI_KEY) {
+	  if(thisType==TYPE_NONE) {
+	    gtk_combo_box_set_active (GTK_COMBO_BOX(newType),0);
+	  } else if(thisType==MIDI_KEY) {
 	    gtk_combo_box_set_active (GTK_COMBO_BOX(newType),1);
 	  }
           break;
         case MIDI_CTRL:
           gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newType),NULL,"KNOB/SLIDER");
           gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newType),NULL,"WHEEL");
-	  if(thisType==MIDI_KNOB) {
+	  if(thisType==TYPE_NONE) {
+	    gtk_combo_box_set_active (GTK_COMBO_BOX(newType),0);
+	  } else if(thisType==MIDI_KNOB) {
 	    gtk_combo_box_set_active (GTK_COMBO_BOX(newType),1);
 	  } else if(thisType==MIDI_WHEEL) {
             gtk_combo_box_set_active (GTK_COMBO_BOX(newType),2);
