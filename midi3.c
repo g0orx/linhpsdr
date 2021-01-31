@@ -951,7 +951,7 @@ static int midi_action(void *data) {
 	    break;
 	case VFOB: // only wheel supported
 	    if (type == MIDI_WHEEL && !rx->locked) {
-              receiver_move_b(rx,(long long)(rx->step*val),FALSE,TRUE);
+              receiver_move_b(rx,(long long)(rx->step*-val),FALSE,TRUE);
 	    }
 	    break;
 	/////////////////////////////////////////////////////////// "VFOSTEPDOWN"
