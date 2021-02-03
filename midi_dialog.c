@@ -103,7 +103,7 @@ static gboolean midi_enable_cb(GtkWidget *widget,gpointer data) {
     close_midi_device();
   }
   r->midi_enabled=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (widget));
-  if(r->midi_enabled) {
+  if(r->midi_enabled && midi_device_name!=NULL) {
     if(register_midi_device(midi_device_name)<0) {
       r->midi_enabled=false;
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON (widget), r->midi_enabled);

@@ -1272,7 +1272,6 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->swr_alarm_value = 2.0;
   r->temperature_alarm_value = 42;  
   r->midi_enabled = FALSE;
-  sprintf(r->midi_filename,"%s/.local/share/linhpsdr/midi.props", g_get_home_dir());
   
   r->dialog=NULL;
 
@@ -1362,10 +1361,12 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 //  if(r->midi_enabled) {
 //    r->midi_enabled=(MIDIstartup(r->midi_filename)==0);
 //  }
-  if(r->midi_enabled) {
+  if(r->midi_enabled && midi_device_name!=NULL) {
     if(register_midi_device(midi_device_name)<0) {
       r->midi_enabled=false;
     }
+  } else {
+    r->midi_enabled=false;
   }
 #endif  
   

@@ -27,8 +27,6 @@ extern int midi_rx;
 
 struct cmdtable MidiCommandsTable;
 
-int midi_enabled=0;
-
 void NewMidiEvent(enum MIDIevent event, int channel, int note, int val) {
 
     struct desc *desc;

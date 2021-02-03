@@ -242,6 +242,7 @@ int register_midi_device(char *myname) {
     }
     if(i>=n_midi_devices) {
         g_print("%s: Cannot find MIDI device: %s\n",__FUNCTION__,myname);
+	ret=-1;
     }
     return ret;
 }
