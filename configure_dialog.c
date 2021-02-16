@@ -50,6 +50,7 @@
 #include "about_dialog.h"
 #include "wideband_dialog.h"
 #ifdef MIDI
+#include "midi.h"
 #include "midi_dialog.h"
 #endif
 
@@ -60,6 +61,7 @@ static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) 
   int i;
 
   save_xvtr();
+  configure_midi_device(false);
   radio->dialog=NULL;
   for(i=0;i<radio->discovered->supported_receivers;i++) {
     if(radio->receiver[i]!=NULL) {
