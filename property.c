@@ -50,30 +50,31 @@ void loadProperties(char* filename) {
     properties=NULL;
     PROPERTY* property;
 
-    dbgprintf("loadProperties: %s\n", filename);
+    if (DEBUG>0)
+        dbgprintf("loadProperties: %s\n", filename);
     
     if(f) {
         while(fgets(string,sizeof(string),f)) {
             if(string[0]!='#') { // content is not comment line
-                if(DEBUG>0) // else NOOP
+                if(DEBUG>1) // else NOOP
                     dbgprintf("loading property:: %s", string); // lines from filename have '\n' already
                 name=strtok(string,"=");
                 value=strtok(NULL,"\n");
-                if (value == 0x0) // strtok() indicates 'no token found'. value is NULL.
-                    value = ""; // set property value to <empty string>.
+                if (name != NULL) {
+                    // strtok() indicates 'no token found' by returning NULL value.
+                    if (value == 0x0) // property is empty string
+                        value = "";   // set value accordingly
 
-                property=malloc(sizeof(PROPERTY));
-                property->name=malloc(strlen(name)+1);
-                strcpy(property->name,name);
-
-                property->value=malloc(strlen(value)+1);
-                strcpy(property->value,value);
-                property->next_property=properties;
-
-                properties=property;
-
-                if(strcmp(name,"property_version")==0) {
-                    version=atof(value);
+                    property=malloc(sizeof(PROPERTY));
+                    property->name=malloc(strlen(name)+1);
+                    strcpy(property->name,name);
+                    property->value=malloc(strlen(value)+1);
+                    strcpy(property->value,value);
+                    property->next_property=properties;
+                    properties=property;
+                    if(strcmp(name,"property_version")==0) {
+                        version=atof(value);
+                    }
                 }
             }
         }
@@ -82,7 +83,8 @@ void loadProperties(char* filename) {
 
     if(version!=PROPERTY_VERSION) {
         properties=NULL;
-        dbgprintf("loadProperties: version=%f expected version=%f - ignoring\n",version,PROPERTY_VERSION);
+        if (DEBUG>0)
+            dbgprintf("loadProperties: version=%f expected version=%f - ignoring\n",version,PROPERTY_VERSION);
     }
 }
 

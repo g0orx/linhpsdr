@@ -419,17 +419,16 @@ static int midi_action(void *data) {
               receiver_move(rx,(long long)(rx->step*val),TRUE);
             }
 	    break;
-/*
 	/////////////////////////////////////////////////////////// "CWL"
 	/////////////////////////////////////////////////////////// "CWR"
-	case CWL: // only key
-	case CWR: // only key
-#ifdef LOCALCW
+	case CWLEFT: // only key
+	case CWRIGHT: // only key
+//#ifdef LOCALCW
 	    if (type == MIDI_KEY) {
 		new=(action == CWL);
-		keyer_event(new,val);
+		//keyer_event(new,val);
 	    }
-#endif
+//#endif
 	    break;
 	/////////////////////////////////////////////////////////// "CWSPEED"
 	case CWSPEED: // knob or wheel
@@ -440,22 +439,23 @@ static int midi_action(void *data) {
                 break;
               case MIDI_WHEEL:
 		// here we allow from 1 to 60 wpm
-                new = cw_keyer_speed + val;
+                new = radio->cw_keyer_speed + val;
 		if (new <  1) new=1;
 		if (new > 60) new=60;
                 break;
               default:
                 // do not change
                 // we should not come here anyway
-                new = cw_keyer_speed;
+                new = radio->cw_keyer_speed;
                 break;
             }
-	    cw_keyer_speed=new;
-#ifdef LOCALCW
-	    keyer_update();
-#endif
+	    radio->cw_keyer_speed=new;
+//#ifdef LOCALCW
+	    //keyer_update();
+//#endif
             g_idle_add(ext_vfo_update, NULL);
 	    break;
+/*
 	/////////////////////////////////////////////////////////// "DIVCOARSEGAIN"
 	case DIV_COARSEGAIN:  // knob or wheel supported
 	case DIV_FINEGAIN:    // knob or wheel supported

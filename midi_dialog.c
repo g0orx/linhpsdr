@@ -136,7 +136,7 @@ static void device_changed_cb(GtkWidget *widget, gpointer data) {
 
 static void type_changed_cb(GtkWidget *widget, gpointer data) {
   int i=1;
-  int j;
+  int j=1;
 
   // update actions available for the type
   gchar *type=gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(widget));
@@ -149,9 +149,8 @@ static void type_changed_cb(GtkWidget *widget, gpointer data) {
     gtk_combo_box_set_active (GTK_COMBO_BOX(newAction),0);
   } else if(strcmp(type,"KEY")==0) {
     // add all the Key actions
-    j=0;
     while(ActionTable[i].action!=ACTION_NONE) {
-      if(ActionTable[i].type==MIDI_KEY) {
+      if(ActionTable[i].type&MIDI_KEY) {
         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newAction),NULL,ActionTable[i].str);
 	if(ActionTable[i].action==thisAction) {
           gtk_combo_box_set_active (GTK_COMBO_BOX(newAction),j);
@@ -162,7 +161,6 @@ static void type_changed_cb(GtkWidget *widget, gpointer data) {
     }
   } else if(strcmp(type,"KNOB/SLIDER")==0) {
     // add all the Knob actions
-    j=0;
     while(ActionTable[i].action!=ACTION_NONE) {
       if(ActionTable[i].type&MIDI_KNOB) {
         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newAction),NULL,ActionTable[i].str);
@@ -175,7 +173,6 @@ static void type_changed_cb(GtkWidget *widget, gpointer data) {
     }
   } else if(strcmp(type,"WHEEL")==0) {
     // add all the Wheel actions
-    j=0;
     while(ActionTable[i].action!=ACTION_NONE) {
       if(ActionTable[i].type&MIDI_WHEEL || ActionTable[i].type&MIDI_KNOB) {
         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newAction),NULL,ActionTable[i].str);
@@ -239,7 +236,7 @@ static void tree_selection_changed_cb (GtkTreeSelection *selection, gpointer dat
           thisType=TYPE_NONE;
         }
         thisAction=ACTION_NONE;
-        int i=0;
+        int i=1;
         while(ActionTable[i].action!=ACTION_NONE) {
           if(strcmp(ActionTable[i].str,str_action)==0) {
             thisAction=ActionTable[i].action;
@@ -601,15 +598,15 @@ static void update_cb(GtkButton *widget,gpointer user_data) {
 static void delete_cb(GtkButton *widget,gpointer user_data) {
   struct desc *previous_cmd;
   struct desc *next_cmd;
-  //g_print("%s\n",__FUNCTION__);
+  GtkTreeIter saved_iter;
 
-  // remove from list store
-  gtk_list_store_remove(store,&iter);
+  //g_print("%s\n",__FUNCTION__);
+  saved_iter=iter;
+
 
   // remove from MidiCommandsTable
   if(MidiCommandsTable.desc[thisNote]==current_cmd) {
     MidiCommandsTable.desc[thisNote]=current_cmd->next;
-    MidiCommandsTable.desc[thisNote]=NULL;
     g_free(current_cmd);
   } else {
     previous_cmd=MidiCommandsTable.desc[thisNote];
@@ -623,6 +620,9 @@ static void delete_cb(GtkButton *widget,gpointer user_data) {
       previous_cmd=next_cmd;
     }
   }
+
+  // remove from list store
+  gtk_list_store_remove(store,&saved_iter);
 
   gtk_widget_set_sensitive(add_b,true);
   gtk_widget_set_sensitive(update_b,false);
