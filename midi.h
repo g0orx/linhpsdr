@@ -57,30 +57,30 @@ enum MIDIaction {
   ANF,			// ANF:			toggel ANF on/off
   ATT,			// ATT:			Step attenuator or Programmable attenuator
   VFO_B2A,		// B2A:			VFO B -> A
-  MIDI_BAND_10,         // BAND10
-  MIDI_BAND_12,         // BAND12
-  MIDI_BAND_1240,       // BAND1240
-  MIDI_BAND_144,        // BAND144
-  MIDI_BAND_15,         // BAND15
-  MIDI_BAND_160,        // BAND160
-  MIDI_BAND_17,         // BAND17
-  MIDI_BAND_20,         // BAND20
-  MIDI_BAND_220,        // BAND220
-  MIDI_BAND_2300,       // BAND2300
-  MIDI_BAND_30,         // BAND30
-  MIDI_BAND_3400,       // BAND3400
-  MIDI_BAND_40,         // BAND40
-  MIDI_BAND_430,        // BAND430
-  MIDI_BAND_6,          // BAND6
-  MIDI_BAND_60,         // BAND60
-  MIDI_BAND_70,         // BAND70
-  MIDI_BAND_80,         // BAND80
-  MIDI_BAND_902,        // BAND902
-  MIDI_BAND_AIR,        // BANDAIR
+  MIDI_BAND_160,
+  MIDI_BAND_80,
+  MIDI_BAND_60,
+  MIDI_BAND_40,
+  MIDI_BAND_30,
+  MIDI_BAND_20,
+  MIDI_BAND_17,
+  MIDI_BAND_15,
+  MIDI_BAND_12,
+  MIDI_BAND_10,
+  MIDI_BAND_6,
+  MIDI_BAND_70,
+  MIDI_BAND_144,
+  MIDI_BAND_220,
+  MIDI_BAND_430,
+  MIDI_BAND_902,
+  MIDI_BAND_1240,
+  MIDI_BAND_2300,
+  MIDI_BAND_3400,
+  MIDI_BAND_AIR,
+  MIDI_BAND_GEN,
+  MIDI_BAND_WWV,
   BAND_DOWN,            // BANDDOWN
-  MIDI_BAND_GEN,        // BANDGEN
   BAND_UP,              // BANDUP
-  MIDI_BAND_WWV,        // BANDWWV
   COMPRESS,		// COMPRESS:		TX compressor value
   MIDI_CTUN,		// CTUN:		toggle CTUN on/off
   VFO,			// CURRVFO:		change VFO frequency
@@ -98,6 +98,16 @@ enum MIDIaction {
   FILTER_DOWN,		// FILTERDOWN:		cycle through filters downwards
   FILTER_UP,		// FILTERUP:		cycle through filters upwards
   MIDI_LOCK,		// LOCK:		lock VFOs, disable frequency changes
+  MENU_ABOUT,		// MENUABOUT
+  MENU_EER,		// MENUEER
+  MENU_MIDI,		// MENUMID
+  MENU_OC,		// MENUOC
+  MENU_PA,		// MENUPA
+  MENU_PS,		// MENUPS
+  MENU_RADIO,		// MENURADIO
+  MENU_RX,		// MENURX
+  MENU_TX,		// MENUTX
+  MENU_XVTR,		// MENUXVTR
   MIC_VOLUME,		// MICGAIN:		MIC gain
   MODE_DOWN,		// MODEDOWN:		cycle through modes downwards
   MODE_UP,		// MODEUP:		cycle through modes upwards
@@ -131,7 +141,7 @@ enum MIDIaction {
   MIDI_SAT,		// SAT:			cycle through SAT modes off/SAT/RSAT
   SNB,			// SNB:			toggle SNB on/off
   MIDI_SPLIT,		// SPLIT:		Split on/off
-  SWAP_RX, 		// SWAPRX:		swap active receiver (if there are two receivers)
+  SWAP_RX, 		// SWAPRX:		swap active receiver - enable next rx
   SWAP_VFO,		// SWAPVFO:		swap VFO A/B frequency
   MIDI_TUNE,		// TUNE:		toggle "tune" state
   VFOA,			// VFOA:		change VFO-A frequency

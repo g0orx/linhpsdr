@@ -747,6 +747,7 @@ GtkWidget *create_midi_dialog(RADIO *r) {
   newMax=gtk_label_new("");
   gtk_grid_attach(GTK_GRID(grid),newMax,col++,row,1,1);
   newAction=gtk_combo_box_text_new();
+  gtk_combo_box_set_wrap_width(GTK_COMBO_BOX(newAction),5);
   gtk_grid_attach(GTK_GRID(grid),newAction,col++,row,1,1);
 
   add_b=gtk_button_new_with_label("Add");

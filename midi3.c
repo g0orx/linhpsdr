@@ -38,6 +38,8 @@
 #include "cwdaemon.h"
 #include <libcw.h>
 #endif
+#include "receiver_dialog.h"
+#include "configure_dialog.h"
 
 int midi_rx;
 int midi_debug=FALSE;
@@ -380,6 +382,87 @@ static int midi_action(void *data) {
 		break;
 	    }
 	    break;
+	/////////////////////////////////////////////////////////// "MENUS"
+	case MENU_ABOUT:
+	  break;
+	case MENU_EER:
+	  if(radio->dialog==NULL) {
+            radio->dialog=create_configure_dialog(radio,rx_base+radio->receivers+3);
+          } else {
+	    configure_dialog_set_tab(rx_base+radio->receivers+3);
+	  }
+	  break;
+	case MENU_MIDI:
+	  if(radio->dialog==NULL) {
+            radio->dialog=create_configure_dialog(radio,rx_base+radio->receivers+4);
+          } else {
+	    configure_dialog_set_tab(rx_base+radio->receivers+4);
+          }
+	  break;
+	case MENU_OC:
+	  if(radio->dialog==NULL) {
+            radio->dialog=create_configure_dialog(radio,1);
+          } else {
+	    configure_dialog_set_tab(1);
+          }
+	  break;
+	case MENU_PA:
+	  if(radio->dialog==NULL) {
+            radio->dialog=create_configure_dialog(radio,rx_base+radio->receivers+2);
+          } else {
+	    configure_dialog_set_tab(rx_base+radio->receivers+2);
+          }
+	  break;
+	case MENU_PS:
+	  if(radio->dialog==NULL) {
+            radio->dialog=create_configure_dialog(radio,rx_base+radio->receivers+1);
+          } else {
+	    configure_dialog_set_tab(rx_base+radio->receivers+1);
+          }
+	  break;
+	case MENU_RADIO:
+	  if(radio->dialog==NULL) {
+            radio->dialog=create_configure_dialog(radio,0);
+          } else {
+	    configure_dialog_set_tab(0);
+          }
+	  break;
+	case MENU_RX:
+	  if(radio->dialog==NULL) {
+            int i;
+            for(i=0;i<radio->discovered->supported_receivers;i++) {
+              if(rx==radio->receiver[i]) {
+                break;
+              }
+            }
+            radio->dialog=create_configure_dialog(radio,rx_base+i);
+            update_receiver_dialog(rx);
+          } else {
+	    int i;
+            for(i=0;i<radio->discovered->supported_receivers;i++) {
+              if(rx==radio->receiver[i]) {
+                break;
+              }
+            }
+	    configure_dialog_set_tab(rx_base+i);
+            update_receiver_dialog(rx);
+          }
+	  break;
+	case MENU_TX:
+	  if(radio->dialog==NULL) {
+            radio->dialog=create_configure_dialog(radio,rx_base+radio->receivers);
+          } else {
+	    configure_dialog_set_tab(rx_base+radio->receivers);
+          }
+	  break;
+	case MENU_XVTR:
+	  if(radio->dialog==NULL) {
+            radio->dialog=create_configure_dialog(radio,2);
+          } else {
+	    configure_dialog_set_tab(2);
+          }
+	  break;
+
 /*
 	/////////////////////////////////////////////////////////// "COMPRESS"
 	case COMPRESS: // wheel or knob
@@ -926,6 +1009,7 @@ static int midi_action(void *data) {
 		update_vfo(rx);
 		rx=radio->receiver[midi_rx];
 		update_vfo(rx);
+		gtk_window_present(GTK_WINDOW(radio->receiver[midi_rx]->window));
 	    }
 	    break;    
 	/////////////////////////////////////////////////////////// "SWAPVFO"
