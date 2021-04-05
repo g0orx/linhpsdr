@@ -79,7 +79,17 @@ void save_xvtr () {
       xvtr->disablePA=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(disable_pa[i]));
       for(b=0;b<bandstack->entries;b++) {
         BANDSTACK_ENTRY *entry=&bandstack->entry[b];
-        entry->frequency=xvtr->frequencyMin;
+	switch(b) {
+          case 0:
+            entry->frequency=xvtr->frequencyMin;
+	    break;
+          case 1:
+            entry->frequency=xvtr->frequencyMin + ((xvtr->frequencyMax-xvtr->frequencyMin)/2LL);
+	    break;
+          case 2:
+            entry->frequency=xvtr->frequencyMax;
+	    break;
+        }
         entry->mode=USB;
         entry->filter=F6;
       }

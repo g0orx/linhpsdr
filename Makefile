@@ -1,3 +1,6 @@
+# find what system we are running on
+UNAME_S := $(shell uname -s)
+
 # Get git commit version and date
 #GIT_VERSION := $(shell git --no-pager describe --tags --always --dirty)
 GIT_DATE := $(firstword $(shell git --no-pager show --date=short --format="%ai" --name-only))
@@ -13,7 +16,16 @@ GTKLIBS=`pkg-config --libs gtk+-3.0`
 #OPENGL_INCLUDES=`pkg-config --cflags epoxy`
 #OPENGL_LIBS=`pkg-config --libs epoxy`
 
+ifeq ($(UNAME_S), Linux)
 AUDIO_LIBS=-lasound -lpulse-simple -lpulse -lpulse-mainloop-glib -lsoundio
+AUDIO_SOURCES=audio.c
+AUDIO_HEADRERS=audio.h
+endif
+ifeq ($(UNAME_S), Darwin)
+AUDIO_LIBS=-lsoundio
+AUDIO_SOURCES=portaudio.c
+AUDIO_HEADRERS=portaudio.h
+endif
 
 # uncomment the line below to include SoapySDR support
 #
@@ -26,7 +38,7 @@ AUDIO_LIBS=-lasound -lpulse-simple -lpulse -lpulse-mainloop-glib -lsoundio
 #	sudo apt-get install soapysdr-module-rtlsdr
 #	sudo apt-get install soapysdr-module-lms7
 #
-SOAPYSDR_INCLUDE=SOAPYSDR
+#SOAPYSDR_INCLUDE=SOAPYSDR
 
 ifeq ($(SOAPYSDR_INCLUDE),SOAPYSDR)
 SOAPYSDR_OPTIONS=-D SOAPYSDR
@@ -42,11 +54,12 @@ soapy_discovery.o \
 soapy_protocol.o
 endif
 
+ifeq ($(UNAME_S), Linux)
 # cwdaemon support. Allows linux based logging software to key an Hermes/HermesLite2
 # needs :
 #			https://github.com/m5evt/unixcw-3.5.1.git
 
-#CWDAEMON_INCLUDE=CWDAEMON
+CWDAEMON_INCLUDE=CWDAEMON
 
 ifeq ($(CWDAEMON_INCLUDE),CWDAEMON)
 CWDAEMON_OPTIONS=-D CWDAEMON
@@ -58,16 +71,24 @@ cwdaemon.h
 CWDAEMON_OBJS= \
 cwdaemon.o
 endif
+endif
 
 # MIDI code from piHPSDR written by Christoph van Wullen, DL1YCF.
 MIDI_INCLUDE=MIDI
 
 ifeq ($(MIDI_INCLUDE),MIDI)
 MIDI_OPTIONS=-D MIDI
-MIDI_SOURCES= alsa_midi.c midi2.c midi3.c
-MIDI_HEADERS= midi.h
-MIDI_OBJS= alsa_midi.o midi2.o midi3.o
+MIDI_HEADERS= midi.h midi_dialog.h
+ifeq ($(UNAME_S), Darwin)
+MIDI_SOURCES= mac_midi.c midi2.c midi3.c midi_dialog.c
+MIDI_OBJS= mac_midi.o midi2.o midi3.o midi_dialog.o
+MIDI_LIBS= -framework CoreMIDI -framework Foundation
+endif
+ifeq ($(UNAME_S), Linux)
+MIDI_SOURCES= alsa_midi.c midi2.c midi3.c midi_dialog.c
+MIDI_OBJS= alsa_midi.o midi2.o midi3.o midi_dialog.o
 MIDI_LIBS= -lasound
+endif
 endif
 
 CFLAGS=	-g -Wno-deprecated-declarations -O3
@@ -76,9 +97,15 @@ OPTIONS=  $(MIDI_OPTIONS) $(AUDIO_OPTIONS)  $(SOAPYSDR_OPTIONS) \
          -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"'
 #OPTIONS=-g -Wno-deprecated-declarations $(AUDIO_OPTIONS) -D GIT_DATE='"$(GIT_DATE)"' -D GIT_VERSION='"$(GIT_VERSION)"' -O3 -D FT8_MARKER
 
-LIBS=-lrt -lm -lpthread -lwdsp $(GTKLIBS) $(AUDIO_LIBS) $(SOAPYSDR_LIBS) $(CWDAEMON_LIBS) $(OPENGL_LIBS) $(MIDI_LIBS)
 
-INCLUDES=$(GTKINCLUDES) $(OPGL_INCLUDES)
+ifeq ($(UNAME_S), Linux)
+LIBS=-lrt -lm -lpthread -lwdsp $(GTKLIBS) $(AUDIO_LIBS) $(SOAPYSDR_LIBS) $(CWDAEMON_LIBS) $(OPENGL_LIBS) $(MIDI_LIBS)
+endif
+ifeq ($(UNAME_S), Darwin)
+LIBS=-lm -lpthread -lwdsp $(GTKLIBS) $(AUDIO_LIBS) $(SOAPYSDR_LIBS) $(MIDI_LIBS) 
+endif
+
+INCLUDES=$(GTKINCLUDES) $(PULSEINCLUDES) $(OPGL_INCLUDES)
 
 COMPILE=$(CC) $(CFLAGS) $(OPTIONS) $(INCLUDES)
 
@@ -136,7 +163,8 @@ error_handler.c\
 radio_info.c\
 rigctl.c \
 bpsk.c \
-subrx.c
+subrx.c \
+actions.c
 
 HEADERS=\
 main.h\
@@ -188,7 +216,8 @@ error_handler.h\
 radio_info.h\
 rigctl.h \
 bpsk.h \
-subrx.h
+subrx.h \
+actions.h
 
 OBJS=\
 main.o\
@@ -239,7 +268,8 @@ error_handler.o\
 radio_info.o\
 rigctl.o \
 bpsk.o \
-subrx.o
+subrx.o \
+actions.o
 
 
 $(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(MIDI_OBJS)

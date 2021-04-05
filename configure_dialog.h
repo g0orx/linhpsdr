@@ -17,5 +17,6 @@
 *
 */
 
-extern GtkWidget *create_configure_dialog(RADIO *radio,int tab);
 extern int rx_base;
+extern GtkWidget *create_configure_dialog(RADIO *radio,int tab);
+extern void configure_dialog_set_tab(int tab);

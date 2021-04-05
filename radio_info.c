@@ -33,73 +33,18 @@
 #include "radio_info.h"
 #include "main.h"
 #include "vfo.h"
+#include "configure_dialog.h"
 
-typedef struct _choice {
-  RECEIVER *rx;
-  int selection;
-} CHOICE;
-
-static gboolean info_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
-
+#ifdef MIDI
+static gboolean midi_b_press_cb(GtkWidget *widget,GdkEvent *event,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
-  int meter_width = gtk_widget_get_allocated_width(widget);
-  int meter_height = gtk_widget_get_allocated_height(widget);
-  if (rx->radio_info_surface) {
-    cairo_surface_destroy (rx->radio_info_surface);
+  if(radio->dialog==NULL) {
+    int tab=rx_base+radio->receivers+(radio->can_transmit?4:0);
+    radio->dialog=create_configure_dialog(radio,tab);
   }
-  rx->radio_info_surface=gdk_window_create_similar_surface(gtk_widget_get_window(widget),CAIRO_CONTENT_COLOR,meter_width,meter_height);
-  
   return TRUE;
 }
-
-
-static gboolean radio_info_draw_cb(GtkWidget *widget,cairo_t *cr,gpointer data) {
-  RECEIVER *rx=(RECEIVER *)data;
-  cairo_set_source_surface(cr, rx->radio_info_surface, 0.0, 0.0);
-  cairo_paint(cr);
-  return TRUE;
-}
-
-static void radio_info_cb(GtkWidget *menu_item,gpointer data) {
-  /*
-  CHOICE *choice=(CHOICE *)data;
-  choice->rx->smeter=choice->selection;
-  */
-}
-
-static gboolean radio_info_press_event_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
-  /*
-  GtkWidget *menu;
-  GtkWidget *menu_item;
-  CHOICE *choice;
-  RECEIVER *rx=(RECEIVER *)data;
-  
-  switch(event->button) {
-    case 1: // LEFT
-      menu=gtk_menu_new();
-      menu_item=gtk_menu_item_new_with_label("S Meter Peak");
-      choice=g_new0(CHOICE,1);
-      choice->rx=rx;
-      choice->selection=RXA_S_PK;
-      g_signal_connect(menu_item,"activate",G_CALLBACK(meter_cb),choice);
-      gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-      menu_item=gtk_menu_item_new_with_label("S Meter AVERAGE");
-      choice=g_new0(CHOICE,1);
-      choice->rx=rx;
-      choice->selection=RXA_S_AV;
-      g_signal_connect(menu_item,"activate",G_CALLBACK(meter_cb),choice);
-      gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
-      gtk_widget_show_all(menu);
-#if GTK_CHECK_VERSION(3,22,0)
-      gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
-#else
-      gtk_menu_popup(GTK_MENU(menu),NULL,NULL,NULL,NULL,event->button,event->time);
 #endif
-      break;
-  }
-  */
-  return TRUE;
-}
 
 GtkWidget *create_radio_info_visual(RECEIVER *rx) {
   RADIO_INFO *info=g_new(RADIO_INFO,1);
@@ -148,13 +93,17 @@ GtkWidget *create_radio_info_visual(RECEIVER *rx) {
 
   x+=40;
 
+#ifdef MIDI
   // MIDI
   info->midi_b=gtk_toggle_button_new_with_label("MIDI");
   gtk_widget_set_name(info->midi_b,"info-button");
+  g_signal_connect(info->midi_b, "button_press_event", G_CALLBACK(midi_b_press_cb),rx);
   gtk_layout_put(GTK_LAYOUT(info->radio_info),info->midi_b,x,y);
 
-#ifdef CWDAEMON
   x+=40;
+#endif
+
+#ifdef CWDAEMON
   info->cwdaemon_b=gtk_toggle_button_new_with_label("CWX");
   gtk_widget_set_name(info->cwdaemon_b,"info-button");
   gtk_layout_put(GTK_LAYOUT(info->radio_info),info->cwdaemon_b,x,y);
@@ -164,6 +113,8 @@ GtkWidget *create_radio_info_visual(RECEIVER *rx) {
 
   return info->radio_info;
 }
+
+extern int midi_rx;
 
 void update_radio_info(RECEIVER *rx) {
 
@@ -181,9 +132,13 @@ void update_radio_info(RECEIVER *rx) {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->temp_b),radio->transmitter->temperature>radio->temperature_alarm_value);
   }
 
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->swr_b),radio->transmitter->swr>radio->swr_alarm_value);
+  if (radio->transmitter!=NULL) {
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->swr_b),radio->transmitter->swr>radio->swr_alarm_value);
+  }
 
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->midi_b),radio->midi!=0);
+#ifdef MIDI
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->midi_b),radio->midi_enabled && (radio->receiver[midi_rx]->channel==rx->channel));
+#endif
 
 #ifdef CWDAEMON
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(info->cwdaemon_b),radio->cwdaemon);

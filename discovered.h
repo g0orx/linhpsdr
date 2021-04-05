@@ -93,6 +93,7 @@ struct _DISCOVERED {
 #ifdef SOAPYSDR
       struct soapy {
         int rtlsdr_count;
+        int sdrplay_count;
         int sample_rate;
         size_t rx_channels;
         size_t rx_gains;

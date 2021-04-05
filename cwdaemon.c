@@ -105,6 +105,11 @@
 
 #define CWDAEMON_TUNE_SECONDS_MAX  10 /* Maximal time of tuning. TODO: why the limitation to 10 s? Is it enough? */
 
+GMutex cwdaemon_mutex;
+
+bool keytx;
+bool keysidetone;
+
 
 /* Default values of parameters, may be modified only through
    command line arguments passed to cwdaemon.

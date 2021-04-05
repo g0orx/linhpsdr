@@ -63,16 +63,37 @@
 #include "subrx.h"
 
 #ifdef MIDI
+#include "midi.h"
+#include "midi_dialog.h"
 // rather than including MIDI.h with all its internal stuff
 // (e.g. enum components) we just declare the single bit thereof
 // we need here to make a strict compiler happy.
-int MIDIstartup();
+int MIDIstartup(char *filename);
 #endif
 
 static GtkWidget *add_receiver_b;
 static GtkWidget *add_wideband_b;
 
 static void rxtx(RADIO *r);
+
+int radio_restart(void *data) {
+  RADIO *r=(RADIO *)data;
+fprintf(stderr,"radio_restart\n");
+  switch(r->discovered->protocol) {
+    case PROTOCOL_1:
+      protocol1_run(r);
+      break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      soapy_protocol_change_sample_rate(r->receiver[0],r->sample_rate);
+      break;
+#endif
+  }
+  if(r->transmitter!=NULL) {
+    update_tx_panadapter(r);
+  }
+  return 0;
+}
 
 int radio_start(void *data) {
   RADIO *r=(RADIO *)data;
@@ -81,6 +102,12 @@ fprintf(stderr,"radio_start\n");
     case PROTOCOL_1:
       protocol1_run(r);
       break;
+    case PROTOCOL_2:
+      break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      break;
+#endif
   }
   if(r->transmitter!=NULL) {
     update_tx_panadapter(r);
@@ -256,7 +283,15 @@ g_print("radio_save_state: %s\n",filename);
   if(radio->discovered->supported_transmitters!=0) {
     transmitter_save_state(radio->transmitter);
   }
- 
+
+#ifdef MIDI
+  setProperty("radio.midi_filename",radio->midi_filename);
+  sprintf(value,"%d",radio->midi_enabled);
+  setProperty("radio.midi_enabled",value);
+
+  midi_save_state();
+#endif
+
   gtk_window_get_position(GTK_WINDOW(main_window),&x,&y);
   sprintf(value,"%d",x);
   setProperty("radio.x",value);
@@ -420,11 +455,20 @@ void radio_restore_state(RADIO *radio) {
   if(value!=NULL) rigctl_port_base=atoi(value);
 */
 
+#ifdef MIDI
+  midi_restore_state();
+  value=getProperty("radio.midi_filename");
+  if(value) strcpy(radio->midi_filename,value);
+  value=getProperty("radio.midi_enabled");
+  if(value) radio->midi_enabled=atoi(value);
+#endif
+
   filterRestoreState();
   bandRestoreState();
 }
 
 gboolean radio_button_press_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+  g_print("%s\n",__FUNCTION__);
   switch(event->button) {
     case 1: // left button
       break;
@@ -456,6 +500,7 @@ void radio_change_region(RADIO *r) {
 
 void radio_change_audio(RADIO *r,int selected) {
   int i;
+  g_print("%s: %dn",__FUNCTION__,selected);
   if(r->which_audio!=selected) {
     if(r->local_microphone) {
       radio->local_microphone=FALSE;
@@ -477,6 +522,7 @@ void radio_change_audio(RADIO *r,int selected) {
 
 void radio_change_audio_backend(RADIO *r,int selected) {
   int i;
+  g_print("%s: %d\n",__FUNCTION__,selected);
   if(r->which_audio_backend!=selected) {
     if(r->local_microphone) {
       radio->local_microphone=FALSE;
@@ -576,7 +622,7 @@ void delete_receiver(RECEIVER *rx) {
       if(radio->discovered->protocol==PROTOCOL_1) {
         protocol1_stop();
       }
-      if(radio->transmitter->rx==rx) {
+      if(radio->transmitter!=NULL && radio->transmitter->rx==rx) {
         radio->transmitter->rx=NULL;
       }
       radio->receiver[i]=NULL;
@@ -589,7 +635,7 @@ g_print("delete_receiver: receivers now %d\n",radio->receivers);
     }
   }
 
-  if(radio->transmitter->rx==NULL) {
+  if(radio->transmitter!=NULL && radio->transmitter->rx==NULL) {
     if(radio->receivers>0) {
       for(i=0;i<radio->discovered->supported_receivers;i++) {
         if(radio->receiver[i]!=NULL) {
@@ -603,9 +649,7 @@ g_print("delete_receiver: receivers now %d\n",radio->receivers);
     }
   }
 
-  if(radio->receivers<radio->discovered->supported_receivers) {
-    gtk_widget_set_sensitive(add_receiver_b,TRUE);
-  }
+  gtk_widget_set_sensitive(add_receiver_b,radio->receivers<radio->discovered->supported_receivers);
   if(radio->dialog) {
     gtk_widget_destroy(radio->dialog);
     radio->dialog=NULL;
@@ -675,11 +719,10 @@ g_print("%s: state=%d\n",__FUNCTION__,state);
         SetTXAMode(radio->transmitter->channel, radio->transmitter->rx->mode_a);
         break;
     }
-    set_button_text_color(r->tune_button,r->tune?"red":"black");
   }
   r->mox=state;
-  set_button_text_color(r->mox_button,r->mox?"red":"black");
   rxtx(r);
+  update_radio(r);
 }
 
 void ptt_changed(RADIO *r) {
@@ -688,7 +731,7 @@ g_print("ptt_changed\n");
   update_vfo(r->transmitter->rx);
 }
 
-static gboolean mox_cb(GtkWidget *widget,gpointer data) {
+static void mox_cb(GtkToggleButton *widget,gpointer data) {
   RADIO *r=(RADIO *)data;
 g_print("mox_cb: mox=%d\n",r->mox);
   if(r->mox) {
@@ -696,14 +739,12 @@ g_print("mox_cb: mox=%d\n",r->mox);
   } else {
     set_mox(r,TRUE);
   }
-  return TRUE;
 }
 
-static gboolean vox_cb(GtkWidget *widget,gpointer data) {
+static void vox_cb(GtkToggleButton *widget,gpointer data) {
   RADIO *r=(RADIO *)data;
   r->vox_enabled=!r->vox_enabled;
-  set_button_text_color(widget,r->vox_enabled?"red":"black");
-  return TRUE;
+  update_radio(r);
 }
 
 void set_tune(RADIO *r,gboolean state) {
@@ -712,58 +753,57 @@ void set_tune(RADIO *r,gboolean state) {
     set_button_text_color(r->mox_button,r->mox?"red":"black");
   }
   r->tune=state;
-  set_button_text_color(r->tune_button,r->tune?"red":"black");
   if(r->tune) {
     //SM4VEY
     struct timeval te;
     gettimeofday(&te,NULL);
-    long long now=te.tv_sec*1000LL+te.tv_usec/1000 + radio->OCfull_tune_time;
-    radio->tune_timeout = now;
+    long long now=te.tv_sec*1000LL+te.tv_usec/1000 + r->OCfull_tune_time;
+    r->tune_timeout = now;
     
-    switch(radio->transmitter->rx->mode_a) {
+    switch(r->transmitter->rx->mode_a) {
       case CWL:
-        SetTXAMode(radio->transmitter->channel, LSB);
-        SetTXAPostGenToneFreq(radio->transmitter->channel, -(double)radio->cw_keyer_sidetone_frequency);
-        radio->cw_keyer_internal=FALSE;
+        SetTXAMode(r->transmitter->channel, LSB);
+        SetTXAPostGenToneFreq(r->transmitter->channel, -(double)r->cw_keyer_sidetone_frequency);
+        r->cw_keyer_internal=FALSE;
         break;
       case LSB:
       case DIGL:
-        SetTXAPostGenToneFreq(radio->transmitter->channel, (double)(-radio->transmitter->filter_low-((radio->transmitter->filter_high-radio->transmitter->filter_low)/2)));
+        SetTXAPostGenToneFreq(r->transmitter->channel, (double)(-r->transmitter->filter_low-((r->transmitter->filter_high-r->transmitter->filter_low)/2)));
         break;
       case CWU:
-        SetTXAMode(radio->transmitter->channel, USB);
-        SetTXAPostGenToneFreq(radio->transmitter->channel, (double)radio->cw_keyer_sidetone_frequency);
-        radio->cw_keyer_internal=FALSE;
+        SetTXAMode(r->transmitter->channel, USB);
+        SetTXAPostGenToneFreq(r->transmitter->channel, (double)r->cw_keyer_sidetone_frequency);
+        r->cw_keyer_internal=FALSE;
         break;
       default:
-        SetTXAPostGenToneFreq(radio->transmitter->channel, (double)(radio->transmitter->filter_low+((radio->transmitter->filter_high-radio->transmitter->filter_low)/2)));
+        SetTXAPostGenToneFreq(r->transmitter->channel, (double)(r->transmitter->filter_low+((r->transmitter->filter_high-r->transmitter->filter_low)/2)));
         break;
     }
-    SetTXAPostGenToneMag(radio->transmitter->channel,0.99999);
-    SetTXAPostGenMode(radio->transmitter->channel,0);
-    SetTXAPostGenRun(radio->transmitter->channel,1);
-    rxtx(radio);
+    SetTXAPostGenToneMag(r->transmitter->channel,0.99999);
+    SetTXAPostGenMode(r->transmitter->channel,0);
+    SetTXAPostGenRun(r->transmitter->channel,1);
+    rxtx(r);
   } else {
-    SetTXAPostGenRun(radio->transmitter->channel,0);
-    switch(radio->transmitter->rx->mode_a) {
+    SetTXAPostGenRun(r->transmitter->channel,0);
+    switch(r->transmitter->rx->mode_a) {
       case CWL:
       case CWU:
-        SetTXAMode(radio->transmitter->channel, radio->transmitter->rx->mode_a);
-        radio->cw_keyer_internal=TRUE;
+        SetTXAMode(r->transmitter->channel, r->transmitter->rx->mode_a);
+        r->cw_keyer_internal=TRUE;
         break;
     }
-    rxtx(radio);
+    rxtx(r);
   }
+  update_radio(r);
 }
 
-static gboolean tune_cb(GtkWidget *widget,gpointer data) {
+static void tune_cb(GtkToggleButton *widget,gpointer data) {
   RADIO *r=(RADIO *)data;
   if(r->tune) {
     set_tune(r,FALSE);
   } else {
     set_tune(r,TRUE);
   }
-  return TRUE;
 }
 
 int add_receiver(void *data) {
@@ -779,15 +819,34 @@ g_print("add_receiver: using receiver %d\n",i);
     r->receiver[i]=create_receiver(i,r->sample_rate);
     r->receivers++;
 g_print("add_receiver: receivers now %d\n",r->receivers);
-    if(r->discovered->protocol==PROTOCOL_2) {
-      protocol2_start_receiver(r->receiver[i]);
+    switch(r->discovered->protocol) {
+      case PROTOCOL_2:
+        protocol2_start_receiver(r->receiver[i]);
+        break;
+#ifdef SOAPYSDR
+      case PROTOCOL_SOAPYSDR:
+        soapy_protocol_create_receiver(r->receiver[i]);
+        RECEIVER *rx=r->receiver[i];
+        int adc=rx->adc;
+        soapy_protocol_set_rx_antenna(radio->receiver[i],radio->adc[adc].antenna);
+        double f=(double)(rx->frequency_a-rx->lo_a+rx->error_a);
+        soapy_protocol_set_rx_frequency(radio->receiver[i]);
+        soapy_protocol_set_automatic_gain(radio->receiver[i],radio->adc[adc].agc);
+        for(int i=0;i<radio->discovered->info.soapy.rx_gains;i++) {
+          soapy_protocol_set_gain(&radio->adc[adc]);
+        } 
+        soapy_protocol_start_receiver(rx);
+        break;
+#endif
+      default:
+        break;
     }
   } else {
 g_print("add_receiver: no receivers available\n");
   }
-  if(r->receivers==r->discovered->supported_receivers) {
-    gtk_widget_set_sensitive(add_receiver_b,FALSE);
-  }
+
+  gtk_widget_set_sensitive(add_receiver_b,r->receivers<r->discovered->supported_receivers);
+
   if(radio->dialog) {
     gtk_widget_destroy(radio->dialog);
     radio->dialog=NULL;
@@ -856,6 +915,7 @@ void add_receivers(RADIO *r) {
     protocol2_high_priority();
     protocol2_receive_specific();
   }
+
 }
 
 void add_transmitter(RADIO *r) {
@@ -921,15 +981,17 @@ static void create_visual(RADIO *r) {
     col++;
     row=0;
 
-    r->mox_button=gtk_button_new_with_label("MOX");
-    gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->mox_button)),"circular");
-    g_signal_connect(r->mox_button,"clicked",G_CALLBACK(mox_cb),(gpointer)r);
+    r->mox_button=gtk_toggle_button_new_with_label("MOX");
+    gtk_widget_set_name(r->mox_button,"transmit-warning");
+    //gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->mox_button)),"circular");
+    g_signal_connect(r->mox_button,"toggled",G_CALLBACK(mox_cb),(gpointer)r);
     gtk_grid_attach(GTK_GRID(r->visual),r->mox_button,col,row,1,1);
     row++;
 
-    r->vox_button=gtk_button_new_with_label("VOX");
-    gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->vox_button)),"circular");
-    g_signal_connect(r->vox_button,"clicked",G_CALLBACK(vox_cb),(gpointer)r);
+    r->vox_button=gtk_toggle_button_new_with_label("VOX");
+    gtk_widget_set_name(r->vox_button,"transmit-warning");
+    //gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->vox_button)),"circular");
+    g_signal_connect(r->vox_button,"toggled",G_CALLBACK(vox_cb),(gpointer)r);
     gtk_grid_attach(GTK_GRID(r->visual),r->vox_button,col,row,1,1);
     row++;
 
@@ -947,34 +1009,47 @@ static void create_visual(RADIO *r) {
     col++;
     row=0;
   
-    r->tune_button=gtk_button_new_with_label("Tune");
-    gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->tune_button)),"circular");
-    g_signal_connect(r->tune_button,"clicked",G_CALLBACK(tune_cb),(gpointer)r);
+    r->tune_button=gtk_toggle_button_new_with_label("Tune");
+    gtk_widget_set_name(r->tune_button,"transmit-warning");
+    //gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(r->tune_button)),"circular");
+    g_signal_connect(r->tune_button,"toggled",G_CALLBACK(tune_cb),(gpointer)r);
     gtk_grid_attach(GTK_GRID(r->visual),r->tune_button,col,row,1,1);
     row++;
 
   }
 
   GtkWidget *configure=gtk_button_new_with_label("Configure");
-  gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(configure)),"circular");
+  gtk_widget_set_name(configure,"vfo-button");
+  //gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(configure)),"circular");
   g_signal_connect(configure,"clicked",G_CALLBACK(configure_cb),(gpointer)r);
   gtk_grid_attach(GTK_GRID(r->visual),configure,col,row,1,1);
 
   col++;
   row=0;
 
-  add_receiver_b=gtk_button_new_with_label("Add Receiver");
-  gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(add_receiver_b)),"circular");
-  g_signal_connect(add_receiver_b,"clicked",G_CALLBACK(add_receiver_cb),(gpointer)r);
-  gtk_grid_attach(GTK_GRID(r->visual),add_receiver_b,col,row,1,1);
-  row++;
+  if(r->discovered->supported_receivers>1) {
+    add_receiver_b=gtk_button_new_with_label("Add Receiver");
+    gtk_widget_set_name(add_receiver_b,"vfo-button");
+    //gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(add_receiver_b)),"circular");
+    g_signal_connect(add_receiver_b,"clicked",G_CALLBACK(add_receiver_cb),(gpointer)r);
+    gtk_grid_attach(GTK_GRID(r->visual),add_receiver_b,col,row,1,1);
+    gtk_widget_set_sensitive(add_receiver_b,r->receivers<r->discovered->supported_receivers);
+    row++;
+  }
 
-  add_wideband_b=gtk_button_new_with_label("Add Wideband");
-  gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(add_wideband_b)),"circular");
-  g_signal_connect(add_wideband_b,"clicked",G_CALLBACK(add_wideband_cb),(gpointer)r);
-  gtk_grid_attach(GTK_GRID(r->visual),add_wideband_b,col,row,1,1);
+#ifdef SOAPYSDR
+  if(r->discovered->protocol!=PROTOCOL_SOAPYSDR) {
+#endif
+    add_wideband_b=gtk_button_new_with_label("Add Wideband");
+    gtk_widget_set_name(add_wideband_b,"vfo-button");
+    //gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(add_wideband_b)),"circular");
+    g_signal_connect(add_wideband_b,"clicked",G_CALLBACK(add_wideband_cb),(gpointer)r);
+    gtk_grid_attach(GTK_GRID(r->visual),add_wideband_b,col,row,1,1);
+    col++;
+#ifdef SOAPYSDR
+  }
+#endif
 
-  col++;
   row=0;
 
   gtk_widget_show_all(r->visual);
@@ -1031,9 +1106,9 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 #ifdef SOAPYSDR
     case SOAPYSDR:
       r->sample_rate=r->discovered->info.soapy.sample_rate;
-      if(r->sample_rate==0) {
+      //if(r->sample_rate==0) {
         r->sample_rate=768000;
-      }
+      //}
       r->buffer_size=2048;
       r->alex_rx_antenna=3; // LNAW
       r->alex_tx_antenna=0; // ANT 1
@@ -1180,14 +1255,23 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   r->region=REGION_OTHER;
 
-  r->iqswap=FALSE;
+
+  #ifdef SOAPYSDR
+  if(r->discovered->device==DEVICE_SOAPYSDR) {
+    r->iqswap=TRUE;
+  } else {
+#endif
+    r->iqswap=FALSE;
+#ifdef SOAPYSDR
+  }
+#endif
 
   r->which_audio=USE_SOUNDIO;
   r->which_audio_backend=0;
 
   r->swr_alarm_value = 2.0;
   r->temperature_alarm_value = 42;  
-  r->midi = FALSE;
+  r->midi_enabled = FALSE;
   
   r->dialog=NULL;
 
@@ -1274,9 +1358,15 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   // running. So this is the last thing we do when starting the radio.
   //
 #ifdef MIDI
-  int rv = MIDIstartup();
-  if (rv == 0) {
-    radio->midi = TRUE;
+//  if(r->midi_enabled) {
+//    r->midi_enabled=(MIDIstartup(r->midi_filename)==0);
+//  }
+  if(r->midi_enabled && midi_device_name!=NULL) {
+    if(register_midi_device(midi_device_name)<0) {
+      r->midi_enabled=false;
+    }
+  } else {
+    r->midi_enabled=false;
   }
 #endif  
   
@@ -1285,3 +1375,21 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 
   return r;
 }
+
+void update_radio(RADIO *r) {
+  // update MOX button
+  g_signal_handlers_block_by_func(r->mox_button,G_CALLBACK(mox_cb),r);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(r->mox_button),r->mox);
+  g_signal_handlers_unblock_by_func(r->mox_button,G_CALLBACK(mox_cb),r);
+
+  // update TUNE button
+  g_signal_handlers_block_by_func(r->tune_button,G_CALLBACK(tune_cb),r);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(r->tune_button),r->tune);
+  g_signal_handlers_unblock_by_func(r->tune_button,G_CALLBACK(tune_cb),r);
+
+  // update VOX button
+  g_signal_handlers_block_by_func(r->vox_button,G_CALLBACK(vox_cb),r);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(r->vox_button),r->vox_enabled);
+  g_signal_handlers_unblock_by_func(r->vox_button,G_CALLBACK(vox_cb),r);
+}
+

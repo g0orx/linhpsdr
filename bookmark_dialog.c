@@ -389,11 +389,13 @@ void tree_selection_activated_cb(GtkTreeView *treeview,GtkTreePath *path,GtkTree
       receiver_mode_changed(rx,rx->mode_a);
       receiver_filter_changed(rx,rx->filter_a);
       frequency_changed(rx);
+      if(radio->transmitter) {
       if(radio->transmitter->rx==rx) {
-        if(rx->split) {
-          transmitter_set_mode(radio->transmitter,rx->mode_b);
-        } else {
-          transmitter_set_mode(radio->transmitter,rx->mode_a);
+          if(rx->split) {
+            transmitter_set_mode(radio->transmitter,rx->mode_b);
+          } else {
+            transmitter_set_mode(radio->transmitter,rx->mode_a);
+          }
         }
       }
     }

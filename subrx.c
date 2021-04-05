@@ -137,6 +137,13 @@ g_print("%s: rx=%d\n",__FUNCTION__,rx->channel);
   RXASetNC(subrx->channel, rx->fft_size);
   RXASetMP(subrx->channel, rx->low_latency);
 
+  // make sure the subrx frequency is within the passband
+  rx->ctun_min=rx->frequency_a-(rx->sample_rate/2);
+  rx->ctun_max=rx->frequency_a+(rx->sample_rate/2);
+  if(rx->frequency_b<rx->ctun_min || rx->frequency_b>rx->ctun_max) {
+    rx->frequency_b=rx->frequency_a;	  
+  }
+
   subrx_frequency_changed(rx);
   subrx_mode_changed(rx);
 

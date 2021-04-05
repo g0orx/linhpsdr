@@ -72,6 +72,9 @@ typedef struct _receiver {
 
   gboolean qo100_beacon;
 
+  gboolean entering_frequency;
+  gint64 entered_frequency;
+
   gint64 frequency_a;
   gint64 lo_a;
   gint64 error_a;
@@ -249,6 +252,10 @@ typedef struct _receiver {
 
   int resample_step;
 
+  void *resampler;
+  gdouble *resampled_buffer;
+  gint resampled_buffer_size;
+
   GtkWidget *local_audio_b;
   GtkWidget *audio_choice_b;
   GtkWidget *tx_control_b;
@@ -308,5 +315,5 @@ extern void receiver_move_to(RECEIVER *rx,long long hz);
 extern void receiver_set_volume(RECEIVER *rx);
 extern void receiver_set_agc_gain(RECEIVER *rx);
 extern void receiver_set_ctun(RECEIVER *rx);
-extern void set_band(RECEIVER *rx,int band);
+extern void set_band(RECEIVER *rx,int band,int entry);
 #endif

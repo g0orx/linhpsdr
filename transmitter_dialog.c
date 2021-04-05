@@ -230,9 +230,8 @@ static void ctcss_frequency_cb(GtkWidget *widget, gpointer data) {
 
 void update_transmitter_dialog(TRANSMITTER *tx) {
   int i;
-g_print("transmitter: update_transmitter_dialog: tx=%d\n",tx->channel);
 
-
+g_print("%s: tx=%d\n",__FUNCTION__,tx->channel);
   g_signal_handler_block(G_OBJECT(tx->microphone_choice_b),tx->microphone_choice_signal_id);
   g_signal_handler_block(G_OBJECT(tx->local_microphone_b),tx->local_microphone_signal_id);
 
@@ -262,6 +261,7 @@ GtkWidget *create_transmitter_dialog(TRANSMITTER *tx) {
   int i;
   char temp[32];
 
+g_print("%s: tx=%d\n",__FUNCTION__,tx->channel);
   GtkWidget *grid=gtk_grid_new();
   gtk_grid_set_row_homogeneous(GTK_GRID(grid),FALSE);
   gtk_grid_set_column_homogeneous(GTK_GRID(grid),FALSE);
@@ -557,6 +557,8 @@ GtkWidget *create_transmitter_dialog(TRANSMITTER *tx) {
   gtk_scale_add_mark(GTK_SCALE(high_scale),9.0,GTK_POS_LEFT,NULL);
   gtk_scale_add_mark(GTK_SCALE(high_scale),12.0,GTK_POS_LEFT,NULL);
   gtk_scale_add_mark(GTK_SCALE(high_scale),15.0,GTK_POS_LEFT,"15dB");
+
+  update_transmitter_dialog(tx);
 
   return grid;
 }

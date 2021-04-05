@@ -104,7 +104,8 @@ static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) 
 }
 */
 
-static void update_controls() {
+static void radio_dialog_update_controls() {
+	g_print("%s: model=%d\n",__FUNCTION__,radio->model);
   switch(radio->model) {
     case ANAN_10:
     case ANAN_10E:
@@ -170,13 +171,15 @@ static void update_controls() {
       gtk_widget_set_sensitive(adc0_lpf_combo_box, FALSE);
       gtk_widget_set_sensitive(adc0_hpf_combo_box, FALSE);
       break;
+    case HERMES_LITE:
     case HERMES_LITE_2:
       break;
 #ifdef SOAPYSDR
-    case SOAPYSDR:
+    case SOAPY_DEVICE:
       break;
 #endif
     default:
+      g_print("%s: defualt set_sensitive\n",__FUNCTION__);
       gtk_widget_set_sensitive(adc0_antenna_combo_box, FALSE);
       gtk_widget_set_sensitive(adc0_filters_combo_box, FALSE);
       gtk_widget_set_sensitive(adc0_hpf_combo_box, FALSE);
@@ -200,38 +203,47 @@ static void update_controls() {
 static void model_cb(GtkComboBox *widget,gpointer data) {
   RADIO *radio=(RADIO *)data;
   radio->model=gtk_combo_box_get_active(widget);
-  update_controls();
+  radio_dialog_update_controls();
 }
 
-static void sample_rate_cb(GtkComboBox *widget,gpointer data) {
+static void sample_rate_cb(GtkComboBoxText *widget,gpointer data) {
   RADIO *radio=(RADIO *)data;
   int rate;
   int i;
 
-  switch(gtk_combo_box_get_active(widget)) {
-    case 0: // 48000
-      rate=48000;
-      break;
-    case 1: // 96000
-      rate=96000;
-      break;
-    case 2: // 192000
-      rate=192000;
-      break;
-    case 3: // 384000
-      rate=384000;
-      break;
-  }
+  rate=atoi(gtk_combo_box_text_get_active_text(widget));
 
-  protocol1_stop();
+  switch(radio->discovered->protocol) {
+    case PROTOCOL_1:
+      protocol1_stop();
+      break;
+    case PROTOCOL_2:
+      break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      //soapy_protocol_stop();
+      break;
+#endif
+  }
   radio->sample_rate=rate;
   for(i=0;i<radio->discovered->supported_receivers;i++) {
     if(radio->receiver[i]!=NULL) {
       receiver_change_sample_rate(radio->receiver[i],rate);
     }
   }
-  protocol1_set_mic_sample_rate(rate);
-  g_idle_add(radio_start,(void *)radio);
+  switch(radio->discovered->protocol) {
+    case PROTOCOL_1:
+      protocol1_set_mic_sample_rate(rate);
+      break;
+    case PROTOCOL_2:
+      break;
+#ifdef SOAPYSDR
+    case PROTOCOL_SOAPYSDR:
+      break;
+#endif
+  }
+
+  g_idle_add(radio_restart,(void *)radio);
 }
 
 static void filter_board_cb(GtkComboBox *widget,gpointer data) {
@@ -365,7 +377,9 @@ static void update_audio_backends(RADIO *radio) {
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_backend_combo_box),NULL,audio_get_backend_name(i));
     }
   }
-  radio_change_audio_backend(radio,radio->which_audio_backend);
+  if(radio->which_audio_backend>=0) {
+    radio_change_audio_backend(radio,radio->which_audio_backend);
+  }
 }
 
 static void audio_cb(GtkWidget *widget, gpointer data) {
@@ -605,6 +619,7 @@ static void cwport_value_changed_cb(GtkWidget *widget, gpointer data) {
 #endif
 
 GtkWidget *create_radio_dialog(RADIO *radio) {
+  g_print("%s\n",__FUNCTION__);
   GtkWidget *grid=gtk_grid_new();
   gtk_grid_set_row_homogeneous(GTK_GRID(grid),FALSE);
   gtk_grid_set_column_homogeneous(GTK_GRID(grid),FALSE);
@@ -638,6 +653,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"ORION");
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"ORION 2");
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"HERMES LITE");
+  gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"HERMES LITE 2");
 #ifdef SOAPYSDR
   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(model_combo_box),NULL,"SoapySDR");
 #endif
@@ -698,6 +714,34 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     g_signal_connect(sample_rate_combo_box,"changed",G_CALLBACK(sample_rate_cb),radio);
     gtk_grid_attach(GTK_GRID(model_grid),sample_rate_combo_box,x,0,1,1);
   }
+
+#ifdef SOAPYSDR
+  if(radio->discovered->device==DEVICE_SOAPYSDR &&
+     strcmp(radio->discovered->name,"sdrplay")==0) {
+    GtkWidget *sample_rate_combo_box=gtk_combo_box_text_new();
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"96000");
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"192000");
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"384000");
+    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(sample_rate_combo_box),NULL,"768000");
+    switch(radio->sample_rate) {
+      case 96000:
+        gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),0);
+        break;
+      case 192000:
+        gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),1);
+        break;
+      case 384000:
+        gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),2);
+        break;
+      case 768000:
+        gtk_combo_box_set_active(GTK_COMBO_BOX(sample_rate_combo_box),3);
+        break;
+    }
+    g_signal_connect(sample_rate_combo_box,"changed",G_CALLBACK(sample_rate_cb),radio);
+    gtk_grid_attach(GTK_GRID(model_grid),sample_rate_combo_box,x,0,1,1);
+  }
+#endif
+
 
   adc0_frame=gtk_frame_new("ADC-0");
   GtkWidget *adc0_grid=gtk_grid_new();
@@ -909,7 +953,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
       break;
   }
 
-  update_controls();
+  radio_dialog_update_controls();
 
   switch(radio->discovered->device) {
 #ifdef SOAPYSDR
@@ -1067,9 +1111,8 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   GtkWidget *smeter_label=gtk_label_new(" S-Meter:");
   gtk_grid_attach(GTK_GRID(calibration_grid),smeter_label,0,1,1,1);
 
-  GtkWidget *smeter_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-100.0, 100.0, 1.00);
+  GtkWidget *smeter_scale=gtk_scale_new(GTK_ORIENTATION_HORIZONTAL,gtk_adjustment_new(radio->meter_calibration, -100.0, 100.0, 1.0, 1.0, 1.0));
   gtk_widget_set_size_request(smeter_scale,200,30);
-  gtk_range_set_value (GTK_RANGE(smeter_scale),radio->meter_calibration);
   gtk_widget_show(smeter_scale);
   g_signal_connect(G_OBJECT(smeter_scale),"value_changed",G_CALLBACK(smeter_calibrate_changed_cb),radio);
   gtk_grid_attach(GTK_GRID(calibration_grid),smeter_scale,1,1,1,1);
@@ -1077,7 +1120,7 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   GtkWidget *panadapter_label=gtk_label_new(" Panadapter:");
   gtk_grid_attach(GTK_GRID(calibration_grid),panadapter_label,0,2,1,1);
 
-  GtkWidget *panadapter_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-100.0, 100.0, 1.00);
+ GtkWidget *panadapter_scale=gtk_scale_new(GTK_ORIENTATION_HORIZONTAL,gtk_adjustment_new(radio->panadapter_calibration, -100.0, 100.0, 1.0, 1.0, 1.0));
   gtk_widget_set_size_request(panadapter_scale,200,30);
   gtk_range_set_value (GTK_RANGE(panadapter_scale),radio->panadapter_calibration);
   gtk_widget_show(panadapter_scale);

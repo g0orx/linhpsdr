@@ -307,7 +307,7 @@ static gpointer ozy_ep6_rx_thread(gpointer arg) {
 
   }
   // terminate
-  _exit(0);
+  //_exit(0);
 }
 #endif
 
@@ -452,11 +452,15 @@ static void process_control_bytes() {
 
   RECEIVER *tx_receiver=radio->transmitter->rx;
   if(tx_receiver!=NULL) {
+#ifdef USE_VFO_B_MODE_AND_FILTER
     if(radio->transmitter->rx->split) {
       tx_mode=tx_receiver->mode_b;
     } else {
+#endif
       tx_mode=tx_receiver->mode_a;
+#ifdef USE_VFO_B_MODE_AND_FILTER
     }
+#endif
   }
 
   previous_ptt=radio->local_ptt;
@@ -490,9 +494,11 @@ g_print("process_control_bytes: ppt=%d dot=%d dash=%d\n",radio->ptt,radio->dot,r
       if ((radio->ptt) || keytx) {
           int recov = (control_in[3]&0x40) == 0x40;
           int msb = (control_in[3]&0x80) == 0x80;
+	  /*
           if (msb == 1) {
             g_print("Buffer recovery %d %d\n", recov, msb);
           }   
+	  */
       }    
       #endif
       //}
@@ -694,11 +700,15 @@ static void process_ozy_input_buffer(char  *buffer) {
 
   RECEIVER *tx_receiver=radio->transmitter->rx;
   if(tx_receiver!=NULL) {
+#ifdef USE_VFO_B_MODE_AND_FILTER
     if(radio->transmitter->rx->split) {
       tx_mode=tx_receiver->mode_b;
     } else {
+#endif
       tx_mode=tx_receiver->mode_a;
+#ifdef USE_VFO_B_MODE_AND_FILTER
     }
+#endif
   }
 
   if(buffer[b++]==SYNC && buffer[b++]==SYNC && buffer[b++]==SYNC) {
@@ -921,11 +931,15 @@ void protocol1_iq_samples(int isample,int qsample) {
     gint tx_mode=USB;    
     RECEIVER *tx_receiver=radio->transmitter->rx;
     if(tx_receiver!=NULL) {
+#ifdef USE_VFO_B_MODE_AND_FILTER
       if(radio->transmitter->rx->split) {
         tx_mode=tx_receiver->mode_b;
       } else {
+#endif
         tx_mode=tx_receiver->mode_a;
+#ifdef USE_VFO_B_MODE_AND_FILTER
       }
+#endif
     }    
     // I[0] of IQ stream is CWX keydown
     if ((radio->cwdaemon) && (tx_mode==CWL || tx_mode==CWU)) {
@@ -944,10 +958,10 @@ void protocol1_iq_samples(int isample,int qsample) {
       output_buffer[tx_output_buffer_index++]=isample>>8;
       output_buffer[tx_output_buffer_index++]=isample;
     }    
-    #else 
+#else 
     output_buffer[tx_output_buffer_index++]=isample>>8;
     output_buffer[tx_output_buffer_index++]=isample;    
-    #endif    
+#endif    
 
     output_buffer[tx_output_buffer_index++]=qsample>>8;
     output_buffer[tx_output_buffer_index++]=qsample;
@@ -1055,9 +1069,11 @@ void ozy_send_buffer() {
     if(radio->transmitter->rx!=NULL) {
       band=band_get_band(radio->transmitter->rx->band_a);
       if(isTransmitting(radio)) {
+#ifdef USE_VFO_B_MODE_AND_FILTER
         if(radio->transmitter->rx->split) {
           band=band_get_band(radio->transmitter->rx->band_b);
         }
+#endif
         output_buffer[C2]|=band->OCtx<<1;
         if(radio->tune) {
           if(radio->OCmemory_tune_time!=0) {
@@ -1270,11 +1286,15 @@ void ozy_send_buffer() {
         gint tx_mode=USB;
         tx_receiver=radio->transmitter->rx;
         if(tx_receiver!=NULL) {
+#ifdef USE_VFO_B_MODE_AND_FILTER
           if(radio->transmitter->rx->split) {
             tx_mode=tx_receiver->mode_b;
           } else {
+#endif
             tx_mode=tx_receiver->mode_a;
+#ifdef USE_VFO_B_MODE_AND_FILTER
           }
+#endif
         }
         
         
@@ -1284,11 +1304,15 @@ void ozy_send_buffer() {
           BAND *band;
           if(radio->transmitter!=NULL) {
             if(radio->transmitter->rx!=NULL) {
+#ifdef USE_VFO_B_MODE_AND_FILTER
               if(radio->transmitter->rx->split) {
                 band=band_get_band(radio->transmitter->rx->band_b);
               } else {
+#endif
                 band=band_get_band(radio->transmitter->rx->band_a);
+#ifdef USE_VFO_B_MODE_AND_FILTER
               }
+#endif
             }
           }
     
@@ -1344,11 +1368,13 @@ void ozy_send_buffer() {
           output_buffer[C3]=output_buffer[C3]|0x40; // Alex 6M low noise amplifier
         }
         band=band_get_band(radio->transmitter->rx->band_a);
+#ifdef USE_VFO_B_MODE_AND_FILTER
         if(isTransmitting(radio)) {
           if(radio->transmitter->rx->split) {
             band=band_get_band(radio->transmitter->rx->band_b);
           }
         }
+#endif
         if(band->disablePA) {
           output_buffer[C3]=output_buffer[C3]|0x80; // disable PA
         }
@@ -1513,11 +1539,15 @@ void ozy_send_buffer() {
         gint tx_mode=USB;
         tx_receiver=radio->transmitter->rx;
         if(tx_receiver!=NULL) {
+#ifdef USE_VFO_B_MODE_AND_FILTER
           if(radio->transmitter->rx->split) {
             tx_mode=tx_receiver->mode_b;
           } else {
+#endif
             tx_mode=tx_receiver->mode_a;
+#ifdef USE_VFO_B_MODE_AND_FILTER
           }
+#endif
         }
 
         output_buffer[C1]=0x00;
@@ -1595,11 +1625,15 @@ void ozy_send_buffer() {
   gint tx_mode=USB;
   tx_receiver=radio->transmitter->rx;
   if(tx_receiver!=NULL) {
+#ifdef USE_VFO_B_MODE_AND_FILTER
     if(radio->transmitter->rx->split) {
       tx_mode=tx_receiver->mode_b;
     } else {
+#endif
       tx_mode=tx_receiver->mode_a;
+#ifdef USE_VFO_B_MODE_AND_FILTER
     }
+#endif
   }
 
   if(tx_mode==CWU || tx_mode==CWL) {
@@ -1747,4 +1781,6 @@ static void metis_send_buffer(unsigned char* buffer,int length) {
   }
 }
 
-
+gboolean protocol1_is_running() {
+  return running;
+}

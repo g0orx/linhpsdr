@@ -40,6 +40,41 @@
 #include "vfo.h"
 #include "ext.h"
 
+int ext_num_pad(void *data) {
+  gint val=GPOINTER_TO_INT(data);
+  RECEIVER *rx=radio->active_receiver;
+  g_print("%s: %d\n",__FUNCTION__,val);
+  if(!rx->entering_frequency) {
+    rx->entered_frequency=0;
+    rx->entering_frequency=true;
+  }
+  switch(val) {
+    case -1: // clear
+      rx->entered_frequency=0;
+      rx->entering_frequency=false;
+      break;
+    case -2: // enter
+      if(rx->entered_frequency!=0) {
+        rx->frequency_a=rx->entered_frequency;
+      }
+      rx->entering_frequency=false;
+      break;
+    default:
+      rx->entered_frequency=(rx->entered_frequency*10)+val;
+      break;
+  } 
+  update_vfo(rx);
+  return 0;
+}
+
+int ext_band_select(void *data) {
+  int b=GPOINTER_TO_INT(data);
+  g_print("%s: %d\n",__FUNCTION__,b);
+  set_band(radio->active_receiver,b,-1);
+  update_vfo(radio->active_receiver);
+  return 0;
+}
+
 int ext_vox_changed(void *data) {
   vox_changed((RADIO *)data);
   return 0;
@@ -52,7 +87,7 @@ g_print("ext_ptt_changed\n");
 }
 
 int ext_set_mox(void *data) {
-  MOX *m=(MOX *)data;
+  MOX_STATE *m=(MOX_STATE *)data;
   set_mox(m->radio,m->state);
   g_free(m);
   return 0;
@@ -88,7 +123,7 @@ int ext_set_mode(void *data) {
 
 
 int ext_tx_set_ps(void *data) {
-  transmitter_set_ps(radio->transmitter,(uintptr_t)data);
+  if(radio->transmitter) transmitter_set_ps(radio->transmitter,(uintptr_t)data);
   return 0;
 }
 

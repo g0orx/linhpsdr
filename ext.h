@@ -32,10 +32,10 @@ typedef struct _RX_GAIN {
   double gain;
 } RX_GAIN;
 
-typedef struct _MOX {
+typedef struct _MOX_STATE {
   RADIO *radio;
   gboolean state;
-} MOX;
+} MOX_STATE;
 
 typedef struct _MODE {
   RECEIVER *rx;
@@ -44,6 +44,8 @@ typedef struct _MODE {
 } MODE;
 
 
+extern int ext_num_pad(void *data);
+extern int ext_band_select(void *data);
 extern int ext_vox_changed(void *data);
 extern int ext_ptt_changed(void *data);
 extern int ext_set_mox(void *data);

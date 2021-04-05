@@ -42,14 +42,12 @@
  * must generate MIDI events on different channels
  */
 
+#ifndef _MIDI_H
+#define _MIDI_H
 //
 // MIDIaction encodes the "action" to be taken in Layer3
 // (sorted alphabetically by the keyword)
 //
-
-#ifndef _MIDI_H
-#define _MIDI_H
-
 enum MIDIaction {
   ACTION_NONE=0,	// NONE:		No-Op (unassigned key)
   VFO_A2B,		// A2B:			VFO A -> B
@@ -59,13 +57,35 @@ enum MIDIaction {
   ANF,			// ANF:			toggel ANF on/off
   ATT,			// ATT:			Step attenuator or Programmable attenuator
   VFO_B2A,		// B2A:			VFO B -> A
-  BAND_DOWN,		// BANDDOWN:		cycle through bands downwards
-  BAND_UP,		// BANDUP:		cycle through bands upwards
+  MIDI_BAND_160,
+  MIDI_BAND_80,
+  MIDI_BAND_60,
+  MIDI_BAND_40,
+  MIDI_BAND_30,
+  MIDI_BAND_20,
+  MIDI_BAND_17,
+  MIDI_BAND_15,
+  MIDI_BAND_12,
+  MIDI_BAND_10,
+  MIDI_BAND_6,
+  MIDI_BAND_70,
+  MIDI_BAND_144,
+  MIDI_BAND_220,
+  MIDI_BAND_430,
+  MIDI_BAND_902,
+  MIDI_BAND_1240,
+  MIDI_BAND_2300,
+  MIDI_BAND_3400,
+  MIDI_BAND_AIR,
+  MIDI_BAND_GEN,
+  MIDI_BAND_WWV,
+  BAND_DOWN,            // BANDDOWN
+  BAND_UP,              // BANDUP
   COMPRESS,		// COMPRESS:		TX compressor value
   MIDI_CTUN,		// CTUN:		toggle CTUN on/off
   VFO,			// CURRVFO:		change VFO frequency
-  CWKEY,			// CWL:			Left paddle pressed (use with ONOFF)
-  CWR,			// CWR:			Right paddle pressed (use with ONOFF)
+  CWLEFT,		// CWL:			Left paddle pressed (use with ONOFF)
+  CWRIGHT,		// CWR:			Right paddle pressed (use with ONOFF)
   CWSPEED,		// CWSPEED:		Set speed of (iambic) CW keyer
   DIV_COARSEGAIN,	// DIVCOARSEGAIN:	change DIVERSITY gain in large increments
   DIV_COARSEPHASE,	// DIVPHASE:		change DIVERSITY phase in large increments
@@ -78,6 +98,16 @@ enum MIDIaction {
   FILTER_DOWN,		// FILTERDOWN:		cycle through filters downwards
   FILTER_UP,		// FILTERUP:		cycle through filters upwards
   MIDI_LOCK,		// LOCK:		lock VFOs, disable frequency changes
+  MENU_ABOUT,		// MENUABOUT
+  MENU_EER,		// MENUEER
+  MENU_MIDI,		// MENUMID
+  MENU_OC,		// MENUOC
+  MENU_PA,		// MENUPA
+  MENU_PS,		// MENUPS
+  MENU_RADIO,		// MENURADIO
+  MENU_RX,		// MENURX
+  MENU_TX,		// MENUTX
+  MENU_XVTR,		// MENUXVTR
   MIC_VOLUME,		// MICGAIN:		MIC gain
   MODE_DOWN,		// MODEDOWN:		cycle through modes downwards
   MODE_UP,		// MODEUP:		cycle through modes upwards
@@ -85,6 +115,18 @@ enum MIDIaction {
   MIDI_MUTE,		// MUTE:		toggle mute on/off
   MIDI_NB,		// NOISEBLANKER:	cycle through NoiseBlanker states (none, NB, NB2)
   MIDI_NR,		// NOISEREDUCTION:	cycle through NoiseReduction states (none, NR, NR2)
+  NUMPAD_0,		// NUMPAD0
+  NUMPAD_1,		// NUMPAD1
+  NUMPAD_2,		// NUMPAD2
+  NUMPAD_3,		// NUMPAD3
+  NUMPAD_4,		// NUMPAD4
+  NUMPAD_5,		// NUMPAD5
+  NUMPAD_6,		// NUMPAD6
+  NUMPAD_7,		// NUMPAD7
+  NUMPAD_8,		// NUMPAD8
+  NUMPAD_9,		// NUMPAD9
+  NUMPAD_CL,		// NUMPADCL
+  NUMPAD_ENTER,		// NUMPADENTER
   MIDI_PAN,		// PAN:			change panning of panadater/waterfall when zoomed
   PAN_HIGH,		// PANHIGH:		"high" value of current panadapter
   PAN_LOW,		// PANLOW:		"low" value of current panadapter
@@ -99,7 +141,7 @@ enum MIDIaction {
   MIDI_SAT,		// SAT:			cycle through SAT modes off/SAT/RSAT
   SNB,			// SNB:			toggle SNB on/off
   MIDI_SPLIT,		// SPLIT:		Split on/off
-  SWAP_RX, 		// SWAPRX:		swap active receiver (if there are two receivers)
+  SWAP_RX, 		// SWAPRX:		swap active receiver - enable next rx
   SWAP_VFO,		// SWAPVFO:		swap VFO A/B frequency
   MIDI_TUNE,		// TUNE:		toggle "tune" state
   VFOA,			// VFOA:		change VFO-A frequency
@@ -140,10 +182,13 @@ enum MIDIaction {
 
 enum MIDItype {
  TYPE_NONE=0,
- MIDI_KEY,          // Button (press event)
- MIDI_KNOB,         // Knob   (value between 0 and 100)
- MIDI_WHEEL         // Wheel  (direction and speed)
+ MIDI_KEY=1,          // Button (press event)
+ MIDI_KNOB=2,         // Knob   (value between 0 and 100)
+ MIDI_WHEEL=4         // Wheel  (direction and speed)
 };
+
+extern gchar *midi_types[];
+extern gchar *midi_events[];
 
 //
 // MIDIevent encodes the actual MIDI event "seen" in Layer-1 and
@@ -161,6 +206,14 @@ enum MIDIevent {
 //
 // Data structure for Layer-2
 //
+
+typedef struct _action_table {
+  enum MIDIaction action;
+  const char *str;
+  enum MIDItype type;
+} ACTION_TABLE;
+
+extern ACTION_TABLE ActionTable[];
 
 //
 // There is linked list of all specified MIDI events for a given "Note" value,
@@ -203,19 +256,23 @@ struct desc {
    struct desc       *next;       // Next defined action for a controller/key with that note value (NULL for end of list)
 };
 
-struct _MidiCommandsTable {
+struct cmdtable {
    struct desc *desc[128];    // description for Note On/Off and ControllerChange
    struct desc *pitch;        // description for PitchChanges
 };
 
-extern struct _MidiCommandsTable MidiCommandsTable;
+extern struct cmdtable MidiCommandsTable;
+
+extern int midi_debug;
 
 //
 // Layer-1 entry point, called once for all the MIDI devices
 // that have been defined. This is called upon startup by
 // Layer-2 through the function MIDIstartup.
 //
-void register_midi_device(char *name);
+int register_midi_device(char *name);
+void close_midi_device();
+void configure_midi_device(gboolean state);
 
 //
 // Layer-2 entry point (called by Layer1)
@@ -228,7 +285,8 @@ void register_midi_device(char *name);
 // for each device description that was successfully read.
 
 void NewMidiEvent(enum MIDIevent event, int channel, int note, int val);
-int MIDIstartup();
+int MIDIstartup(char *filename);
+int MIDIstop();
 
 //
 // Layer-3 entry point (called by Layer2). In Layer-3, all the pihpsdr
@@ -238,5 +296,4 @@ int MIDIstartup();
 //
 
 void DoTheMidi(enum MIDIaction code, enum MIDItype type, int val);
-
 #endif

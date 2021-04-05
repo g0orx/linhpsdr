@@ -1,5 +1,5 @@
 /* Copyright (C)
-* 2018 - John Melton, G0ORX/N6LYT
+* 2020 - John Melton, G0ORX/N6LYT
 *
 * This program is free software; you can redistribute it and/or
 * modify it under the terms of the GNU General Public License
@@ -17,5 +17,13 @@
 *
 */
 
-extern GtkWidget *create_rx_panadapter(RECEIVER *rx);
-extern void update_rx_panadapter(RECEIVER *rx,gboolean running);
+#ifndef MIDI_DIALOG_H
+#define MIDI_DIALOG_H
+
+extern gchar *midi_device_name;
+
+extern GtkWidget *create_midi_dialog(RADIO *r);
+extern void NewMidiConfigureEvent(enum MIDIevent event, int channel, int note, int val);
+extern void midi_save_state();
+extern void midi_restore_state();
+#endif

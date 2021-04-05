@@ -554,13 +554,13 @@ static gboolean deviation_select_cb(GtkWidget *widget,gpointer data) {
   //transmitter->deviation=select->choice;
   if(rx->deviation==2500) {
     set_filter(rx,-4000,4000);
-    transmitter_set_filter(radio->transmitter,-4000,4000);
+    if(radio->transmitter) transmitter_set_filter(radio->transmitter,-4000,4000);
   } else {
     set_filter(rx,-8000,8000);
-    transmitter_set_filter(radio->transmitter,-8000,8000);
+    if(radio->transmitter) transmitter_set_filter(radio->transmitter,-8000,8000);
   }
   set_deviation(rx);
-  transmitter_set_deviation(radio->transmitter);
+  if(radio->transmitter) transmitter_set_deviation(radio->transmitter);
   update_vfo(rx);
   return TRUE;
 }
@@ -599,6 +599,7 @@ static void var_spin_high_cb (GtkWidget *widget, gpointer data) {
 
 static void update_filters(RECEIVER *rx) {
   int i;
+  int row;
   SELECT *select;
 
   FILTER* band_filters=filters[rx->mode_a];
@@ -647,8 +648,8 @@ g_print("update_filters: new filter grid %p\n",rx->filter_grid);
       break;
 
     default:
+      /*
       for(i=0;i<FILTERS-2;i++) {
-/*
         FILTER* band_filter=&band_filters[i];
         GtkWidget *b=gtk_button_new_with_label(band_filters[i].title);
         if(i==rx->filter_a) {
@@ -662,11 +663,12 @@ g_print("update_filters: new filter grid %p\n",rx->filter_grid);
         select->choice=i;
         g_signal_connect(b,"pressed",G_CALLBACK(filter_select_cb),(gpointer)select);
         gtk_grid_attach(GTK_GRID(rx->filter_grid),b,i%FILTER_COLUMNS,i/FILTER_COLUMNS,1,1);
-*/
       }
+      */
 
   // last 2 are var1 and var2
-      int row=1+((i+4)/5);
+      i=FILTERS-2;
+      row=1+((i+4)/5);
       FILTER* band_filter=&band_filters[i];
       GtkWidget *b=gtk_button_new_with_label(band_filters[i].title);
       if(i==rx->filter_a) {
@@ -789,6 +791,11 @@ static void panadapter_high_value_changed_cb(GtkWidget *widget, gpointer data) {
 static void panadapter_low_value_changed_cb(GtkWidget *widget, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
   rx->panadapter_low=gtk_range_get_value(GTK_RANGE(widget));
+}
+
+static void panadapter_step_value_changed_cb(GtkWidget *widget, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  rx->panadapter_step=gtk_range_get_value(GTK_RANGE(widget));
 }
 
 static void panadapter_filled_changed_cb(GtkWidget *widget, gpointer data) {
@@ -1018,7 +1025,7 @@ void update_receiver_dialog(RECEIVER *rx) {
   g_signal_handler_unblock(G_OBJECT(rx->local_audio_b),rx->local_audio_signal_id);
   g_signal_handler_unblock(G_OBJECT(rx->audio_choice_b),rx->audio_choice_signal_id);
 
-  if(radio->transmitter!=NULL) {
+  if(radio->transmitter) {
     // update TX Frequency
     g_signal_handler_block(G_OBJECT(rx->tx_control_b),rx->tx_control_signal_id);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->tx_control_b), radio->transmitter->rx==rx);
@@ -1070,6 +1077,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     case PROTOCOL_2:
 #ifdef SOAPYSDR
     case PROTOCOL_SOAPYSDR:
+      if(strcmp(radio->discovered->name,"sdrplay")!=0)
 #endif
       {
       int x=0;
@@ -1233,10 +1241,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   label=gtk_label_new("High");
   gtk_grid_attach(GTK_GRID(equalizer_grid),label,3,1,1,1);
 
-  GtkWidget *preamp_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
-  gtk_range_set_value(GTK_RANGE(preamp_scale),(double)rx->equalizer[0]);
-  GtkAdjustment *adj=gtk_range_get_adjustment(GTK_RANGE(preamp_scale));
-  gtk_adjustment_set_page_increment(adj,1.0);
+  GtkWidget *preamp_scale=gtk_scale_new(GTK_ORIENTATION_VERTICAL,gtk_adjustment_new(rx->equalizer[0],-12.0,15.0,1.0,1.0,1.0));
   g_signal_connect(preamp_scale,"value-changed",G_CALLBACK(preamp_value_changed_cb),rx);
   gtk_grid_attach(GTK_GRID(equalizer_grid),preamp_scale,0,2,1,10);
   gtk_widget_set_size_request(preamp_scale,10,270);
@@ -1251,10 +1256,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   gtk_scale_add_mark(GTK_SCALE(preamp_scale),12.0,GTK_POS_LEFT,NULL);
   gtk_scale_add_mark(GTK_SCALE(preamp_scale),15.0,GTK_POS_LEFT,"15dB");
 
-  GtkWidget *low_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
-  gtk_range_set_value(GTK_RANGE(low_scale),(double)rx->equalizer[1]);
-  adj=gtk_range_get_adjustment(GTK_RANGE(low_scale));
-  gtk_adjustment_set_page_increment(adj,1.0);
+  GtkWidget *low_scale=gtk_scale_new(GTK_ORIENTATION_VERTICAL,gtk_adjustment_new(rx->equalizer[1],-12.0,15.0,1.0,1.0,1.0));
   g_signal_connect(low_scale,"value-changed",G_CALLBACK(low_value_changed_cb),rx);
   gtk_grid_attach(GTK_GRID(equalizer_grid),low_scale,1,2,1,10);
   gtk_scale_add_mark(GTK_SCALE(low_scale),-12.0,GTK_POS_LEFT,"-12dB");
@@ -1268,10 +1270,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   gtk_scale_add_mark(GTK_SCALE(low_scale),12.0,GTK_POS_LEFT,NULL);
   gtk_scale_add_mark(GTK_SCALE(low_scale),15.0,GTK_POS_LEFT,"15dB");
 
-  GtkWidget *mid_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
-  gtk_range_set_value(GTK_RANGE(mid_scale),(double)rx->equalizer[2]);
-  adj=gtk_range_get_adjustment(GTK_RANGE(mid_scale));
-  gtk_adjustment_set_page_increment(adj,1.0);
+  GtkWidget *mid_scale=gtk_scale_new(GTK_ORIENTATION_VERTICAL,gtk_adjustment_new(rx->equalizer[2],-12.0,15.0,1.0,1.0,1.0));
   g_signal_connect(mid_scale,"value-changed",G_CALLBACK(mid_value_changed_cb),rx);
   gtk_grid_attach(GTK_GRID(equalizer_grid),mid_scale,2,2,1,10);
   gtk_scale_add_mark(GTK_SCALE(mid_scale),-12.0,GTK_POS_LEFT,"-12dB");
@@ -1285,10 +1284,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   gtk_scale_add_mark(GTK_SCALE(mid_scale),12.0,GTK_POS_LEFT,NULL);
   gtk_scale_add_mark(GTK_SCALE(mid_scale),15.0,GTK_POS_LEFT,"15dB");
 
-  GtkWidget *high_scale=gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL,-12.0,15.0,1.0);
-  gtk_range_set_value(GTK_RANGE(high_scale),(double)rx->equalizer[3]);
-  adj=gtk_range_get_adjustment(GTK_RANGE(high_scale));
-  gtk_adjustment_set_page_increment(adj,1.0);
+  GtkWidget *high_scale=gtk_scale_new(GTK_ORIENTATION_VERTICAL,gtk_adjustment_new(rx->equalizer[3],-12.0,15.0,1.0,1.0,1.0));
   g_signal_connect(high_scale,"value-changed",G_CALLBACK(high_value_changed_cb),rx);
   gtk_grid_attach(GTK_GRID(equalizer_grid),high_scale,3,2,1,10);
   gtk_scale_add_mark(GTK_SCALE(high_scale),-12.0,GTK_POS_LEFT,"-12dB");
@@ -1315,7 +1311,7 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
     row++;
 
     rx->tx_control_b=gtk_check_button_new_with_label("Use This Receivers Frequency");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->tx_control_b), radio->transmitter->rx==rx);
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rx->tx_control_b), radio->transmitter!=NULL && radio->transmitter->rx==rx);
     gtk_grid_attach(GTK_GRID(tx_grid),rx->tx_control_b,0,0,1,1);
     rx->tx_control_signal_id=g_signal_connect(rx->tx_control_b,"toggled",G_CALLBACK(tx_cb),rx);
   }
@@ -1332,11 +1328,8 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   GtkWidget *fps_label=gtk_label_new("FPS:");
   gtk_grid_attach(GTK_GRID(panadapter_grid),fps_label,0,0,1,1);
 
-  GtkWidget *fps_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,1.0, 50.0, 1.00);
+  GtkWidget *fps_scale=gtk_scale_new(GTK_ORIENTATION_HORIZONTAL,gtk_adjustment_new(rx->fps, 1.0, 50.0, 1.0, 1.0, 1.0));
   gtk_widget_set_size_request(fps_scale,200,30);
-  gtk_range_set_value (GTK_RANGE(fps_scale),rx->fps);
-  adj=gtk_range_get_adjustment(GTK_RANGE(fps_scale));
-  gtk_adjustment_set_page_increment(adj,1.0);
   gtk_widget_show(fps_scale);
   g_signal_connect(G_OBJECT(fps_scale),"value_changed",G_CALLBACK(fps_value_changed_cb),rx);
   gtk_grid_attach(GTK_GRID(panadapter_grid),fps_scale,1,0,1,1);
@@ -1344,9 +1337,8 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   GtkWidget *average_label=gtk_label_new("Average:");
   gtk_grid_attach(GTK_GRID(panadapter_grid),average_label,0,1,1,1);
 
-  GtkWidget *average_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,1.0, 500.0, 1.00);
+  GtkWidget *average_scale=gtk_scale_new(GTK_ORIENTATION_HORIZONTAL,gtk_adjustment_new(rx->display_average_time,1.0, 500.0, 1.00, 1.0, 1.0));
   gtk_widget_set_size_request(average_scale,200,30);
-  gtk_range_set_value (GTK_RANGE(average_scale),rx->display_average_time);
   gtk_widget_show(average_scale);
   g_signal_connect(G_OBJECT(average_scale),"value_changed",G_CALLBACK(panadapter_average_time_value_changed_cb),rx);
   gtk_grid_attach(GTK_GRID(panadapter_grid),average_scale,1,1,1,1);
@@ -1354,9 +1346,8 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   GtkWidget *high_label=gtk_label_new("High:");
   gtk_grid_attach(GTK_GRID(panadapter_grid),high_label,0,2,1,1);
 
-  GtkWidget *panadapter_high_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-200.0, 20.0, 1.00);
+  GtkWidget *panadapter_high_scale=gtk_scale_new(GTK_ORIENTATION_HORIZONTAL,gtk_adjustment_new(rx->panadapter_high,-200.0, 20.0, 1.00, 1.0, 1.0));
   gtk_widget_set_size_request(panadapter_high_scale,200,30);
-  gtk_range_set_value (GTK_RANGE(panadapter_high_scale),rx->panadapter_high);
   gtk_widget_show(panadapter_high_scale);
   g_signal_connect(G_OBJECT(panadapter_high_scale),"value_changed",G_CALLBACK(panadapter_high_value_changed_cb),rx);
   gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_high_scale,1,2,1,1);
@@ -1364,26 +1355,34 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   GtkWidget *low_label=gtk_label_new("Low:");
   gtk_grid_attach(GTK_GRID(panadapter_grid),low_label,0,3,1,1);
 
-  GtkWidget *panadapter_low_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-200.0, 20.0, 1.00);
+  GtkWidget *panadapter_low_scale=gtk_scale_new(GTK_ORIENTATION_HORIZONTAL,gtk_adjustment_new(rx->panadapter_low,-200.0, 20.0, 1.0, 1.0, 1.0));
   gtk_widget_set_size_request(panadapter_low_scale,200,30);
-  gtk_range_set_value (GTK_RANGE(panadapter_low_scale),rx->panadapter_low);
   gtk_widget_show(panadapter_low_scale);
   g_signal_connect(G_OBJECT(panadapter_low_scale),"value_changed",G_CALLBACK(panadapter_low_value_changed_cb),rx);
   gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_low_scale,1,3,1,1);
   
+  GtkWidget *step_label=gtk_label_new("Step:");
+  gtk_grid_attach(GTK_GRID(panadapter_grid),step_label,0,4,1,1);
+
+  GtkWidget *panadapter_step_scale=gtk_scale_new(GTK_ORIENTATION_HORIZONTAL,gtk_adjustment_new(rx->panadapter_step,1.0, 40.0, 1.0, 1.0, 1.0));
+  gtk_widget_set_size_request(panadapter_step_scale,200,30);
+  gtk_widget_show(panadapter_step_scale);
+  g_signal_connect(G_OBJECT(panadapter_step_scale),"value_changed",G_CALLBACK(panadapter_step_value_changed_cb),rx);
+  gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_step_scale,1,4,1,1);
+  
   GtkWidget *panadapter_filled=gtk_check_button_new_with_label("Panadapter Filled");
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (panadapter_filled), rx->panadapter_filled);
-  gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_filled,0,4,2,1);
+  gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_filled,0,5,2,1);
   g_signal_connect(panadapter_filled,"toggled",G_CALLBACK(panadapter_filled_changed_cb),rx);
 
   GtkWidget *panadapter_gradient=gtk_check_button_new_with_label("Panadapter Gradient");
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (panadapter_gradient), rx->panadapter_gradient);
-  gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_gradient,0,5,2,1);
+  gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_gradient,0,6,2,1);
   g_signal_connect(panadapter_gradient,"toggled",G_CALLBACK(panadapter_gradient_changed_cb),rx);
 
   GtkWidget *panadapter_agc_line=gtk_check_button_new_with_label("AGC Lines");
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (panadapter_agc_line), rx->panadapter_agc_line);
-  gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_agc_line,0,6,2,1);
+  gtk_grid_attach(GTK_GRID(panadapter_grid),panadapter_agc_line,0,7,2,1);
   g_signal_connect(panadapter_agc_line,"toggled",G_CALLBACK(panadapter_agc_line_changed_cb),rx);
 
   GtkWidget *waterfall_frame=gtk_frame_new("Waterfall");
@@ -1397,9 +1396,8 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   GtkWidget *waterfall_high_label=gtk_label_new("High:");
   gtk_grid_attach(GTK_GRID(waterfall_grid),waterfall_high_label,0,0,1,1);
 
-  GtkWidget *waterfall_high_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-200.0, 20.0, 1.00);
+  GtkWidget *waterfall_high_scale=gtk_scale_new(GTK_ORIENTATION_HORIZONTAL,gtk_adjustment_new(rx->waterfall_high,-200.0, 20.0, 1.0, 1.0, 1.0));
   gtk_widget_set_size_request(waterfall_high_scale,200,30);
-  gtk_range_set_value (GTK_RANGE(waterfall_high_scale),rx->waterfall_high);
   gtk_widget_show(waterfall_high_scale);
   g_signal_connect(G_OBJECT(waterfall_high_scale),"value_changed",G_CALLBACK(waterfall_high_value_changed_cb),rx);
   gtk_grid_attach(GTK_GRID(waterfall_grid),waterfall_high_scale,1,0,1,1);
@@ -1407,9 +1405,8 @@ GtkWidget *create_receiver_dialog(RECEIVER *rx) {
   GtkWidget *waterfall_low_label=gtk_label_new("Low:");
   gtk_grid_attach(GTK_GRID(waterfall_grid),waterfall_low_label,0,1,1,1);
 
-  GtkWidget *waterfall_low_scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,-200.0, 20.0, 1.00);
+  GtkWidget *waterfall_low_scale=gtk_scale_new(GTK_ORIENTATION_HORIZONTAL,gtk_adjustment_new(rx->waterfall_low,-200.0, 20.0, 1.0, 1.0, 1.0));
   gtk_widget_set_size_request(waterfall_low_scale,200,30);
-  gtk_range_set_value (GTK_RANGE(waterfall_low_scale),rx->waterfall_low);
   gtk_widget_show(waterfall_low_scale);
   g_signal_connect(G_OBJECT(waterfall_low_scale),"value_changed",G_CALLBACK(waterfall_low_value_changed_cb),rx);
   gtk_grid_attach(GTK_GRID(waterfall_grid),waterfall_low_scale,1,1,1,1);

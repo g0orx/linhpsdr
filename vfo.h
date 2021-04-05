@@ -83,3 +83,6 @@ typedef struct _vfo_data {
 extern gint64 steps[STEPS];
 extern char *step_labels[STEPS];
 
+extern void vfo_a2b(RECEIVER *rx);
+extern void vfo_b2a(RECEIVER *rx);
+extern void vfo_aswapb(RECEIVER *rx);

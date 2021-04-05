@@ -209,10 +209,12 @@ typedef struct _radio {
   gint which_audio;
   gint which_audio_backend;
 
-  gboolean midi;
+  gboolean midi_enabled;
+  char midi_filename[128];
 
 } RADIO;
 
+extern int radio_restart(void *data);
 extern int radio_start(void *data);
 extern gboolean isTransmitting(RADIO *r);
 extern RADIO *create_radio(DISCOVERED *d);
@@ -231,4 +233,5 @@ extern void set_tune(RADIO *r,gboolean state);
 extern void radio_change_region(RADIO *r);
 extern void radio_change_audio(RADIO *r,int selected);
 extern void radio_change_audio_backend(RADIO *r,int selected);
+extern void update_radio(RADIO *radio);
 #endif

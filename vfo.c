@@ -43,6 +43,7 @@
 typedef struct _choice {
   RECEIVER *rx;
   int selection;
+  int sub_selection;
   GtkWidget *button;
 } CHOICE;
 
@@ -70,6 +71,10 @@ const long long ll_step[13]= {
 gint64 steps[STEPS]={1,10,25,50,100,250,500,1000,5000,9000,10000,100000,250000,500000,1000000};
 char *step_labels[STEPS]={"1Hz","10Hz","25Hz","50Hz","100Hz","250Hz","500Hz","1kHz","5kHz","9kHz","10kHz","100kHz","250KHz","500KHz","1MHz"};
    
+static gboolean pressed=FALSE;
+static gdouble last_x;
+static gboolean has_moved=FALSE;
+
 static int get_step(gint64 step) {
   int i;
   for(i=0;i<STEPS;i++) {
@@ -80,8 +85,7 @@ static int get_step(gint64 step) {
   return 4; // 100Hz
 }
 
-static void a2b_cb(GtkButton *widget,gpointer user_data) {
-  RECEIVER *rx=(RECEIVER *)user_data;
+void vfo_a2b(RECEIVER *rx) {
   int m=rx->mode_b;
   int f=rx->filter_b;
   rx->band_b=rx->band_a;
@@ -103,8 +107,12 @@ static void a2b_cb(GtkButton *widget,gpointer user_data) {
   update_vfo(rx);
 }
 
-static void b2a_cb(GtkButton *widget,gpointer user_data) {
+static void a2b_cb(GtkButton *widget,gpointer user_data) {
   RECEIVER *rx=(RECEIVER *)user_data;
+  vfo_a2b(rx);
+}
+
+void vfo_b2a(RECEIVER *rx) {
   int m=rx->mode_a;
   int f=rx->filter_a;
   rx->band_a=rx->band_b;
@@ -124,8 +132,12 @@ static void b2a_cb(GtkButton *widget,gpointer user_data) {
   update_vfo(rx);
 }
 
-static void aswapb_cb(GtkButton *widget,gpointer user_data) {
+static void b2a_cb(GtkButton *widget,gpointer user_data) {
   RECEIVER *rx=(RECEIVER *)user_data;
+  vfo_b2a(rx);
+}
+
+void vfo_aswapb(RECEIVER *rx) {
   gint temp_band;
   gint64 temp_frequency;
   gint temp_mode;
@@ -166,7 +178,7 @@ static void aswapb_cb(GtkButton *widget,gpointer user_data) {
 
   frequency_changed(rx);
   receiver_mode_changed(rx,rx->mode_a);
-  if(radio->transmitter->rx==rx) {
+  if(radio->transmitter!=NULL && radio->transmitter->rx==rx) {
     if(rx->split!=SPLIT_OFF) {
       transmitter_set_mode(radio->transmitter,rx->mode_b);
     } else {
@@ -183,6 +195,11 @@ static void aswapb_cb(GtkButton *widget,gpointer user_data) {
   }
 
   update_vfo(rx);
+}
+
+static void aswapb_cb(GtkButton *widget,gpointer user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  vfo_aswapb(rx);
 }
 
 static void split_b_cb(GtkToggleButton *widget,gpointer user_data) {
@@ -215,7 +232,7 @@ void split_cb(GtkWidget *menu_item,gpointer data) {
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(choice->button),rx->split!=SPLIT_OFF);
   g_signal_handlers_unblock_by_func(choice->button,G_CALLBACK(split_b_cb),rx);
   frequency_changed(rx);
-  if(radio->transmitter->rx==rx) {
+  if(radio->transmitter && radio->transmitter->rx==rx) {
     switch(rx->split) {
       case SPLIT_OFF:
         transmitter_set_mode(radio->transmitter,rx->mode_a);
@@ -411,6 +428,7 @@ static void subrx_b_cb(GtkToggleButton *widget,gpointer user_data) {
     create_subrx(rx);
     rx->subrx_enable=TRUE;
   }
+  update_vfo(rx);
 }
 
 static void lock_b_cb(GtkToggleButton *widget,gpointer user_data) {
@@ -424,7 +442,7 @@ void mode_cb(GtkWidget *menu_item,gpointer data) {
   if(choice->rx->split!=SPLIT_OFF) {
     choice->rx->mode_b=choice->selection;
   }
-  if(radio->transmitter->rx==choice->rx) {
+  if(radio->transmitter!=NULL && radio->transmitter->rx==choice->rx) {
     if(choice->rx->split!=SPLIT_OFF) {
       transmitter_set_mode(radio->transmitter,choice->rx->mode_b);
     } else {
@@ -1024,8 +1042,47 @@ static gboolean agc_b_pressed_cb(GtkWidget *widget,GdkEventButton *event,gpointe
   return TRUE;
 }
 
+static gboolean afgain_press_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  pressed=TRUE;
+  last_x=event->x;
+  has_moved=FALSE;
+  return TRUE;
+}
+
 static gboolean afgain_scale_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
- return TRUE;
+  RECEIVER *rx=(RECEIVER *)data;
+  if(pressed) {
+    gdouble moved=event->x-last_x;
+    has_moved=TRUE;
+    rx->volume=rx->volume+(moved/100.0);
+    if(rx->volume>1.0) rx->volume=1.0;
+    if(rx->volume<0.0) rx->volume=0.0;
+    receiver_set_volume(rx);
+    last_x=event->x;
+    update_vfo(rx);
+  }
+  return TRUE;
+}
+
+static gboolean afgain_release_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  if(has_moved) {
+    gdouble moved=event->x-last_x;
+    rx->volume=rx->volume+(moved/100.0);
+    if(rx->volume>1.0) rx->volume=1.0;
+    if(rx->volume<0.0) rx->volume=0.0;
+    receiver_set_volume(rx);
+  } else {
+    rx->volume=event->x/100.0;
+    if(rx->volume>1.0) rx->volume=1.0;
+    if(rx->volume<0.0) rx->volume=0.0;
+    receiver_set_volume(rx);
+  }
+  pressed=FALSE;
+  has_moved=FALSE;
+  update_vfo(rx);
+  return TRUE;
 }
 
 static gboolean afgain_scale_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
@@ -1045,9 +1102,49 @@ static gboolean afgain_scale_scroll_event_cb(GtkWidget *widget,GdkEventScroll *e
   return TRUE;
 }
 
-static gboolean agcgain_scale_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
- return TRUE;
+static gboolean agcgain_press_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  pressed=TRUE;
+  last_x=event->x;
+  has_moved=FALSE;
+  return TRUE;
 }
+
+static gboolean agcgain_scale_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  if(pressed) {
+    has_moved=TRUE;
+    gdouble moved=event->x-last_x;
+    rx->agc_gain=rx->agc_gain+moved;
+    if(rx->agc_gain>120.0) rx->agc_gain=120.0;
+    if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
+    receiver_set_agc_gain(rx);
+    last_x=event->x;
+    update_vfo(rx);
+  }
+  return TRUE;
+}
+
+static gboolean agcgain_release_cb(GtkWidget *widget,GdkEventButton *event,gpointer data) {
+  RECEIVER *rx=(RECEIVER *)data;
+  if(has_moved) {
+    gdouble moved=event->x-last_x;
+    rx->agc_gain=rx->agc_gain+moved;
+    if(rx->agc_gain>120.0) rx->agc_gain=120.0;
+    if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
+    receiver_set_agc_gain(rx);
+  } else {
+    rx->agc_gain=event->x-20.0;
+    if(rx->agc_gain>120.0) rx->agc_gain=120.0;
+    if(rx->agc_gain<-20.0) rx->agc_gain=-20.0;
+    receiver_set_agc_gain(rx);
+  }
+  pressed=FALSE;
+  has_moved=FALSE;
+  update_vfo(rx);
+  return TRUE;
+}
+
 
 static gboolean agcgain_scale_scroll_event_cb(GtkWidget *widget,GdkEventScroll *event,gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
@@ -1068,36 +1165,53 @@ static gboolean agcgain_scale_scroll_event_cb(GtkWidget *widget,GdkEventScroll *
 
 void band_cb(GtkWidget *menu_item,gpointer data) {
   CHOICE *choice=(CHOICE *)data;
-  set_band(choice->rx,choice->selection);
+  set_band(choice->rx,choice->selection,choice->sub_selection);
+  update_vfo(choice->rx);
   g_free(choice);
 }
 
 static gboolean frequency_a_press_cb(GtkWidget *widget,GdkEvent *event,gpointer user_data) {
   RECEIVER *rx=(RECEIVER *)user_data;
   GtkWidget *menu=gtk_menu_new();
+  GtkWidget *band_menu;
   GtkWidget *menu_item;
   CHOICE *choice;
   BAND *band;
-  int i;
+  BANDSTACK *bandstack;
+  BANDSTACK_ENTRY *entry;
+  char temp[64];
+  int i,j;
 
   if(!rx->locked) {
     menu=gtk_menu_new();
     for(i=0;i<BANDS+XVTRS;i++) {
 #ifdef SOAPYSDR
       if(radio->discovered->protocol!=PROTOCOL_SOAPYSDR) {
-        if(i>=band70 && i<=band3400) {
+        if(i>=band70 && i<=bandAIR) {
           continue;
         }
       }
 #endif
       band=(BAND*)band_get_band(i);
+      bandstack=band->bandstack;
+
       if(strlen(band->title)>0) {
-      menu_item=gtk_menu_item_new_with_label(band->title);
-      choice=g_new0(CHOICE,1);
-      choice->rx=rx;
-      choice->selection=i;
-      g_signal_connect(menu_item,"activate",G_CALLBACK(band_cb),choice);
-      gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+        GtkWidget *band_menu=gtk_menu_new();
+        menu_item=gtk_menu_item_new_with_label(band->title);
+        gtk_menu_item_set_submenu(GTK_MENU_ITEM(menu_item),band_menu);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu),menu_item);
+
+	for(j=0;j<bandstack->entries;j++) {
+          entry=&bandstack->entry[j];
+	  sprintf(temp,"%5lld.%03lld.%03lld",entry->frequency/(long long)1000000,(entry->frequency%(long long)1000000)/(long long)1000,entry->frequency%(long long)1000);
+          menu_item=gtk_menu_item_new_with_label(temp);
+          choice=g_new0(CHOICE,1);
+          choice->rx=rx;
+          choice->selection=i;
+          choice->sub_selection=j;
+          g_signal_connect(menu_item,"activate",G_CALLBACK(band_cb),choice);
+          gtk_menu_shell_append(GTK_MENU_SHELL(band_menu),menu_item);
+	}
       }
     }
     gtk_widget_show_all(menu);
@@ -1312,7 +1426,10 @@ GtkWidget *create_vfo(RECEIVER *rx) {
   x=0;
   y=16;
 
-  long long af=rx->ctun?rx->ctun_frequency:rx->frequency_a;
+  long long af=rx->frequency_a;
+  if(rx->ctun) af=rx->ctun_frequency;
+  if(rx->entering_frequency) af=rx->entered_frequency;
+    
   sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
   v->frequency_a_text=gtk_label_new(temp);
   rx->vfo_a_digits=strlen(temp);
@@ -1378,7 +1495,9 @@ GtkWidget *create_vfo(RECEIVER *rx) {
   gtk_layout_put(GTK_LAYOUT(v->vfo),event_box_afgain,x,y);
   g_signal_connect(event_box_afgain,"motion-notify-event",G_CALLBACK(afgain_scale_motion_notify_event_cb),rx);
   g_signal_connect(event_box_afgain,"scroll_event",G_CALLBACK(afgain_scale_scroll_event_cb),(gpointer)rx);
-  gtk_widget_set_events(event_box_afgain, GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
+  g_signal_connect(event_box_afgain,"button_press_event",G_CALLBACK(afgain_press_cb),rx);
+  g_signal_connect(event_box_afgain,"button_release_event",G_CALLBACK(afgain_release_cb),rx);
+  gtk_widget_set_events(event_box_afgain, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
 
   x=480;
   y=31;
@@ -1403,7 +1522,9 @@ GtkWidget *create_vfo(RECEIVER *rx) {
   gtk_layout_put(GTK_LAYOUT(v->vfo),event_box_agcgain,x,y);
   g_signal_connect(event_box_agcgain,"motion-notify-event",G_CALLBACK(agcgain_scale_motion_notify_event_cb),rx);
   g_signal_connect(event_box_agcgain,"scroll_event",G_CALLBACK(agcgain_scale_scroll_event_cb),(gpointer)rx);
-  gtk_widget_set_events(event_box_agcgain, GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
+  g_signal_connect(event_box_agcgain,"button_press_event",G_CALLBACK(agcgain_press_cb),rx);
+  g_signal_connect(event_box_agcgain,"button_release_event",G_CALLBACK(agcgain_release_cb),rx);
+  gtk_widget_set_events(event_box_agcgain, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK);
 
 
   y=47;
@@ -1611,7 +1732,10 @@ void update_vfo(RECEIVER *rx) {
   if(v==NULL) return;
 
   // VFO A
-  long long af=rx->ctun?rx->ctun_frequency:rx->frequency_a;
+  long long af=rx->frequency_a;
+  if(rx->ctun) af=rx->ctun_frequency;
+  if(rx->entering_frequency) af=rx->entered_frequency;
+
   sprintf(temp,"%5lld.%03lld.%03lld",af/(long long)1000000,(af%(long long)1000000)/(long long)1000,af%(long long)1000);
   if(radio!=NULL && radio->transmitter!=NULL && rx==radio->transmitter->rx && radio->transmitter->rx->split==SPLIT_OFF && isTransmitting(radio)) {
     markup=g_markup_printf_escaped("<span foreground=\"#D94545\">%s</span>",temp);
@@ -1678,14 +1802,119 @@ void update_vfo(RECEIVER *rx) {
   gtk_button_set_label(GTK_BUTTON(v->filter_b),temp);
 
   // update NB button
+  if(rx->nb) {
+      gtk_button_set_label(GTK_BUTTON(v->nb_b),"NB");
+  } else if(rx->nb2) {
+      gtk_button_set_label(GTK_BUTTON(v->nb_b),"NB2");
+  } else {
+      gtk_button_set_label(GTK_BUTTON(v->nb_b),"NB");
+  }
+  g_signal_handlers_block_by_func(v->nb_b,G_CALLBACK(nb_b_pressed_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->nb_b),rx->nb|rx->nb2);
+  g_signal_handlers_unblock_by_func(v->nb_b,G_CALLBACK(nb_b_pressed_cb),rx);
+
   // update NR button
-  // update AGC button
-  // update RIT button
-  // update XIT button
-  // update CTUN button
-  // update DUP button
-  // update BPSK button
+  if(rx->nr) {
+      gtk_button_set_label(GTK_BUTTON(v->nr_b),"NR");
+  } else if(rx->nr2) {
+      gtk_button_set_label(GTK_BUTTON(v->nr_b),"NR2");
+  } else {
+      gtk_button_set_label(GTK_BUTTON(v->nr_b),"NR");
+  }
+  g_signal_handlers_block_by_func(v->nr_b,G_CALLBACK(nr_b_pressed_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->nr_b),rx->nr|rx->nr2);
+  g_signal_handlers_unblock_by_func(v->nr_b,G_CALLBACK(nr_b_pressed_cb),rx);
+
+  // update SNB button
+  g_signal_handlers_block_by_func(v->snb_b,G_CALLBACK(snb_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->snb_b),rx->snb);
+  g_signal_handlers_unblock_by_func(v->snb_b,G_CALLBACK(snb_b_cb),rx);
  
+  // update ANF button
+  g_signal_handlers_block_by_func(v->anf_b,G_CALLBACK(anf_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->anf_b),rx->anf);
+  g_signal_handlers_unblock_by_func(v->anf_b,G_CALLBACK(anf_b_cb),rx);
+ 
+  // update AGC button
+  switch(rx->agc) {
+    case AGC_OFF:
+      strcpy(temp,"AGC");
+      break;
+    case AGC_LONG:
+      strcpy(temp,"AGC LONG");
+      break;
+    case AGC_SLOW:
+      strcpy(temp,"AGC SLOW");
+      break;
+    case AGC_MEDIUM:
+      strcpy(temp,"AGC MED");
+      break;
+    case AGC_FAST:
+      strcpy(temp,"AGC FAST");
+      break;
+  }
+  gtk_button_set_label(GTK_BUTTON(v->agc_b),temp);
+  g_signal_handlers_block_by_func(v->agc_b,G_CALLBACK(agc_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->agc_b),rx->agc!=AGC_OFF);
+  g_signal_handlers_unblock_by_func(v->agc_b,G_CALLBACK(agc_cb),rx);
+
+  // update RIT button
+  g_signal_handlers_block_by_func(v->rit_b,G_CALLBACK(rit_b_press_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->rit_b),rx->rit_enabled);
+  g_signal_handlers_unblock_by_func(v->rit_b,G_CALLBACK(rit_b_press_cb),rx);
+
+  // update XIT button
+  if(radio->transmitter!=NULL && radio->transmitter->rx==rx) {
+    g_signal_handlers_block_by_func(v->xit_b,G_CALLBACK(xit_b_press_cb),rx);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->xit_b),radio->transmitter->xit_enabled);
+    g_signal_handlers_unblock_by_func(v->xit_b,G_CALLBACK(xit_b_press_cb),rx);
+  }
+
+  // update CTUN button
+  g_signal_handlers_block_by_func(v->ctun_b,G_CALLBACK(ctun_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->ctun_b),rx->ctun);
+  g_signal_handlers_unblock_by_func(v->ctun_b,G_CALLBACK(ctun_b_cb),rx);
+
+  // update DUP button
+  g_signal_handlers_block_by_func(v->dup_b,G_CALLBACK(dup_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->dup_b),rx->duplex);
+  g_signal_handlers_unblock_by_func(v->dup_b,G_CALLBACK(dup_b_cb),rx);
+
+  // update BPSK button
+  g_signal_handlers_block_by_func(v->bpsk_b,G_CALLBACK(bpsk_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->bpsk_b),rx->bpsk_enable);
+  g_signal_handlers_unblock_by_func(v->bpsk_b,G_CALLBACK(bpsk_b_cb),rx);
+ 
+  // update ZOOM button
+  sprintf(temp,"ZOOM x%d",rx->zoom);
+  gtk_button_set_label(GTK_BUTTON(v->zoom_b),temp);
+
+  // update STEP button
+  sprintf(temp,"STEP %s",step_labels[get_step(rx->step)]);
+  gtk_button_set_label(GTK_BUTTON(v->step_b),temp);
+
+  // update SPLIT button
+  switch(rx->split) {
+     case SPLIT_OFF:
+     case SPLIT_ON:
+       gtk_button_set_label(GTK_BUTTON(v->split_b),"SPLIT");
+       break;
+     case SPLIT_SAT:
+       gtk_button_set_label(GTK_BUTTON(v->split_b),"SAT");
+       break;
+     case SPLIT_RSAT:
+       gtk_button_set_label(GTK_BUTTON(v->split_b),"RSAT");
+       break;
+  }
+  g_signal_handlers_block_by_func(v->split_b,G_CALLBACK(split_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->split_b),rx->split!=SPLIT_OFF);
+  g_signal_handlers_unblock_by_func(v->split_b,G_CALLBACK(split_b_cb),rx);
+
+  // SUBRX button
+  g_signal_handlers_block_by_func(v->subrx_b,G_CALLBACK(subrx_b_cb),rx);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->subrx_b),rx->subrx!=NULL);
+  g_signal_handlers_unblock_by_func(v->subrx_b,G_CALLBACK(subrx_b_cb),rx);
+
 }
 
 

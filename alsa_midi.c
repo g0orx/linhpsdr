@@ -18,7 +18,19 @@
  *       program amidi.c in alsautils.
  */
 
+#include <gtk/gtk.h>
+
+#include "discovered.h"
+#include "receiver.h"
+#include "transmitter.h"
+#include "receiver.h"
+#include "wideband.h"
+#include "adc.h"
+#include "dac.h"
+#include "radio.h"
 #include "midi.h"
+#include "midi_dialog.h"
+#include "alsa_midi.h"
 
 #ifndef __APPLE__
 
@@ -28,7 +40,13 @@
 static pthread_t midi_thread_id;
 static void* midi_thread(void *);
 
+MIDI_DEVICE midi_devices[MAX_MIDI_DEVICES];
+int n_midi_devices;
+int running;
+
 static char portname[64];
+
+static snd_rawmidi_t *input=NULL;
 
 static enum {
         STATE_SKIP,		// skip bytes
@@ -43,9 +61,11 @@ static enum {
 	CMD_PITCH,
 } command;
 
+static gboolean configure=FALSE;
+
 static void *midi_thread(void *arg) {
     int ret;
-    snd_rawmidi_t *input;
+    MIDI_DEVICE *midi_device=(MIDI_DEVICE *)arg;
     int npfds;
     struct pollfd *pfds;
     unsigned char buf[32];
@@ -54,16 +74,21 @@ static void *midi_thread(void *arg) {
     int i;
     int chan,arg1,arg2;
 
-    if ((ret = snd_rawmidi_open(&input, NULL, portname, SND_RAWMIDI_NONBLOCK)) < 0) {
-        fprintf(stderr,"cannot open port \"%s\": %s\n", portname, snd_strerror(ret));
+    /*
+    if ((ret = snd_rawmidi_open(&input, NULL, midi_device->port, SND_RAWMIDI_NONBLOCK)) < 0) {
+        fprintf(stderr,"cannot open port \"%s\": %s\n", midi_device->port, snd_strerror(ret));
         return NULL;
     }
+    */
+
+    running=1;
+
     snd_rawmidi_read(input, NULL, 0); /* trigger reading */
 
     npfds = snd_rawmidi_poll_descriptors_count(input);
     pfds = alloca(npfds * sizeof(struct pollfd));
     snd_rawmidi_poll_descriptors(input, pfds, npfds);
-    for (;;) {
+    while(running) {
 	ret = poll(pfds, npfds, 250);
 	if (ret < 0) {
             fprintf(stderr,"poll failed: %s\n", strerror(errno));
@@ -71,6 +96,8 @@ static void *midi_thread(void *arg) {
 	    usleep(250000);
 	}
 	if (ret <= 0) continue;  // nothing arrived, do next poll()
+	if(!running) break;
+
 	if ((ret = snd_rawmidi_poll_descriptors_revents(input, pfds, npfds, &revents)) < 0) {
             fprintf(stderr,"cannot get poll events: %s\n", snd_strerror(errno));
             continue;
@@ -129,19 +156,39 @@ static void *midi_thread(void *arg) {
 			   // messages with velocity == 0 when releasing
 			   // a push-button
 			   if (arg2 == 0) {
-			     NewMidiEvent(MIDI_NOTE, chan, arg1, 0);
+                             if(configure) {
+			       NewMidiConfigureEvent(MIDI_NOTE, chan, arg1, 0);
+                             } else {
+			       NewMidiEvent(MIDI_NOTE, chan, arg1, 0);
+			     }
 			   } else {
-			     NewMidiEvent(MIDI_NOTE, chan, arg1, 1);
+                             if(configure) {
+			       NewMidiConfigureEvent(MIDI_NOTE, chan, arg1, 1);
+                             } else {
+			       NewMidiEvent(MIDI_NOTE, chan, arg1, 1);
+			     }
 			   }
 			   break;
 			case CMD_NOTEOFF:
-			   NewMidiEvent(MIDI_NOTE, chan, arg1, 0);
+                           if(configure) {
+			     NewMidiConfigureEvent(MIDI_NOTE, chan, arg1, 0);
+                           } else {
+			     NewMidiEvent(MIDI_NOTE, chan, arg1, 0);
+			   }
 			   break;
 			case CMD_CTRL:
-			   NewMidiEvent(MIDI_CTRL, chan, arg1, arg2);
+                           if(configure) {
+			     NewMidiConfigureEvent(MIDI_CTRL, chan, arg1, arg2);
+                           } else {
+			     NewMidiEvent(MIDI_CTRL, chan, arg1, arg2);
+			   }
 			   break;
 			case CMD_PITCH:
-			   NewMidiEvent(MIDI_PITCH, chan, 0, arg1+128*arg2);
+                           if(configure) {
+			     NewMidiConfigureEvent(MIDI_PITCH, chan, 0, arg1+128*arg2);
+                           } else {
+			     NewMidiEvent(MIDI_PITCH, chan, 0, arg1+128*arg2);
+			   }
 			   break;
                     }
 		    state=STATE_SKIP;
@@ -151,9 +198,61 @@ static void *midi_thread(void *arg) {
     }
 }
 
-void register_midi_device(char *myname) {
+void close_midi_device() {
+    int ret;
 
-    int mylen=strlen(myname);
+    fprintf(stderr,"%s\n",__FUNCTION__);
+    if(input!=NULL) {
+      fprintf(stderr,"%s: snd_rawmidi_close\n",__FUNCTION__);
+      running=0;
+      if((ret = snd_rawmidi_close(input)) < 0) {
+        fprintf(stderr,"%s: cannot close port: %s\n",__FUNCTION__, snd_strerror(ret));
+      }
+      input=NULL;
+      usleep(250000L);
+    }
+}
+
+int register_midi_device(char *myname) {
+    int i;
+    int ret;
+
+    g_print("%s: %s\n",__FUNCTION__,myname);
+
+    configure=false;
+
+    for(i=0;i<n_midi_devices;i++) {
+        if(strcmp(myname,midi_devices[i].name)==0) {
+            // Found our MIDI input device. Spawn off a thread reading data
+            // Try to open the device
+	    strcpy(portname,midi_devices[i].port);
+            if ((ret = snd_rawmidi_open(&input, NULL, midi_devices[i].port, SND_RAWMIDI_NONBLOCK)) < 0) {
+               g_print("%s: cannot open port \"%s\": %s\n", __FUNCTION__, midi_devices[i].port, snd_strerror(ret));
+               break;
+            }
+
+            g_print("%s: %s Opened\n",__FUNCTION__,myname);
+
+            ret = pthread_create(&midi_thread_id, NULL, midi_thread, &midi_devices[i]);
+            if (ret < 0) {
+                g_print("%s: Failed to create MIDI read thread\n",__FUNCTION__);
+            }
+	    break;
+	}
+    }
+    if(i>=n_midi_devices) {
+        g_print("%s: Cannot find MIDI device: %s\n",__FUNCTION__,myname);
+	ret=-1;
+    }
+    return ret;
+}
+
+void configure_midi_device(gboolean state) {
+  configure=state;
+}
+
+void get_midi_devices() {
+
     snd_ctl_t *ctl;
     snd_rawmidi_info_t *info;
     int card, device, subs, sub, ret;
@@ -161,13 +260,14 @@ void register_midi_device(char *myname) {
     int found=0;
     char name[64];
 
+    n_midi_devices=0;
     card=-1;
     if ((ret = snd_card_next(&card)) < 0) {
         fprintf(stderr,"cannot determine card number: %s\n", snd_strerror(ret));
         return;
     }
     while (card >= 0) {
-	fprintf(stderr,"Found Sound Card=%d\n",card);
+	//fprintf(stderr,"Found Sound Card=%d\n",card);
 	sprintf(name,"hw:%d", card);
         if ((ret = snd_ctl_open(&ctl, name, 0)) < 0) {
                 fprintf(stderr,"cannot open control for card %d: %s\n", card, snd_strerror(ret));
@@ -181,7 +281,7 @@ void register_midi_device(char *myname) {
                 break;
             }
 	    if (device < 0) break;
-	    fprintf(stderr,"Found Device=%d on Card=%d\n", device, card);
+	    //fprintf(stderr,"Found Device=%d on Card=%d\n", device, card);
 	    // found sub-device
 	    snd_rawmidi_info_alloca(&info);
             snd_rawmidi_info_set_device(info, device);
@@ -192,7 +292,7 @@ void register_midi_device(char *myname) {
             } else {
                 subs = 0;
 	    }
-	    fprintf(stderr,"Number of MIDI input devices: %d\n", subs);
+	    //fprintf(stderr,"Number of MIDI input devices: %d\n", subs);
 	    if (!subs) break;
 	    // subs: number of sub-devices to device on card
             for (sub = 0; sub < subs; ++sub) {
@@ -216,12 +316,13 @@ void register_midi_device(char *myname) {
 		    sprintf(portname,"hw:%d,%d,%d", card, device, sub);
 		    devnam=subnam;
 		}
-		if (!strncmp(myname, devnam, mylen)) {
-		    found=1;
-		    fprintf(stderr,"MIDI device %s selected (PortName=%s)\n", devnam, portname);
-		} else {
-                    fprintf(stderr,"MIDI device found BUT NOT SELECTED: %s\n", devnam);
-		}
+
+		midi_devices[n_midi_devices].name=g_new(gchar,strlen(devnam)+1);
+		strcpy(midi_devices[n_midi_devices].name,devnam);
+
+		midi_devices[n_midi_devices].port=g_new(gchar,strlen(portname)+1);
+                strcpy(midi_devices[n_midi_devices].port,portname);
+		n_midi_devices++;
 	    }
 	}
 	snd_ctl_close(ctl);
@@ -231,14 +332,9 @@ void register_midi_device(char *myname) {
             break;
         }
     }
-    if (!found) {
-	fprintf(stderr,"MIDI device %s NOT FOUND!\n", myname);
-        return;
-    }
-    // Found our MIDI input device. Spawn off a thread reading data
-    ret = pthread_create(&midi_thread_id, NULL, midi_thread, NULL);
-    if (ret < 0) {
-	fprintf(stderr,"Failed to create MIDI read thread\n");
+
+    for(int i=0;i<n_midi_devices;i++) {
+        g_print("%s: %d: %s %s\n",__FUNCTION__,i,midi_devices[i].name,midi_devices[i].port);
     }
 }
 #endif
