@@ -3,6 +3,10 @@
 GIT_DATE := $(firstword $(shell git --no-pager show --date=short --format="%ai" --name-only))
 GIT_VERSION := $(shell git describe --abbrev=0 --tags)
 
+PREFIX=/usr/local
+BINDIR=$(DESTDIR)$(PREFIX)/bin
+DATADIR=$(DESTDIR)$(PREFIX)/share
+
 CC=gcc
 LINK=gcc
 
@@ -246,7 +250,7 @@ actions.o
 
 
 $(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(MIDI_OBJS)
-	$(LINK) -o $(PROGRAM) $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(MIDI_OBJS)  $(LIBS)
+	$(LINK) -o $(PROGRAM) $(LDFLAGS) $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(MIDI_OBJS)  $(LIBS)
 
 
 all: prebuild  $(PROGRAM) $(HEADERS) $(MIDI_HEADERS) $(SOURCES) $(SOAPYSDR_SOURCES) \
@@ -261,12 +265,12 @@ clean:
 	-rm -f $(PROGRAM)
 
 install: $(PROGRAM)
-	cp $(PROGRAM) /usr/local/bin
-	if [ ! -d /usr/share/linhpsdr ]; then mkdir /usr/share/linhpsdr; fi
-	cp hpsdr.png /usr/share/linhpsdr
-	cp hpsdr_icon.png /usr/share/linhpsdr
-	cp hpsdr_small.png /usr/share/linhpsdr
-	cp linhpsdr.desktop /usr/share/applications
+	mkdir -p $(BINDIR) $(DATADIR)/linhpsdr $(DATADIR)/applications $(DATADIR)/icons/hicolor/512x512; \
+	cp -a $(PROGRAM) $(BINDIR); \
+	cp -a hpsdr.png $(DATADIR)/linhpsdr; \
+	cp -a hpsdr_icon.png $(DATADIR)/icons/hicolor/512x512; \
+	cp -a hpsdr_small.png $(DATADIR)/linhpsdr; \
+	cp -a linhpsdr.desktop $(DATADIR)/applications \
 
 debian:
 	cp $(PROGRAM) pkg/linhpsdr/usr/local/bin
