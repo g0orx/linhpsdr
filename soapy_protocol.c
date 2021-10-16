@@ -314,11 +314,11 @@ g_print("%s: runnin\n",__FUNCTION__);
   size_t channel=rx->adc;
   while(running) {
     elements=SoapySDRDevice_readStream(soapy_device,rx_stream[channel],buffs,max_samples,&flags,&timeNs,timeoutUs);
-    if(elements<0) {
-      g_print("%s: elements=%d max_samples=%d\n",__FUNCTION__,elements,max_samples);
-      running=FALSE;
-      break;
-    }
+    //if(elements<0) {
+    //  g_print("%s: elements=%d max_samples=%d\n",__FUNCTION__,elements,max_samples);
+    //  running=FALSE;
+    //  break;
+    //}
     for(i=0;i<elements;i++) {
       rx->buffer[i*2]=(double)buffer[i*2];
       rx->buffer[(i*2)+1]=(double)buffer[(i*2)+1];

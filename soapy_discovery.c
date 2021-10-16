@@ -55,6 +55,10 @@ static void get_info(char *driver) {
     sdrplay_count++;
   }
   SoapySDRDevice *sdr = SoapySDRDevice_make(&args);
+  if(sdr==NULL) {
+    g_print("%s: SoapySdrDevice_make failed\n",__FUNCTION__);
+    return;
+  }
   SoapySDRKwargs_clear(&args);
 
   char *driverkey=SoapySDRDevice_getDriverKey(sdr);
@@ -103,24 +107,14 @@ static void get_info(char *driver) {
   SoapySDRRange *rx_rates=SoapySDRDevice_getSampleRateRange(sdr, SOAPY_SDR_RX, 0, &rx_rates_length);
   fprintf(stderr,"Rx sample rates: ");
   for (size_t i = 0; i < rx_rates_length; i++) {
-    fprintf(stderr,"%f -> %f (%f),", rx_rates[i].minimum, rx_rates[i].maximum, rx_rates[i].minimum/768000.0);
-    if(sample_rate==0) {
-      if(rx_rates[i].minimum==rx_rates[i].maximum) {
-        if(((int)rx_rates[i].minimum%48000)==0) {
-          sample_rate=(int)rx_rates[i].minimum;
-        }
-      } else {
-        if((384000.0>=rx_rates[i].minimum) && (384000<=(int)rx_rates[i].maximum)) {
-          sample_rate=384000;
-        }
-        if((768000.0>=rx_rates[i].minimum) && (768000<=(int)rx_rates[i].maximum)) {
-          sample_rate=768000;
-        }
-      }
-    }
+    fprintf(stderr,"%f -> %f,", rx_rates[i].minimum, rx_rates[i].maximum);
   }
   fprintf(stderr,"\n");
   free(rx_rates);
+  sample_rate=768000;
+  if(strcmp(driver,"rtlsdr")==0) {
+    sample_rate=1536000;
+  }
   fprintf(stderr,"sample_rate selected %d\n",sample_rate);
 
   SoapySDRRange *tx_rates=SoapySDRDevice_getSampleRateRange(sdr, SOAPY_SDR_TX, 1, &tx_rates_length);
@@ -192,11 +186,14 @@ static void get_info(char *driver) {
   char *ptr;
   fprintf(stderr, "Sensors:\n");
   for (size_t i = 0; i < sensors; i++) {
+  /*
     char *value=SoapySDRDevice_readSensor(sdr, sensor[i]);
     fprintf(stderr, "    %s=%s\n", sensor[i],value);
     if((ptr=strstr(sensor[i],"temp"))!=NULL) {
       has_temp=TRUE;
     }
+   */
+   g_print("    %s\n",sensor[i]);
   }
 
   if(devices<MAX_DEVICES) {

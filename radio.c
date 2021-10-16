@@ -552,6 +552,8 @@ void frequency_changed(RECEIVER *rx) {
     gint64 offset;
     rx->ctun_offset=rx->ctun_frequency-rx->frequency_a;
     offset=rx->ctun_offset;
+
+    g_print("%s: offset=%ld\n",__FUNCTION__,offset);
     if(rx->mode_a==CWU) {
       offset+=(gint64)radio->cw_keyer_sidetone_frequency;
     } else if(rx->mode_a==CWL) {
@@ -1106,11 +1108,16 @@ g_print("create_radio for %s %d\n",d->name,d->device);
 #ifdef SOAPYSDR
     case SOAPYSDR:
       r->sample_rate=r->discovered->info.soapy.sample_rate;
-      //if(r->sample_rate==0) {
-        r->sample_rate=768000;
-      //}
+      r->sample_rate=768000;
+      if(strcmp(r->discovered->name,"rtlsdr")==0) {
+        r->sample_rate=1536000;
+      }
       r->buffer_size=2048;
-      r->alex_rx_antenna=3; // LNAW
+      if(strcmp(r->discovered->name,"lime")==0) {
+        r->alex_rx_antenna=3; // LNAW
+      } else {
+        r->alex_rx_antenna=0; // ANT 0
+      }
       r->alex_tx_antenna=0; // ANT 1
       break;
 #endif

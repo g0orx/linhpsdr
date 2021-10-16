@@ -964,15 +964,12 @@ gboolean receiver_button_release_event_cb(GtkWidget *widget, GdkEventButton *eve
 }
 
 gboolean receiver_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
-  gint x,y;
   GdkModifierType state;
   RECEIVER *rx=(RECEIVER *)data;
   long long delta;
 
-  x=event->x;
-  y=event->y;
   state=event->state;
-  int moved=x-rx->last_x;
+  int moved=event->x-rx->last_x;
   if(rx->is_panning) {
     int pan=rx->pan+(moved*rx->zoom);
     if(pan<0) {
@@ -981,18 +978,22 @@ gboolean receiver_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *even
       pan=rx->pixels-rx->panadapter_width;
     }
     rx->pan=pan;
-    rx->last_x=x;
+    rx->last_x=event->x;
   } else if(!rx->locked) {
     if((state & GDK_BUTTON1_MASK) == GDK_BUTTON1_MASK) {
       //receiver_move(rx,(long long)((double)(moved*rx->hz_per_pixel)),FALSE);
       receiver_move(rx,(long long)((double)(moved*rx->hz_per_pixel)),TRUE);
-      rx->last_x=x;
+      rx->last_x=event->x;
       rx->has_moved=TRUE;
     } else {
-      if(event->x>4 && event->x<35) {
-        gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_DOUBLE_ARROW));
+      if(event->x<35 && widget==rx->panadapter) {
+        gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new_from_name(gdk_display_get_default(),"v_double_arrow"));
+      } else if(rx->zoom>1 && event->y>=rx->panadapter_height-20) {
+	gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new_from_name(gdk_display_get_default(),"h_double_arrow"));
+      } else if(event->x<rx->panadapter_width/2) {
+        gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new_from_name(gdk_display_get_default(),"left_side"));
       } else {
-        gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new(GDK_CROSSHAIR));
+        gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new_from_name(gdk_display_get_default(),"right_side"));
       }
     }
   }
@@ -1001,11 +1002,9 @@ gboolean receiver_motion_notify_event_cb(GtkWidget *widget, GdkEventMotion *even
 
 gboolean receiver_scroll_event_cb(GtkWidget *widget, GdkEventScroll *event, gpointer data) {
   RECEIVER *rx=(RECEIVER *)data;
-  int x=(int)event->x;
-  int y=(int)event->y;
   int half=rx->panadapter_height/2;
 
-  if(rx->zoom>1 && y>=rx->panadapter_height-20) {
+  if(rx->zoom>1 && event->y>=rx->panadapter_height-20) {
     int pan;
     if(event->direction==GDK_SCROLL_UP) {
       pan=rx->pan+rx->zoom;
@@ -1020,15 +1019,15 @@ gboolean receiver_scroll_event_cb(GtkWidget *widget, GdkEventScroll *event, gpoi
     }
     rx->pan=pan;
   } else if(!rx->locked) {
-    if((x>4 && x<35) && (widget==rx->panadapter)) {
+    if((event->x<35) && (widget==rx->panadapter)) {
       if(event->direction==GDK_SCROLL_UP) {
-        if(y<half) {
+        if(event->y<half) {
           rx->panadapter_high=rx->panadapter_high-5;
         } else {
           rx->panadapter_low=rx->panadapter_low-5;
         }
       } else {
-        if(y<half) {
+        if(event->y<half) {
           rx->panadapter_high=rx->panadapter_high+5;
         } else {
           rx->panadapter_low=rx->panadapter_low+5;
@@ -1360,14 +1359,18 @@ g_print("receiver_update_title: %s\n",title);
   gtk_window_set_title(GTK_WINDOW(rx->window),title);
 }
 
-static gboolean enter (GtkWidget *ebox, GdkEventCrossing *event, void *user_data) {
-   RECEIVER *rx=(RECEIVER *)user_data;
-   if((event->x>4 && event->x<35) && (ebox==rx->panadapter)) {
-     gdk_window_set_cursor(gtk_widget_get_window(ebox),gdk_cursor_new(GDK_DOUBLE_ARROW));
-   } else {
-     gdk_window_set_cursor(gtk_widget_get_window(ebox),gdk_cursor_new(GDK_CROSSHAIR));
-   }
-   return FALSE;
+static gboolean enter (GtkWidget *widget, GdkEventCrossing *event, void *user_data) {
+  RECEIVER *rx=(RECEIVER *)user_data;
+  if(event->x<35 && widget==rx->panadapter) {
+    gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new_from_name(gdk_display_get_default(),"v_double_arrow"));
+  } else if(rx->zoom>1 && event->y>=rx->panadapter_height-20) {
+    gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new_from_name(gdk_display_get_default(),"h_double_arrow"));
+  } else if(event->x<rx->panadapter_width/2) {
+    gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new_from_name(gdk_display_get_default(),"left_side"));
+  } else {
+    gdk_window_set_cursor(gtk_widget_get_window(widget),gdk_cursor_new_from_name(gdk_display_get_default(),"right_side"));
+  }
+  return FALSE;
 }
 
 
@@ -1506,7 +1509,6 @@ void receiver_init_analyzer(RECEIVER *rx) {
 }
 
 void receiver_change_zoom(RECEIVER *rx,int zoom) {
-g_print("%s: %d\n",__FUNCTION__,zoom);
   rx->zoom=zoom;
   rx->pixels=rx->panadapter_width*rx->zoom;
   if(rx->zoom==1) {
