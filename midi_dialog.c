@@ -498,18 +498,21 @@ static void add_cb(GtkButton *widget,gpointer user_data) {
   desc->type = type; // MIDItype
   desc->event = thisEvent; // MIDevent
   desc->onoff = 0;
+  if(type==MIDI_KEY && (action==CWLEFT || action==CWRIGHT || action==MIDI_PTT)) {
+    desc->onoff = 1;
+  }
   desc->delay = 0;
   desc->vfl1  = -1;
-  desc->vfl2  = -1;
-  desc->fl1   = -1;
-  desc->fl2   = -1;
-  desc->lft1  = -1;
+  desc->vfl2  = 57;
+  desc->fl1   = 57;
+  desc->fl2   = 60;
+  desc->lft1  = 60;
   desc->lft2  = 63;
   desc->rgt1  = 64;
-  desc->rgt2  = 128;
-  desc->fr1   = 128;
-  desc->fr2   = 128;
-  desc->vfr1  = 128;
+  desc->rgt2  = 67;
+  desc->fr1   = 67;
+  desc->fr2   = 73;
+  desc->vfr1  = 73;
   desc->vfr2  = 128;
   desc->channel  = thisChannel;
 
@@ -840,17 +843,19 @@ static int update(void *data) {
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newType),NULL,"NONE");
       switch(thisEvent) {
         case EVENT_NONE:
+          gtk_combo_box_set_active (GTK_COMBO_BOX(newType),0);
           break;
         case MIDI_NOTE:
         case MIDI_PITCH:
           gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newType),NULL,"KEY");
+          gtk_combo_box_set_active (GTK_COMBO_BOX(newType),0);
           break;
         case MIDI_CTRL:
           gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newType),NULL,"KNOB/SLIDER");
           gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newType),NULL,"WHEEL");
+          gtk_combo_box_set_active (GTK_COMBO_BOX(newType),0);
           break;
       }
-      gtk_combo_box_set_active (GTK_COMBO_BOX(newType),0);
       gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(newAction));
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(newAction),NULL,"NONE");
       gtk_combo_box_set_active (GTK_COMBO_BOX(newAction),0);
@@ -1058,6 +1063,42 @@ void midi_save_state() {
         sprintf(name,"midi[%d].channel[%d].action",i,cmd->channel);
 	sprintf(value,"%s",ActionTable[cmd->action].str);
         setProperty(name,value);
+        sprintf(name,"midi[%d].channel[%d].vfl1",i,cmd->channel);
+	sprintf(value,"%d",cmd->vfl1);
+        setProperty(name,value);
+        sprintf(name,"midi[%d].channel[%d].vfl2",i,cmd->channel);
+	sprintf(value,"%d",cmd->vfl2);
+        setProperty(name,value);
+        sprintf(name,"midi[%d].channel[%d].fl1",i,cmd->channel);
+	sprintf(value,"%d",cmd->fl1);
+        setProperty(name,value);
+        sprintf(name,"midi[%d].channel[%d].fl2",i,cmd->channel);
+	sprintf(value,"%d",cmd->fl2);
+        setProperty(name,value);
+        sprintf(name,"midi[%d].channel[%d].lft1",i,cmd->channel);
+	sprintf(value,"%d",cmd->lft1);
+        setProperty(name,value);
+        sprintf(name,"midi[%d].channel[%d].lft2",i,cmd->channel);
+	sprintf(value,"%d",cmd->lft2);
+        setProperty(name,value);
+        sprintf(name,"midi[%d].channel[%d].vfr1",i,cmd->channel);
+	sprintf(value,"%d",cmd->vfr1);
+        setProperty(name,value);
+        sprintf(name,"midi[%d].channel[%d].vfr2",i,cmd->channel);
+	sprintf(value,"%d",cmd->vfr2);
+        setProperty(name,value);
+        sprintf(name,"midi[%d].channel[%d].fr1",i,cmd->channel);
+	sprintf(value,"%d",cmd->fr1);
+        setProperty(name,value);
+        sprintf(name,"midi[%d].channel[%d].fr2",i,cmd->channel);
+	sprintf(value,"%d",cmd->fr2);
+        setProperty(name,value);
+        sprintf(name,"midi[%d].channel[%d].rgt1",i,cmd->channel);
+	sprintf(value,"%d",cmd->rgt1);
+        setProperty(name,value);
+        sprintf(name,"midi[%d].channel[%d].rgt2",i,cmd->channel);
+	sprintf(value,"%d",cmd->rgt2);
+        setProperty(name,value);
         cmd=cmd->next;
 	channels++;
       }
@@ -1081,6 +1122,18 @@ void midi_restore_state() {
   gint onoff;
   gint type;
   gint action;
+  gint vfl1 = -1;
+  gint vfl2 = 57;
+  gint fl1  = 57;
+  gint fl2  = 60;
+  gint lft1 = 60;
+  gint lft2 = 63;
+  gint rgt1 = 64;
+  gint rgt2 = 67;
+  gint fr1  = 67;
+  gint fr2  = 73;
+  gint vfr1 = 73;
+  gint vfr2 = 128;
 
   struct desc *cmd;
 
@@ -1152,6 +1205,43 @@ void midi_restore_state() {
 	    }
 	  }
 
+          sprintf(name,"midi[%d].channel[%d].vfl1",i,channel);
+          value=getProperty(name);
+	  if(value) vfl1=atoi(value);
+          sprintf(name,"midi[%d].channel[%d].vfl2",i,channel);
+          value=getProperty(name);
+	  if(value) vfl2=atoi(value);
+          sprintf(name,"midi[%d].channel[%d].fl1",i,channel);
+          value=getProperty(name);
+	  if(value) fl1=atoi(value);
+          sprintf(name,"midi[%d].channel[%d].fl2",i,channel);
+          value=getProperty(name);
+	  if(value) fl2=atoi(value);
+          sprintf(name,"midi[%d].channel[%d].lft1",i,channel);
+          value=getProperty(name);
+	  if(value) lft1=atoi(value);
+          sprintf(name,"midi[%d].channel[%d].lft2",i,channel);
+          value=getProperty(name);
+	  if(value) lft2=atoi(value);
+          sprintf(name,"midi[%d].channel[%d].rgt1",i,channel);
+          value=getProperty(name);
+	  if(value) rgt1=atoi(value);
+          sprintf(name,"midi[%d].channel[%d].rgt2",i,channel);
+          value=getProperty(name);
+	  if(value) rgt2=atoi(value);
+          sprintf(name,"midi[%d].channel[%d].fr1",i,channel);
+          value=getProperty(name);
+	  if(value) fr1=atoi(value);
+          sprintf(name,"midi[%d].channel[%d].fr2",i,channel);
+          value=getProperty(name);
+	  if(value) fr2=atoi(value);
+          sprintf(name,"midi[%d].channel[%d].vfr1",i,channel);
+          value=getProperty(name);
+	  if(value) vfr1=atoi(value);
+          sprintf(name,"midi[%d].channel[%d].vfr2",i,channel);
+          value=getProperty(name);
+	  if(value) vfr2=atoi(value);
+
 
 	  struct desc *desc;
           desc = (struct desc *) malloc(sizeof(struct desc));
@@ -1161,18 +1251,19 @@ void midi_restore_state() {
           desc->event = event; // MIDevent
           desc->onoff = onoff;
           desc->delay = 0;
-          desc->vfl1  = -1;
-          desc->vfl2  = -1;
-          desc->fl1   = -1;
-          desc->fl2   = -1;
-          desc->lft1  = -1;
-          desc->lft2  = 63;
-          desc->rgt1  = 64;
-          desc->rgt2  = 128;
-          desc->fr1   = 128;
-          desc->fr2   = 128;
-          desc->vfr1  = 128;
-          desc->vfr2  = 128;
+	  desc->delay = 0;
+          desc->vfl1  = vfl1;
+          desc->vfl2  = vfl2;
+          desc->fl1   = fl1;
+          desc->fl2   = fl2;
+          desc->lft1  = lft1;
+          desc->lft2  = lft2;
+          desc->rgt1  = rgt1;
+          desc->rgt2  = rgt2;
+          desc->fr1   = fr1;
+          desc->fr2   = fr2;
+          desc->vfr1  = vfr1;
+          desc->vfr2  = vfr2;
           desc->channel  = channel;
 
 	  if(MidiCommandsTable.desc[i]!=NULL) {

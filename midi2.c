@@ -68,14 +68,12 @@ void NewMidiEvent(enum MIDIevent event, int channel, int note, int val) {
 			// translate value to direction
 			new=0;
 			new=val-64;
-			/*
 			if ((val >= desc->vfl1) && (val <= desc->vfl2)) new=-100;
 			if ((val >= desc-> fl1) && (val <= desc-> fl2)) new=-10;
 			if ((val >= desc->lft1) && (val <= desc->lft2)) new=-1;
 			if ((val >= desc->rgt1) && (val <= desc->rgt2)) new= 1;
 			if ((val >= desc-> fr1) && (val <= desc-> fr2)) new= 10;
 			if ((val >= desc->vfr1) && (val <= desc->vfr2)) new= 100;
-			*/
 //			fprintf(stderr,"WHEEL: val=%d new=%d thrs=%d/%d, %d/%d, %d/%d, %d/%d, %d/%d, %d/%d\n",
 //                                  val, new, desc->vfl1, desc->vfl2, desc->fl1, desc->fl2, desc->lft1, desc->lft2,
 //				          desc->rgt1, desc->rgt2, desc->fr1, desc->fr2, desc->vfr1, desc->vfr2);
@@ -211,6 +209,7 @@ ACTION_TABLE ActionTable[] = {
         { PAN_HIGH,     	"PAN HIGH",	MIDI_KNOB|MIDI_WHEEL},
         { PAN_LOW,      	"PAN LOW",	MIDI_KNOB|MIDI_WHEEL},
         { PRE,          	"PREAMP",	MIDI_KEY},
+        { MIDI_PTT,          	"PTT",		MIDI_KEY},
 	{ MIDI_PS,    		"PURESIGNAL",	MIDI_KEY},
 	{ MIDI_RF_GAIN, 	"RFGAIN",	MIDI_KNOB|MIDI_WHEEL},
         { TX_DRIVE,     	"DRIVE",	MIDI_KNOB|MIDI_WHEEL},
