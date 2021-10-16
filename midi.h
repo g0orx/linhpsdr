@@ -131,6 +131,7 @@ enum MIDIaction {
   PAN_HIGH,		// PANHIGH:		"high" value of current panadapter
   PAN_LOW,		// PANLOW:		"low" value of current panadapter
   PRE,			// PREAMP:		preamp on/off
+  MIDI_PTT,		// PTT:			ptt
   MIDI_PS,		// PURESIGNAL:		toggle PURESIGNAL on/off
   MIDI_RF_GAIN,		// RFGAIN:		receiver RF gain
   TX_DRIVE,		// RFPOWER:		adjust TX RF output power
