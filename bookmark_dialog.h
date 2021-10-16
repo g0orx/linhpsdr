@@ -26,7 +26,11 @@ enum {
 typedef struct _bookmark {
   void *previous;
   void *next;
-  long long frequency;
+  gint64 frequency_a;
+  gint64 frequency_b;
+  gint64 ctun_frequency;
+  gboolean ctun;
+  split_type split;
   int band;
   int mode;
   int filter;
