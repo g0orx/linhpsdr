@@ -108,7 +108,7 @@ static gboolean bpsk_local_timer_cb(void *data) {
   // assume 15360 samples
   // assume 50Hz per sample
 
-#define SIGNALS 200 
+#define SIGNALS 16 
 #define SAMPLES 50
 
   BPSK *bpsk=(BPSK *)data;
