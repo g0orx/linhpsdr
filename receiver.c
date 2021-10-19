@@ -770,6 +770,8 @@ void update_frequency(RECEIVER *rx) {
 long long receiver_move_a(RECEIVER *rx,long long hz,gboolean round) {
   long long delta=0LL;
   if(!rx->locked) {
+    // Stop scroll to negative number
+    if (rx->frequency_a - hz < 0) return 0;
     if(rx->ctun) {
       delta=rx->ctun_frequency;
       rx->ctun_frequency=rx->ctun_frequency+hz;
@@ -791,6 +793,8 @@ long long receiver_move_a(RECEIVER *rx,long long hz,gboolean round) {
 
 void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only,gboolean round) {
   if(!rx->locked) {
+    // Stop scroll to negative number
+    if ((rx->frequency_b + hz) <= 0) return;
     long long f=rx->frequency_b;
     switch(rx->split) {
       case SPLIT_OFF:
