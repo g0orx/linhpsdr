@@ -1786,6 +1786,7 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
 
   rx->rigctl_port=19090+rx->channel;
   rx->rigctl_enable=FALSE;
+  rx->cat_client_connected = FALSE;
 
   strcpy(rx->rigctl_serial_port,"/dev/ttyACM0");
   rx->rigctl_serial_baudrate=B9600;

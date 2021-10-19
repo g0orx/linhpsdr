@@ -703,6 +703,7 @@ static void rigctl_client(RECEIVER *rx) {
 
   g_print("%s: starting rigctl_client: socket=%d\n",__FUNCTION__,rigctl->socket_fd);
 
+  rx->cat_client_connected = TRUE;
   rigctl->socket_running=TRUE;
   while(rigctl->socket_running && (numbytes=recv(rigctl->socket_fd , cmd_input , MAXDATASIZE-2 , 0)) > 0 ) {
     for(i=0;i<numbytes;i++) {
@@ -722,6 +723,8 @@ static void rigctl_client(RECEIVER *rx) {
       }
     }
   }
+  rx->cat_client_connected = FALSE;
+  
 perror("recv");
 g_print("%s: running=%d numbytes=%d\n",__FUNCTION__,rigctl->socket_running,numbytes);
 }
