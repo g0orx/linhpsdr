@@ -333,6 +333,10 @@ static void start_protocol1_thread() {
       if(setsockopt(data_socket, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval))<0) {
         perror("data_socket: SO_REUSEPORT");
       }
+      optval = 6;  
+      if(setsockopt(data_socket, SOL_SOCKET, SO_PRIORITY, &optval, sizeof(optval))<0) {
+        perror("data_socket: SO_PRIORITY");
+      }      
 
       // bind to the interface
       if(bind(data_socket,(struct sockaddr*)&radio->discovered->info.network.interface_address,radio->discovered->info.network.interface_length)<0) {
