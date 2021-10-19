@@ -630,6 +630,22 @@ int SendTXpacketQuery(TRANSMITTER *tx) {
   return 0;
 }
 
+int transmitter_get_mode(TRANSMITTER *tx) {
+  gint tx_mode = USB;    
+  RECEIVER *tx_receiver = tx->rx;
+  if(tx_receiver!=NULL) {
+#ifdef USE_VFO_B_MODE_AND_FILTER    
+    if(tx_receiver->split) {
+      tx_mode = tx_receiver->mode_b;
+    } else {
+#endif      
+      tx_mode = tx_receiver->mode_a;
+#ifdef USE_VFO_B_MODE_AND_FILTER      
+    }
+#endif    
+  }
+  return tx_mode;
+}
 
 // Protocol 1 receive thread calls this, to send 126 iq samples in a 
 // tx packet
@@ -714,9 +730,6 @@ void full_tx_buffer_process(TRANSMITTER *tx) {
     return;
   }
   
-
-
-
   if(isTransmitting(radio)) {
     if(radio->classE) {
       for(j=0;j<tx->output_samples;j++) {
@@ -765,13 +778,6 @@ void full_tx_buffer_process(TRANSMITTER *tx) {
           soapy_protocol_iq_samples((float)isample,(float)qsample);
           break;
 #endif
-/*
-#ifdef RADIOBERRY
-        case RADIOBERRY_PROTOCOL:
-          radioberry_protocol_iq_samples(isample,qsample);
-          break;
-#endif
-*/
       }
     }
   }
@@ -783,7 +789,7 @@ void add_mic_sample(TRANSMITTER *tx,float mic_sample) {
   double mic_sample_double;
  
   if(tx->rx!=NULL) {
-    mode=tx->rx->mode_a;
+    mode= transmitter_get_mode(tx);
 
     if(mode==CWL || mode==CWU || radio->tune) {
       mic_sample_double=0.0;
@@ -803,14 +809,8 @@ void add_mic_sample(TRANSMITTER *tx,float mic_sample) {
 
 void transmitter_set_filter(TRANSMITTER *tx,int low,int high) {
 
-  gint mode=USB;
-  if(tx->rx!=NULL) {
-    if(tx->rx->split) {
-      mode=tx->rx->mode_b;
-    } else {
-      mode=tx->rx->mode_a;
-    } 
-  }
+  gint mode = transmitter_get_mode(tx);
+
   if(tx->use_rx_filter) {
     RECEIVER *rx=tx->rx;
     FILTER *mode_filters=filters[mode];
@@ -902,16 +902,6 @@ void transmitter_set_ctcss(TRANSMITTER *tx,gboolean run,int i) {
 void transmitter_set_pre_emphasize(TRANSMITTER *tx,int state) {
   SetTXAFMEmphPosition(tx->channel,state);
 }
-
-/* TO REMOVE
-static gboolean transmitter_configure_event_cb(GtkWidget *widget,GdkEventConfigure *event,gpointer data) {
-  TRANSMITTER *tx=(TRANSMITTER *)data;
-  tx->window_width=gtk_widget_get_allocated_width(widget);
-  tx->window_height=gtk_widget_get_allocated_height(widget);
-  g_print("transmitter_configure_event_cb: wid=%d height=%d\n",tx->window_width,tx->window_height);
-  return TRUE;
-}
-*/
 
 static void create_visual(TRANSMITTER *tx) {
   tx->panadapter=create_tx_panadapter(tx);
