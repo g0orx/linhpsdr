@@ -59,7 +59,7 @@ ifeq ($(UNAME_S), Linux)
 # needs :
 #			https://github.com/m5evt/unixcw-3.5.1.git
 
-CWDAEMON_INCLUDE=CWDAEMON
+#CWDAEMON_INCLUDE=CWDAEMON
 
 ifeq ($(CWDAEMON_INCLUDE),CWDAEMON)
 CWDAEMON_OPTIONS=-D CWDAEMON
