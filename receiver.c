@@ -1824,8 +1824,9 @@ g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d 
               1, // run
               0.010, 0.025, 0.0, 0.010, 0);
 
-  create_anbEXT(rx->channel,1,rx->buffer_size,rx->sample_rate,0.0001,0.0001,0.0001,0.05,20);
-  create_nobEXT(rx->channel,1,0,rx->buffer_size,rx->sample_rate,0.0001,0.0001,0.0001,0.05,20);
+  // Modified per pihpsdr commit d9af51206087959083feddcb325443d9368dad8c
+  create_anbEXT(rx->channel, 1, rx->buffer_size, rx->sample_rate, 0.00001, 0.00001, 0.00001, 0.05, 4.95);
+  create_nobEXT(rx->channel,1, 0, rx->buffer_size, rx->sample_rate, 0.00001, 0.00001, 0.00001, 0.05, 4.95);
   RXASetNC(rx->channel, rx->fft_size);
   RXASetMP(rx->channel, rx->low_latency);
 #ifdef SOAPYSDR
