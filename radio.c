@@ -553,7 +553,7 @@ void frequency_changed(RECEIVER *rx) {
     rx->ctun_offset=rx->ctun_frequency-rx->frequency_a;
     offset=rx->ctun_offset;
 
-    g_print("%s: offset=%ld\n",__FUNCTION__,offset);
+    //g_print("%s: offset=%ld\n",__FUNCTION__,offset);
     if(rx->mode_a==CWU) {
       offset+=(gint64)radio->cw_keyer_sidetone_frequency;
     } else if(rx->mode_a==CWL) {
