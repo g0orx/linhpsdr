@@ -664,6 +664,11 @@ void receiver_xvtr_changed(RECEIVER *rx) {
 
 void receiver_change_sample_rate(RECEIVER *rx,int sample_rate) {
 g_print("receiver_change_sample_rate: from %d to %d radio=%d\n",rx->sample_rate,sample_rate,radio->sample_rate);
+#ifdef SOAPYSDR
+  if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
+    soapy_protocol_stop();
+  }
+#endif
   g_mutex_lock(&rx->mutex);
   SetChannelState(rx->channel,0,1);
   g_free(rx->audio_output_buffer);
@@ -672,7 +677,6 @@ g_print("receiver_change_sample_rate: from %d to %d radio=%d\n",rx->sample_rate,
   rx->output_samples=rx->buffer_size/(rx->sample_rate/48000);
   rx->audio_output_buffer=g_new0(gdouble,2*rx->output_samples);
   rx->hz_per_pixel=(double)rx->sample_rate/(double)rx->samples;
-  //SetInputSamplerate(rx->channel, sample_rate);
   SetAllRates(rx->channel,rx->sample_rate,48000,48000);
 
   receiver_init_analyzer(rx);
@@ -683,10 +687,7 @@ fprintf(stderr,"receiver_change_sample_rate: channel=%d rate=%d buffer_size=%d o
 #ifdef SOAPYSDR
   if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
     soapy_protocol_change_sample_rate(rx,sample_rate);
-/*
-    rx->resample_step=radio->sample_rate/rx->sample_rate;
-g_print("receiver_change_sample_rate: resample_step=%d\n",rx->resample_step);
-*/
+    soapy_protocol_start_receiver(rx);
   }
 #endif
 
@@ -1828,13 +1829,6 @@ g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d 
   create_nobEXT(rx->channel,1,0,rx->buffer_size,rx->sample_rate,0.0001,0.0001,0.0001,0.05,20);
   RXASetNC(rx->channel, rx->fft_size);
   RXASetMP(rx->channel, rx->low_latency);
-#ifdef SOAPYSDR
-  if(radio->discovered->protocol==PROTOCOL_SOAPYSDR) {
-    rx->resample_step=radio->sample_rate/rx->sample_rate;
-g_print("receiver_change_sample_rate: resample_step=%d\n",rx->resample_step);
-  }
-#endif
-
 
   frequency_changed(rx);
   receiver_mode_changed(rx,rx->mode_a);
