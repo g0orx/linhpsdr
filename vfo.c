@@ -677,11 +677,13 @@ static gboolean nr_b_pressed_cb(GtkWidget *widget,GdkEventButton *event,gpointer
 static void snb_b_cb(GtkToggleButton *widget,gpointer user_data) {
   RECEIVER *rx=(RECEIVER *)user_data;
   rx->snb=gtk_toggle_button_get_active(widget);
+  update_noise(rx);
 }
 
 static void anf_b_cb(GtkToggleButton *widget,gpointer user_data) {
   RECEIVER *rx=(RECEIVER *)user_data;
   rx->anf=gtk_toggle_button_get_active(widget);
+  update_noise(rx);
 }
 
 static void bpsk_b_cb(GtkToggleButton *widget,gpointer user_data) {
