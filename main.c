@@ -500,11 +500,11 @@ static void activate_hpsdr(GtkApplication *app, gpointer data) {
 #endif
   g_print("opengl: %d\n",opengl);
 
-#ifdef __APPLE__
+//#ifdef __APPLE__
   sprintf(png_path,"/usr/local/share/linhpsdr/hpsdr.png");
-#else
-  sprintf(png_path,"/usr/share/linhpsdr/hpsdr.png");
-#endif
+//#else
+//  sprintf(png_path,"/usr/share/linhpsdr/hpsdr.png");
+//#endif
   main_window = gtk_application_window_new (app);
   sprintf(title,"LinHPSDR (%s)",version);
   gtk_window_set_title (GTK_WINDOW (main_window), title);
