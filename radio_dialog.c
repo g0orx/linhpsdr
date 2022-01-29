@@ -122,6 +122,8 @@ static void radio_dialog_update_controls() {
       radio->filter_board=N2ADR;
       break;
     case ATLAS:
+      radio->filter_board=ALEX;
+      break;
     case HERMES:
     case HERMES_2:
     case ANGELIA:
