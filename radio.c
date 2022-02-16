@@ -271,6 +271,9 @@ g_print("radio_save_state: %s\n",filename);
   sprintf(value,"%d",radio->which_audio_backend);
   setProperty("radio.which_audio_backend",value);
 
+  sprintf(value,"%d",radio->penelope);
+  setProperty("radio.penelope",value);
+
   filterSaveState();
   bandSaveState();
 
@@ -462,6 +465,9 @@ void radio_restore_state(RADIO *radio) {
   value=getProperty("radio.midi_enabled");
   if(value) radio->midi_enabled=atoi(value);
 #endif
+
+  value=getProperty("radio.penelope");
+  if(value) radio->penelope=atoi(value);
 
   filterRestoreState();
   bandRestoreState();
@@ -1128,6 +1134,9 @@ g_print("create_radio for %s %d\n",d->name,d->device);
       r->alex_tx_antenna=0; // ANT 1
       break;
   }
+
+  r->penelope=FALSE;
+
   r->receivers=0;
   switch(d->device) {
 #ifdef SOAPYSDR

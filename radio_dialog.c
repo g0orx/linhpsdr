@@ -542,6 +542,11 @@ static void enable_step_attenuation_cb(GtkWidget *widget,gpointer data) {
   }
 }
 
+static void penelope_changed_cb(GtkWidget *widget, gpointer data) {
+  RADIO *r=(RADIO *)data;
+  r->penelope=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+}
+
 /*
 static void rigctl_cb(GtkWidget *widget, gpointer data) {
   int i;
@@ -667,11 +672,16 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(paswap),radio->enable_pa);
     g_signal_connect(paswap,"toggled",G_CALLBACK(enablepa_changed_cb),radio);
   }
-  else {
+  else if(radio->discovered->device!=DEVICE_SOAPYSDR) {
     GtkWidget *iqswap=gtk_check_button_new_with_label("Swap I & Q");
     gtk_grid_attach(GTK_GRID(model_grid),iqswap,x,0,1,1);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(iqswap),radio->iqswap);
     g_signal_connect(iqswap,"toggled",G_CALLBACK(iqswap_changed_cb),radio);
+  } else if(radio->discovered->device!=DEVICE_METIS) {
+    GtkWidget *penelope=gtk_check_button_new_with_label("Penelope");
+    gtk_grid_attach(GTK_GRID(model_grid),penelope,x,0,1,1);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(penelope),radio->penelope);
+    g_signal_connect(penelope,"toggled",G_CALLBACK(penelope_changed_cb),radio);
   }
   x++;
 
@@ -1277,36 +1287,5 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
   x=0;
   y=0;
 
-/*
-  GtkWidget *rigctl_frame=gtk_frame_new("CAT");
-  GtkWidget *rigctl_grid=gtk_grid_new();
-  gtk_grid_set_row_homogeneous(GTK_GRID(rigctl_grid),TRUE);
-  gtk_grid_set_column_homogeneous(GTK_GRID(rigctl_grid),FALSE);
-  gtk_container_add(GTK_CONTAINER(rigctl_frame),rigctl_grid);
-  gtk_grid_attach(GTK_GRID(grid),rigctl_frame,col,row++,1,1);
-
-  GtkWidget *rigctl_b=gtk_check_button_new_with_label("CAT Enabled");
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rigctl_b), rigctl_enable);
-  gtk_grid_attach(GTK_GRID(rigctl_grid),rigctl_b,x++,y,1,1);
-  g_signal_connect(rigctl_b,"toggled",G_CALLBACK(rigctl_cb),radio);
-
-  GtkWidget *rigctl_debug_b=gtk_check_button_new_with_label("Debug");
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rigctl_debug_b), rigctl_debug);
-  gtk_grid_attach(GTK_GRID(rigctl_grid),rigctl_debug_b,x,y++,1,1);
-  g_signal_connect(rigctl_debug_b,"toggled",G_CALLBACK(rigctl_debug_cb),radio);
-
-  GtkWidget *base_label=gtk_label_new("Base Port:");
-  gtk_widget_show(base_label);
-  gtk_grid_attach(GTK_GRID(rigctl_grid),base_label,x++,y,1,1);
-  
-  rigctl_base=gtk_spin_button_new_with_range(18000.0,21000.0,1.0);
-  gtk_spin_button_set_value(GTK_SPIN_BUTTON(rigctl_base),rigctl_port_base);
-  gtk_grid_attach(GTK_GRID(rigctl_grid),rigctl_base,x,y,1,1);
-  g_signal_connect(rigctl_base,"value_changed",G_CALLBACK(rigctl_value_changed_cb),NULL);
-
-  if(rigctl_enable) {
-    gtk_widget_set_sensitive(rigctl_base, FALSE); 
-  }
-*/
   return grid;
 }

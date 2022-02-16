@@ -166,6 +166,8 @@ typedef struct _radio {
   gint atlas_clock_source_10mhz;
   gboolean atlas_clock_source_128mhz;
 
+  gboolean penelope;
+
   gboolean classE;
 
   guchar oc_tune;

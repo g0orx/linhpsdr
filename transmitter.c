@@ -691,6 +691,14 @@ void full_tx_buffer_process(TRANSMITTER *tx) {
       break;
 #endif
   }
+
+  if(radio->penelope) {
+    gain=(gain*tx->drive)/100.0;
+    if(radio->tune && !tx->tune_use_drive) {
+      gain=(gain*tx->tune_percent)/100.0;
+    }
+  }
+
   
   update_vox(radio);
   fexchange0(tx->channel, tx->mic_input_buffer, tx->iq_output_buffer, &error);
@@ -706,6 +714,16 @@ void full_tx_buffer_process(TRANSMITTER *tx) {
     for(int j = 0; j < tx->output_samples; j++) {
       long isample = ROUNDHTZ(tx->iq_output_buffer[j*2]);
       long qsample = ROUNDHTZ(tx->iq_output_buffer[(j*2)+1]);  
+
+      if(radio->penelope) {
+        // scale the IQ samples to adjust for drive level
+	double is=(double)isample;
+        double qs=(double)qsample;
+	isample=is>=0.0?(long)floor(is*gain+0.5):(long)ceil(is*gain-0.5);
+        qsample=qs>=0.0?(long)floor(qs*gain+0.5):(long)ceil(qs*gain-0.5);
+
+	
+      }
       g_mutex_lock((&tx->queue_mutex));    
       QueuePut(isample);
       QueuePut(qsample);    
