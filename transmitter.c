@@ -28,6 +28,7 @@
 #include "alex.h"
 #include "discovered.h"
 #include "bpsk.h"
+#include "band.h"
 #include "mode.h"
 #include "filter.h"
 #include "receiver.h"
@@ -693,10 +694,16 @@ void full_tx_buffer_process(TRANSMITTER *tx) {
   }
 
   if(radio->penelope) {
-    gain=(gain*tx->drive)/100.0;
-    if(radio->tune && !tx->tune_use_drive) {
-      gain=(gain*tx->tune_percent)/100.0;
-    }
+      float driveGain = pow(tx->drive, 2)/10000.0;
+      BAND *b = band_get_current_band();
+      double bandGain = b->pa_calibration;
+      float txGain = driveGain * bandGain/100.0f;
+      float micScaleOut = gain * txGain;
+
+      gain = micScaleOut;
+      if(radio->tune && !tx->tune_use_drive) {
+          gain=(gain*tx->tune_percent)/100.0;
+      }
   }
 
   
@@ -715,15 +722,6 @@ void full_tx_buffer_process(TRANSMITTER *tx) {
       long isample = ROUNDHTZ(tx->iq_output_buffer[j*2]);
       long qsample = ROUNDHTZ(tx->iq_output_buffer[(j*2)+1]);  
 
-      if(radio->penelope) {
-        // scale the IQ samples to adjust for drive level
-	double is=(double)isample;
-        double qs=(double)qsample;
-	isample=is>=0.0?(long)floor(is*gain+0.5):(long)ceil(is*gain-0.5);
-        qsample=qs>=0.0?(long)floor(qs*gain+0.5):(long)ceil(qs*gain-0.5);
-
-	
-      }
       g_mutex_lock((&tx->queue_mutex));    
       QueuePut(isample);
       QueuePut(qsample);    
