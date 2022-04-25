@@ -672,12 +672,15 @@ GtkWidget *create_radio_dialog(RADIO *radio) {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(paswap),radio->enable_pa);
     g_signal_connect(paswap,"toggled",G_CALLBACK(enablepa_changed_cb),radio);
   }
+#ifdef SOAPYSDR
   else if(radio->discovered->device!=DEVICE_SOAPYSDR) {
     GtkWidget *iqswap=gtk_check_button_new_with_label("Swap I & Q");
     gtk_grid_attach(GTK_GRID(model_grid),iqswap,x,0,1,1);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(iqswap),radio->iqswap);
     g_signal_connect(iqswap,"toggled",G_CALLBACK(iqswap_changed_cb),radio);
-  } else if(radio->discovered->device!=DEVICE_METIS) {
+  }
+#endif
+  else if(radio->discovered->device==DEVICE_METIS) {
     GtkWidget *penelope=gtk_check_button_new_with_label("Penelope");
     gtk_grid_attach(GTK_GRID(model_grid),penelope,x,0,1,1);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(penelope),radio->penelope);
