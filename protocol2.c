@@ -1188,7 +1188,9 @@ fprintf(stderr,"protocol2_thread: high_priority_addr setup for port %d\n",HIGH_P
               free(buffer);
               break;
             case MIC_LINE_TO_HOST_PORT:
-              process_mic_data(bytesread,buffer);
+              if (radio->local_microphone==FALSE) {
+                process_mic_data(bytesread,buffer);
+              }
               free(buffer);
               break;
             default:
