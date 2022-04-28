@@ -1004,7 +1004,7 @@ fprintf(stderr,"mic_read_thread: ALSA: mic_buffer_size=%d\n",radio->local_microp
                 //g_print("mic_read_thread: -EPIPE: snd_pcm_prepare\n");
                 if ((rc = snd_pcm_prepare (r->record_handle)) < 0) {
                     g_print("mic_read_thread: ALSA: cannot prepare audio interface for use %d (%s)\n", rc, snd_strerror (rc));
-                    //return rc;
+                    return;
                 }
               } else {
                 fprintf (stderr, "mic_read_thread: ALSA: read from audio interface failed (%s)\n",
