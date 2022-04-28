@@ -28,6 +28,7 @@
 #include "alex.h"
 #include "discovered.h"
 #include "bpsk.h"
+#include "band.h"
 #include "mode.h"
 #include "filter.h"
 #include "receiver.h"
@@ -707,6 +708,20 @@ void full_tx_buffer_process(TRANSMITTER *tx) {
       break;
 #endif
   }
+
+  if(radio->penelope) {
+      float driveGain = pow(tx->drive, 2)/10000.0;
+      BAND *b = band_get_current_band();
+      double bandGain = b->pa_calibration;
+      float txGain = driveGain * bandGain/100.0f;
+      float micScaleOut = gain * txGain;
+
+      gain = micScaleOut;
+      if(radio->tune && !tx->tune_use_drive) {
+          gain=(gain*tx->tune_percent)/100.0;
+      }
+  }
+
   
   update_vox(radio);
   fexchange0(tx->channel, tx->mic_input_buffer, tx->iq_output_buffer, &error);
@@ -722,6 +737,7 @@ void full_tx_buffer_process(TRANSMITTER *tx) {
     for(int j = 0; j < tx->output_samples; j++) {
       long isample = ROUNDHTZ(tx->iq_output_buffer[j*2]);
       long qsample = ROUNDHTZ(tx->iq_output_buffer[(j*2)+1]);  
+
       g_mutex_lock((&tx->queue_mutex));    
       QueuePut(isample);
       QueuePut(qsample);    
