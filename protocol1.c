@@ -333,6 +333,10 @@ static void start_protocol1_thread() {
       if(setsockopt(data_socket, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval))<0) {
         perror("data_socket: SO_REUSEPORT");
       }
+      optval = 6;  
+      if(setsockopt(data_socket, SOL_SOCKET, SO_PRIORITY, &optval, sizeof(optval))<0) {
+        perror("data_socket: SO_PRIORITY");
+      }      
 
       // bind to the interface
       if(bind(data_socket,(struct sockaddr*)&radio->discovered->info.network.interface_address,radio->discovered->info.network.interface_length)<0) {
@@ -448,21 +452,8 @@ static void process_control_bytes() {
   //gboolean previous_dot;
   //gboolean previous_dash;
 
-  gint tx_mode=USB;
-
-  RECEIVER *tx_receiver=radio->transmitter->rx;
-  if(tx_receiver!=NULL) {
-#ifdef USE_VFO_B_MODE_AND_FILTER
-    if(radio->transmitter->rx->split) {
-      tx_mode=tx_receiver->mode_b;
-    } else {
-#endif
-      tx_mode=tx_receiver->mode_a;
-#ifdef USE_VFO_B_MODE_AND_FILTER
-    }
-#endif
-  }
-
+  gint tx_mode = transmitter_get_mode(radio->transmitter); 
+  
   previous_ptt=radio->local_ptt;
   //previous_dot=radio->dot;
   //previous_dash=radio->dash;
@@ -696,20 +687,7 @@ static void process_ozy_input_buffer(char  *buffer) {
   double right_sample_double_tx;
   int nreceivers;
 
-  gint tx_mode=USB;
-
-  RECEIVER *tx_receiver=radio->transmitter->rx;
-  if(tx_receiver!=NULL) {
-#ifdef USE_VFO_B_MODE_AND_FILTER
-    if(radio->transmitter->rx->split) {
-      tx_mode=tx_receiver->mode_b;
-    } else {
-#endif
-      tx_mode=tx_receiver->mode_a;
-#ifdef USE_VFO_B_MODE_AND_FILTER
-    }
-#endif
-  }
+  gint tx_mode = transmitter_get_mode(radio->transmitter);   
 
   if(buffer[b++]==SYNC && buffer[b++]==SYNC && buffer[b++]==SYNC) {
     // extract control bytes
@@ -1054,11 +1032,9 @@ void ozy_send_buffer() {
     if (radio->discovered->device == DEVICE_METIS)
 #endif
     {
-      if (radio->atlas_mic_source)
-        output_buffer[C1] |= PENELOPE_MIC;
+      if (radio->atlas_mic_source) output_buffer[C1] |= PENELOPE_MIC;
       output_buffer[C1] |= CONFIG_BOTH;
-      if (radio->atlas_clock_source_128mhz)
-        output_buffer[C1] |= MERCURY_122_88MHZ_SOURCE;
+      if (radio->atlas_clock_source_128mhz) output_buffer[C1] |= MERCURY_122_88MHZ_SOURCE;
       output_buffer[C1] |= ((radio->atlas_clock_source_10mhz & 3) << 2);
     }
 
@@ -1084,10 +1060,12 @@ void ozy_send_buffer() {
               output_buffer[C2]|=radio->oc_tune<<1;
             }
           } else {
-            output_buffer[C2]|=radio->oc_tune<<1;
+ // SM4VEY
+        //    output_buffer[C2]|=radio->oc_tune<<1;
           }
         }
       } else {
+ //Rx
         output_buffer[C2]|=band->OCrx<<1;
       }
     }
@@ -1157,7 +1135,9 @@ void ozy_send_buffer() {
         default:
           break;
       }
-    } else {
+    //} else {
+    // SM4VEY Atlas Alex fix
+    }
       switch(radio->adc[0].antenna) {
         case 0:  // ANT 1
           output_buffer[C4]|=0x00;
@@ -1184,7 +1164,8 @@ void ozy_send_buffer() {
           }
           break;
       }
-    }
+    //}
+//SM4VEY Atlas fix
   } else {
     switch(command) {
       case 1: // tx frequency
@@ -1282,21 +1263,7 @@ void ozy_send_buffer() {
         break;
       case 3:
         {
-        
-        gint tx_mode=USB;
-        tx_receiver=radio->transmitter->rx;
-        if(tx_receiver!=NULL) {
-#ifdef USE_VFO_B_MODE_AND_FILTER
-          if(radio->transmitter->rx->split) {
-            tx_mode=tx_receiver->mode_b;
-          } else {
-#endif
-            tx_mode=tx_receiver->mode_a;
-#ifdef USE_VFO_B_MODE_AND_FILTER
-          }
-#endif
-        }
-        
+        gint tx_mode = transmitter_get_mode(radio->transmitter);
         
         int level=0;
         // Always send TX drive level for CW mode
@@ -1460,6 +1427,7 @@ void ozy_send_buffer() {
   
         output_buffer[C4]=0x00;
         if(radio->discovered->device==DEVICE_HERMES_LITE2) {
+          // HL2 full AD9866 gain range -12 dB (0) to 48 dB (60)
           output_buffer[C4]=0x40;
           // HL2 extends into [5:0] of this buffer          
           output_buffer[C4]|=(((int)radio->adc[0].attenuation + 12)&0x3F);
@@ -1530,27 +1498,15 @@ void ozy_send_buffer() {
 #endif
         output_buffer[C3]=0x00;
         output_buffer[C3]|=radio->transmitter->attenuation;
+        // Enabled HL2 hardware managed LNA gain during TX
         if(radio->discovered->device==DEVICE_HERMES_LITE2) output_buffer[C3]|=0x80;
         output_buffer[C4]=0x00;
         break;
       case 7:
         output_buffer[C0]=0x1E;
-
-        gint tx_mode=USB;
-        tx_receiver=radio->transmitter->rx;
-        if(tx_receiver!=NULL) {
-#ifdef USE_VFO_B_MODE_AND_FILTER
-          if(radio->transmitter->rx->split) {
-            tx_mode=tx_receiver->mode_b;
-          } else {
-#endif
-            tx_mode=tx_receiver->mode_a;
-#ifdef USE_VFO_B_MODE_AND_FILTER
-          }
-#endif
-        }
-
         output_buffer[C1]=0x00;
+        
+        gint tx_mode = transmitter_get_mode(radio->transmitter);
         if(tx_mode!=CWU && tx_mode!=CWL) {
           // output_buffer[C1]|=0x00;
         } else {
@@ -1622,20 +1578,7 @@ void ozy_send_buffer() {
   }
 
   // set mox
-  gint tx_mode=USB;
-  tx_receiver=radio->transmitter->rx;
-  if(tx_receiver!=NULL) {
-#ifdef USE_VFO_B_MODE_AND_FILTER
-    if(radio->transmitter->rx->split) {
-      tx_mode=tx_receiver->mode_b;
-    } else {
-#endif
-      tx_mode=tx_receiver->mode_a;
-#ifdef USE_VFO_B_MODE_AND_FILTER
-    }
-#endif
-  }
-
+  gint tx_mode = transmitter_get_mode(radio->transmitter);   
   if(tx_mode==CWU || tx_mode==CWL) {
     if(radio->tune) {
       output_buffer[C0]|=0x01;
