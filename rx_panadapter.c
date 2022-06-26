@@ -379,8 +379,8 @@ void update_rx_panadapter(RECEIVER *rx,gboolean running) {
       for(i=0;i<channel_entries;i++) {
         long long low_freq=band_channels_60m[i].frequency-(band_channels_60m[i].width/(long long)2);
         long long hi_freq=band_channels_60m[i].frequency+(band_channels_60m[i].width/(long long)2);
-        x1=(low_freq-min_display)/(long long)rx->hz_per_pixel;
-        x2=(hi_freq-min_display)/(long long)rx->hz_per_pixel;
+        x1=(low_freq-min_display)/rx->hz_per_pixel;
+        x2=(hi_freq-min_display)/rx->hz_per_pixel;
         cairo_set_source_rgb (cr, 0.6, 0.3, 0.3);
         cairo_rectangle(cr, x1, 0.0, x2-x1, (double)display_height);
         cairo_fill(cr);
