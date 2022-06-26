@@ -771,6 +771,8 @@ void update_frequency(RECEIVER *rx) {
 long long receiver_move_a(RECEIVER *rx,long long hz,gboolean round) {
   long long delta=0LL;
   if(!rx->locked) {
+    // Stop scroll to negative number
+    if (rx->frequency_a - hz < 0) return 0;
     if(rx->ctun) {
       delta=rx->ctun_frequency;
       rx->ctun_frequency=rx->ctun_frequency+hz;
@@ -792,6 +794,8 @@ long long receiver_move_a(RECEIVER *rx,long long hz,gboolean round) {
 
 void receiver_move_b(RECEIVER *rx,long long hz,gboolean b_only,gboolean round) {
   if(!rx->locked) {
+    // Stop scroll to negative number
+    if ((rx->frequency_b + hz) <= 0) return;
     long long f=rx->frequency_b;
     switch(rx->split) {
       case SPLIT_OFF:
@@ -1783,6 +1787,7 @@ fprintf(stderr,"create_receiver: fft_size=%d\n",rx->fft_size);
 
   rx->rigctl_port=19090+rx->channel;
   rx->rigctl_enable=FALSE;
+  rx->cat_client_connected = FALSE;
 
   strcpy(rx->rigctl_serial_port,"/dev/ttyACM0");
   rx->rigctl_serial_baudrate=B9600;
@@ -1825,8 +1830,9 @@ g_print("create_receiver: OpenChannel: channel=%d buffer_size=%d sample_rate=%d 
               1, // run
               0.010, 0.025, 0.0, 0.010, 0);
 
-  create_anbEXT(rx->channel,1,rx->buffer_size,rx->sample_rate,0.0001,0.0001,0.0001,0.05,20);
-  create_nobEXT(rx->channel,1,0,rx->buffer_size,rx->sample_rate,0.0001,0.0001,0.0001,0.05,20);
+  // Modified per pihpsdr commit d9af51206087959083feddcb325443d9368dad8c
+  create_anbEXT(rx->channel, 1, rx->buffer_size, rx->sample_rate, 0.00001, 0.00001, 0.00001, 0.05, 4.95);
+  create_nobEXT(rx->channel,1, 0, rx->buffer_size, rx->sample_rate, 0.00001, 0.00001, 0.00001, 0.05, 4.95);
   RXASetNC(rx->channel, rx->fft_size);
   RXASetMP(rx->channel, rx->low_latency);
 
