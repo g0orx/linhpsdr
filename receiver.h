@@ -263,6 +263,7 @@ typedef struct _receiver {
 
   gint rigctl_port;
   gboolean rigctl_enable;
+  gboolean cat_client_connected;
 
   GtkWidget *serial_port_entry;
   char rigctl_serial_port[80];

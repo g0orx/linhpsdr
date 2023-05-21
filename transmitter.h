@@ -168,7 +168,7 @@ extern void transmitter_set_ps(TRANSMITTER *tx,gboolean state);
 extern void transmitter_set_twotone(TRANSMITTER *tx,gboolean state);
 extern void transmitter_set_ps_sample_rate(TRANSMITTER *tx,int rate);
 
-extern void QueueInit(void);
+extern int transmitter_get_mode(TRANSMITTER *tx);
 extern void full_tx_buffer(TRANSMITTER *tx);
 
 extern void transmitter_enable_eer(TRANSMITTER *tx,gboolean state);
