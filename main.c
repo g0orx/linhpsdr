@@ -20,6 +20,7 @@
 #include <gtk/gtk.h>
 #include <math.h>
 #include <unistd.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -52,6 +53,7 @@
 #include "property.h"
 #include "rigctl.h"
 #include "version.h"
+#include "debug.h"
 
 GtkWidget *main_window;
 static GtkWidget *grid;
@@ -552,17 +554,38 @@ int main(int argc, char **argv) {
   int rc;
   const char *homedir;
 
+  opterr = 0;
+  while ((rc = getopt(argc,argv,"hd")) != -1)
+      switch(rc)
+      {
+      case 'd':
+          DEBUG++; // increment DEBUG
+          break;
+      case '?':
+          if (isprint(optopt))
+              fprintf(stderr,"Unknown option '-%c'\n",optopt);
+          else
+              fprintf(stderr,"Unknown option char '\\x%x'\n",optopt);
+      case 'h':
+      default: // fall-through
+          fprintf(stderr,"Usage: linhpsdr [-h]  or  linhpsdr [-d][-d]... (each '-d' increases DEBUG level)\n");
+          return 1;
+      }
+  if (DEBUG>0)
+      dbgprintf("DEBUG level is %d\n",DEBUG);
+
   if((homedir=getenv("HOME"))==NULL) {
     homedir=getpwuid(getuid())->pw_dir;
   }
   sprintf(text,"%s/.local",homedir);
-  rc=mkdir(text,0777);
+  rc=mkdir(text,0775);
   sprintf(text,"%s/.local/share",homedir);
-  rc=mkdir(text,0777);
+  rc=mkdir(text,0775);
   sprintf(text,"%s/.local/share/linhpsdr",homedir);
-  rc=mkdir(text,0777);
+  rc=mkdir(text,0775);
 
   sprintf(text,"org.g0orx.hpsdr.pid%d",getpid());
+  
   hpsdr=gtk_application_new(text, G_APPLICATION_FLAGS_NONE);
   g_signal_connect(hpsdr, "activate", G_CALLBACK(activate_hpsdr), NULL);
   rc=g_application_run(G_APPLICATION(hpsdr), argc, argv);
