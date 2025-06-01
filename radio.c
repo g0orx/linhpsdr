@@ -81,7 +81,7 @@ int radio_restart(void *data) {
 fprintf(stderr,"radio_restart\n");
   switch(r->discovered->protocol) {
     case PROTOCOL_1:
-      protocol1_run(r);
+      protocol1_run();
       break;
 #ifdef SOAPYSDR
     case PROTOCOL_SOAPYSDR:
@@ -100,7 +100,7 @@ int radio_start(void *data) {
 fprintf(stderr,"radio_start\n");
   switch(r->discovered->protocol) {
     case PROTOCOL_1:
-      protocol1_run(r);
+      protocol1_run();
       break;
     case PROTOCOL_2:
       break;

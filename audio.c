@@ -622,6 +622,7 @@ g_print("audio_open_input: cannot find usable format\n");
 g_print("audio_open_input: format=%d\n",record_audio_format);
 
       switch(record_audio_format) {
+/*
         case SND_PCM_FORMAT_S16_LE:
 g_print("audio_open_input: mic_buffer: size=%d channels=%d sample=%ld bytes\n",r->local_microphone_buffer_size,channels,sizeof(gint16));
           r->local_microphone_buffer=g_new(gint16, r->local_microphone_buffer_size);
@@ -630,6 +631,7 @@ g_print("audio_open_input: mic_buffer: size=%d channels=%d sample=%ld bytes\n",r
 g_print("audio_open_input: mic_buffer: size=%d channels=%d sample=%ld bytes\n",r->local_microphone_buffer_size,channels,sizeof(gint32));
           r->local_microphone_buffer=g_new(gint32, r->local_microphone_buffer_size);
           break;
+*/
         case SND_PCM_FORMAT_FLOAT_LE:
 g_print("audio_open_input: mic_buffer: size=%d channels=%d sample=%ld bytes\n",r->local_microphone_buffer_size,channels,sizeof(gfloat));
           r->local_microphone_buffer=g_new(gfloat, r->local_microphone_buffer_size);
@@ -1035,7 +1037,7 @@ fprintf(stderr,"mic_read_thread: ALSA: mic_buffer_size=%d\n",radio->local_microp
                 //g_print("mic_read_thread: -EPIPE: snd_pcm_prepare\n");
                 if ((rc = snd_pcm_prepare (r->record_handle)) < 0) {
                     g_print("mic_read_thread: ALSA: cannot prepare audio interface for use %d (%s)\n", rc, snd_strerror (rc));
-                    return rc;
+                    return NULL;
                 }
               } else {
                 fprintf (stderr, "mic_read_thread: ALSA: read from audio interface failed (%s)\n",

@@ -995,7 +995,7 @@ void protocol1_eer_iq_samples(int isample,int qsample,int lasample,int rasample)
 void protocol1_process_local_mic(RADIO *r) {
   int i;
   for(i=0;i<r->local_microphone_buffer_size;i++) {
-    add_mic_sample(r->transmitter,r->local_microphone_buffer[i]);
+    add_mic_sample(r->transmitter, (float)(r->local_microphone_buffer[i]));
   }
 }
 

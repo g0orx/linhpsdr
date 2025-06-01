@@ -63,7 +63,9 @@ static gboolean delete_event(GtkWidget *widget, GdkEvent *event, gpointer data) 
   int i;
 
   save_xvtr();
+#ifdef MIDI
   configure_midi_device(false);
+#endif
   radio->dialog=NULL;
   for(i=0;i<radio->discovered->supported_receivers;i++) {
     if(radio->receiver[i]!=NULL) {
