@@ -1176,11 +1176,11 @@ g_print("create_radio for %s %d\n",d->name,d->device);
   r->classE=FALSE;
 
   r->cw_keyer_internal=TRUE;
-  r->cw_keyer_sidetone_frequency=650;
+  r->cw_keyer_sidetone_frequency=700;
   r->cw_keyer_sidetone_volume=20;
-  r->cw_keyer_speed=12;
+  r->cw_keyer_speed=20;
   r->cw_keyer_mode=KEYER_STRAIGHT;
-  r->cw_keyer_weight=30;
+  r->cw_keyer_weight=40;
   r->cw_keyer_spacing=0;
   r->cw_keyer_ptt_delay=20;
   r->cw_keyer_hang_time=300;
