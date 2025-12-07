@@ -287,7 +287,7 @@ void wideband_init_analyzer(WIDEBAND *w) {
 }
 
 
-WIDEBAND *create_wideband(int channel) {
+WIDEBAND *create_wideband(int channel, int frequency_max) {
   WIDEBAND *w=g_new0(WIDEBAND,1);
   char name [80];
   char *value;
@@ -299,6 +299,7 @@ WIDEBAND *create_wideband(int channel) {
 g_print("create_wideband: channel=%d\n",channel);
   w->channel=channel;
   w->adc=0;
+  w->frequency_max=frequency_max;
 
   w->pixels=0;
   w->pixel_samples=NULL;
@@ -359,7 +360,7 @@ g_print("create_wideband: channel=%d\n",channel);
     }
   }
 
-g_print("create_widband: update_timer: %d\n",1000/w->fps);
+g_print("create_wideband: update_timer: %d\n",1000/w->fps);
   w->update_timer_id=g_timeout_add(1000/w->fps,update_timer_cb,(gpointer)w);
   return w;
 }

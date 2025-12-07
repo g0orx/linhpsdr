@@ -155,7 +155,7 @@ void update_wideband_panadapter(WIDEBAND *w) {
 
   if(display_height<=1) return;
 
-  hz_per_pixel=(gdouble)61440000/(gdouble)w->pixels;
+  hz_per_pixel=(gdouble)w->frequency_max/(gdouble)w->pixels;
     
   samples=w->pixel_samples;
 
@@ -201,7 +201,7 @@ void update_wideband_panadapter(WIDEBAND *w) {
   cairo_stroke(cr);
 
 
-  for(i=5000000;i<61440000;i+=5000000) {
+  for(i=5000000;i<w->frequency_max;i+=5000000) {
     x=(gdouble)i/hz_per_pixel;
     cairo_set_line_width(cr, 1.0);
     cairo_move_to(cr,x,10.0);
