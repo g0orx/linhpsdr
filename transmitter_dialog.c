@@ -235,13 +235,16 @@ g_print("%s: tx=%d\n",__FUNCTION__,tx->channel);
   g_signal_handler_block(G_OBJECT(tx->microphone_choice_b),tx->microphone_choice_signal_id);
   g_signal_handler_block(G_OBJECT(tx->local_microphone_b),tx->local_microphone_signal_id);
 
-  gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(radio->transmitter->microphone_choice_b));
-  for(i=0;i<n_input_devices;i++) {
-g_print("adding: %s\n",input_devices[i].description);
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(radio->transmitter->microphone_choice_b),NULL,input_devices[i].description);
-    if(radio->microphone_name!=NULL) {
-      if(strcmp(input_devices[i].name,radio->microphone_name)==0) {
-        gtk_combo_box_set_active(GTK_COMBO_BOX(radio->transmitter->microphone_choice_b),i);
+  if (radio && radio->transmitter && radio->transmitter->microphone_choice_b) {
+    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(radio->transmitter->microphone_choice_b));
+    for(i=0;i<n_input_devices;i++) {
+      const char *desc = input_devices[i].description ? input_devices[i].description : (input_devices[i].name ? input_devices[i].name : "Unknown");
+      g_print("adding: %s\n", desc);
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(radio->transmitter->microphone_choice_b), NULL, desc);
+      if(radio->microphone_name != NULL && input_devices[i].name != NULL) {
+        if(strcmp(input_devices[i].name, radio->microphone_name) == 0) {
+          gtk_combo_box_set_active(GTK_COMBO_BOX(radio->transmitter->microphone_choice_b), i);
+        }
       }
     }
   }
