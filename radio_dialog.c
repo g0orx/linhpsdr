@@ -122,6 +122,8 @@ static void radio_dialog_update_controls() {
       radio->filter_board=N2ADR;
       break;
     case ATLAS:
+      radio->filter_board=ALEX;
+      break;
     case HERMES:
     case HERMES_2:
     case ANGELIA:
@@ -178,6 +180,17 @@ static void radio_dialog_update_controls() {
     case SOAPY_DEVICE:
       break;
 #endif
+    case ATLAS:
+      gtk_widget_set_sensitive(adc0_antenna_combo_box, TRUE);
+      gtk_widget_set_sensitive(adc0_filters_combo_box, TRUE);
+      if(radio->adc[0].filters==AUTOMATIC) {
+        gtk_widget_set_sensitive(adc0_lpf_combo_box, FALSE);
+        gtk_widget_set_sensitive(adc0_hpf_combo_box, FALSE);
+      } else {
+        gtk_widget_set_sensitive(adc0_hpf_combo_box, TRUE);
+        gtk_widget_set_sensitive(adc0_lpf_combo_box, TRUE);
+      }
+      break;
     default:
       g_print("%s: defualt set_sensitive\n",__FUNCTION__);
       gtk_widget_set_sensitive(adc0_antenna_combo_box, FALSE);
