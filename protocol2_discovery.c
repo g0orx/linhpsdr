@@ -168,7 +168,7 @@ void protocol2_discover(struct ifaddrs* iface) {
 
     if(sendto(discovery_socket,buffer,60,0,(struct sockaddr*)&to_addr,sizeof(to_addr))<0) {
         perror("protocol2_discover: sendto socket failed for discovery_socket\n");
-        if(errno!=EHOSTUNREACH) {
+        if(errno!=EHOSTUNREACH && errno!=ENOKEY) {
             exit(-1);
         }
     }
