@@ -137,7 +137,8 @@ radio_info.c\
 rigctl.c \
 bpsk.c \
 subrx.c \
-actions.c
+actions.c \
+debug.c
 
 HEADERS=\
 main.h\
@@ -190,7 +191,8 @@ radio_info.h\
 rigctl.h \
 bpsk.h \
 subrx.h \
-actions.h
+actions.h \
+debug.h
 
 OBJS=\
 main.o\
@@ -242,7 +244,8 @@ radio_info.o\
 rigctl.o \
 bpsk.o \
 subrx.o \
-actions.o
+actions.o \
+debug.o
 
 
 $(PROGRAM):  $(OBJS) $(SOAPYSDR_OBJS) $(CWDAEMON_OBJS) $(MIDI_OBJS)
