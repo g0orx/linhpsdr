@@ -383,6 +383,7 @@ void protocol2_high_priority() {
     long long txFrequency;
     long phase;
     int mode;
+static unsigned char lastOCrx=0;
 
     if(data_socket==-1) {
       return;
@@ -579,7 +580,8 @@ g_print("protocol2_high_priority: band=%d %s level=%d\n",radio->transmitter->rx-
         }
       } else {
         band=band_get_band(radio->transmitter->rx->band_a);
-        high_priority_buffer_to_radio[1401]=band->OCrx<<1;
+	if(band->OCrx!=0)lastOCrx=band->OCrx;
+	high_priority_buffer_to_radio[1401]=lastOCrx<<1;
       }
 /* 
       if(radio->discovered->device==NEW_DEVICE_ATLAS) {
