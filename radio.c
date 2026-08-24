@@ -939,7 +939,7 @@ void add_transmitter(RADIO *r) {
 
 int add_wideband(void *data) {
   RADIO *r=(RADIO *)data;
-  r->wideband=create_wideband(WIDEBAND_CHANNEL);
+  r->wideband=create_wideband(WIDEBAND_CHANNEL, r->discovered->frequency_max);
   if(r->discovered->protocol==PROTOCOL_2) {
     protocol2_start_wideband(r->wideband);
   }

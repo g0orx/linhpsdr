@@ -23,6 +23,7 @@
 typedef struct _wideband {
   gint channel; // WDSP channel
   gint adc;
+  gint frequency_max;
   gint buffer_size;
   gint fft_size;
 
@@ -79,7 +80,7 @@ typedef struct _wideband {
 
 } WIDEBAND;
 
-extern WIDEBAND *create_wideband(int channel);
+extern WIDEBAND *create_wideband(int channel, int frequency_max);
 extern void wideband_init_analyzer(WIDEBAND *w);
 extern void add_wideband_sample(WIDEBAND *w,double sample);
 extern gboolean wideband_button_press_event_cb(GtkWidget *widget, GdkEventButton *event, gpointer data);
